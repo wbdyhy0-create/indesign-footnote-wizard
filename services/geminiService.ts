@@ -4,7 +4,7 @@ import { GoogleGenAI } from "@google/genai";
 const MODEL_NAME = 'gemini-3-flash-preview';
 
 export async function askAssistant(prompt: string, context: string = "", history: {role: 'user' | 'model', text: string}[] = []) {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
   
   const systemInstruction = `
     You are the official AI support agent for FOOTNOTE WIZARD, a professional InDesign Automation solution.
