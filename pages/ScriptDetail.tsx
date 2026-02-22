@@ -41,72 +41,15 @@ const ScriptDetail: React.FC<ScriptDetailProps> = ({ script }) => {
           </button>
       </nav>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
         <div className="lg:col-span-2">
           <h1 className="text-4xl md:text-5xl font-bold mb-6 text-amber-500">{script.name}</h1>
           <p className="text-lg text-slate-300 mb-8 leading-relaxed">
             {script.fullDesc}
           </p>
 
-          <div className="flex flex-wrap gap-4 mb-12">
-            <button 
-              onClick={scrollToVideo}
-              className="flex items-center gap-3 px-6 py-4 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-2xl transition-all border border-slate-700"
-            >
-              <svg className="w-5 h-5 text-amber-500" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
-              צפה במדריך וידאו
-            </button>
-          </div>
+          <div className="mb-20 space-y-6">
 
-          <section id="video-demo" className="mb-12 scroll-mt-20">
-            <h2 className="text-2xl font-bold mb-6 flex items-center">
-              <span className="w-8 h-8 rounded-lg bg-red-500/20 text-red-500 flex items-center justify-center ml-3">
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/></svg>
-              </span>
-              מדריך וידאו והפעלה
-            </h2>
-
-            <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-[2.5rem] p-8 md:p-12 border border-slate-700 shadow-2xl text-center relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-red-500/50 to-transparent"></div>
-              <div className="relative z-10 flex flex-col items-center">
-                <div className="w-20 h-20 bg-red-600/10 rounded-full flex items-center justify-center mb-6 border border-red-500/20 shadow-inner">
-                   <svg className="w-10 h-10 text-red-500 animate-pulse" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
-                </div>
-                <h3 className="text-xl font-bold mb-3 text-white">איך להפיק את המקסימום מ{script.name}?</h3>
-                <p className="text-slate-400 text-sm max-w-md mx-auto mb-8 leading-relaxed">
-                  הכנו עבורכם מדריך מפורט ב-YouTube שמסביר שלב אחר שלב איך להתקין ולהפעיל את הסקריפט בצורה הטובה ביותר.
-                </p>
-                <a 
-                  href={externalVideoUrl} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-4 px-10 py-5 bg-red-600 hover:bg-red-500 text-white font-bold rounded-2xl shadow-2xl shadow-red-900/30 transition-all hover:scale-105 active:scale-95 text-lg"
-                >
-                  לצפייה ישירה במדריך
-                </a>
-              </div>
-            </div>
-          </section>
-
-          <section className="mb-12">
-            <h2 className="text-2xl font-bold mb-6 flex items-center">
-              <span className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-500 flex items-center justify-center ml-3">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>
-              </span>
-              יכולות מרכזיות
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {script.features.map((feature, i) => (
-                <div key={i} className="p-5 bg-slate-900/50 rounded-2xl border border-slate-800 hover:border-emerald-500/30 transition-colors text-right">
-                  <h3 className="font-bold text-emerald-400 mb-2">{feature.title}</h3>
-                  <p className="text-sm text-slate-400">{feature.description}</p>
-                </div>
-              ))}
-            </div>
-          </section>
-        </div>
-
-        <div className="lg:col-span-1 space-y-6">
            <button 
              onClick={() => setIsTrialModalOpen(true)}
              disabled={!isTrialAvailable}
@@ -158,7 +101,57 @@ const ScriptDetail: React.FC<ScriptDetailProps> = ({ script }) => {
                 </p>
               )}
            </div>
+          </div>
+
+           <section id="video-demo" className="mb-12 scroll-mt-20 mt-20">
+            <h2 className="text-2xl font-bold mb-6 flex items-center">
+              <span className="w-8 h-8 rounded-lg bg-red-500/20 text-red-500 flex items-center justify-center ml-3">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/></svg>
+              </span>
+              מדריך וידאו והפעלה
+            </h2>
+
+            <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-[2.5rem] p-8 md:p-12 border border-slate-700 shadow-2xl text-center relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-red-500/50 to-transparent"></div>
+              <div className="relative z-10 flex flex-col items-center">
+                <div className="w-20 h-20 bg-red-600/10 rounded-full flex items-center justify-center mb-6 border border-red-500/20 shadow-inner">
+                   <svg className="w-10 h-10 text-red-500 animate-pulse" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
+                </div>
+                <h3 className="text-xl font-bold mb-3 text-white">איך להפיק את המקסימום מ{script.name}?</h3>
+                <p className="text-slate-400 text-sm max-w-md mx-auto mb-8 leading-relaxed">
+                  הכנו עבורכם מדריך מפורט ב-YouTube שמסביר שלב אחר שלב איך להתקין ולהפעיל את הסקריפט בצורה הטובה ביותר.
+                </p>
+                <a 
+                  href={externalVideoUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-4 px-10 py-5 bg-red-600 hover:bg-red-500 text-white font-bold rounded-2xl shadow-2xl shadow-red-900/30 transition-all hover:scale-105 active:scale-95 text-lg"
+                >
+                  לצפייה ישירה במדריך
+                </a>
+              </div>
+            </div>
+          </section>
+
+          <section className="mb-12">
+            <h2 className="text-2xl font-bold mb-6 flex items-center">
+              <span className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-500 flex items-center justify-center ml-3">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>
+              </span>
+              יכולות מרכזיות
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {script.features.map((feature, i) => (
+                <div key={i} className="p-5 bg-slate-900/50 rounded-2xl border border-slate-800 hover:border-emerald-500/30 transition-colors text-right">
+                  <h3 className="font-bold text-emerald-400 mb-2">{feature.title}</h3>
+                  <p className="text-sm text-slate-400">{feature.description}</p>
+                </div>
+              ))}
+            </div>
+          </section>
         </div>
+
+
       </div>
 
       <PurchaseModal 

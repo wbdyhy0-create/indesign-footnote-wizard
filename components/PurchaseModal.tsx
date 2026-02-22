@@ -11,7 +11,9 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
   const [step, setStep] = useState(1);
   const [customerInfo, setCustomerInfo] = useState({ name: '', email: '' });
   const [hasPaid, setHasPaid] = useState(false);
-  const myPhoneNumber = "0522284432";
+  const [showDownloadConfirmation, setShowDownloadConfirmation] = useState(false);
+  const myPhoneNumber = "0522284432"; // מספר הטלפון של הנמען לתשלום
+  const myBusinessName = "יוסף עובדיה"; // שם העסק/הנמען לתשלום
 
   // מנגנון שגורם למסך לקפוץ ללמעלה ברגע שהחלונית נפתחת
   useEffect(() => {
@@ -27,8 +29,10 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
   const handleBitPayment = (e: React.MouseEvent) => {
     e.preventDefault();
     const amount = script.price.replace('₪', '').trim();
-    const bitUrl = `bit://transfer?phone=${myPhoneNumber}&amount=${amount}&description=רכישת ${script.name}`;
-    window.location.href = bitUrl;
+    // יצירת קישור עמוק לאפליקציית ביט עם פרטי התשלום והנמען
+    // הפורמט הזה אמור לאפשר העברה ישירה למספר טלפון ללא בחירת איש קשר
+    const bitUrl = `https://bit.ly/pay/${myPhoneNumber}?amount=${amount}&text=רכישת ${script.name} מ${myBusinessName}`;
+    window.open(bitUrl, '_blank'); // פתיחה בחלון חדש או טאב חדש
   };
 
   return (
@@ -57,7 +61,7 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
             <div className="mb-8">
               <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-xl text-blue-500 font-black italic text-2xl border-2 border-slate-200">bit</div>
               <h3 className="text-3xl font-black text-white mb-1">{script.price}</h3>
-              <p className="text-slate-400 text-sm font-bold">העברה עבור יוסף עובדיה</p>
+              <p className="text-slate-400 text-sm font-bold">לאחר ביצוע ההעברה יש לחזור לכאן ולסמן את התיבה "אני מאשר שביצעתי..." ולאשר תשלום להורדת המוצר.</p>
             </div>
 
             <div className="space-y-4">
@@ -71,9 +75,20 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
                     <span className="text-[11px] font-bold text-slate-300 leading-tight">אני מאשר שביצעתי את ההעברה בביט כנדרש. ההורדה מנוטרת ומאומתת.</span>
                  </label>
                  
-                 <a href={hasPaid ? script.downloadUrl : '#'} onClick={(e) => !hasPaid && e.preventDefault()} className={`w-full py-5 font-black rounded-2xl block text-center text-lg transition-all ${hasPaid ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/30' : 'bg-slate-800 text-slate-600 cursor-not-allowed border border-slate-700'}`}>
+                 <button
+                   onClick={(e) => {
+                     e.preventDefault();
+                     if (hasPaid) {
+                       setShowDownloadConfirmation(true);
+                       window.open(script.downloadUrl, '_blank'); // פתיחת קישור ההורדה מיד
+                     }
+                   }}
+                   className={`w-full py-5 font-black rounded-2xl block text-center text-lg transition-all ${hasPaid ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/30' : 'bg-slate-800 text-slate-600 cursor-not-allowed border border-slate-700'}`}
+                   disabled={!hasPaid}
+                 >
                    {hasPaid ? 'הורד את הסקריפט עכשיו' : 'נא לאשר תשלום להורדה'}
-                 </a>
+                 </button>
+                 <p className="text-white font-bold text-xs mt-2">ההורדה תתבצע ישירות לחלון ההורדות במחשב.</p>
               </div>
               <button onClick={() => setStep(1)} className="text-xs text-slate-500 underline">חזור לעדכון פרטים</button>
             </div>
@@ -82,6 +97,26 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
       </div>
     </div>
   );
+
+  {/* פופ-אפ אישור הורדה */}
+  {showDownloadConfirmation && (
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+      <div className="bg-[#0f172a] border border-slate-700 w-full max-w-sm rounded-2xl shadow-2xl p-6 text-center">
+        <h3 className="text-xl font-black text-white mb-4">תודה על הרכישה!</h3>
+        <p className="text-slate-300 mb-6">נא להוריד את הסקריפט מהקישור שייפתח.</p>
+        <button
+          onClick={() => {
+            window.open(script.downloadUrl, '_blank');
+            setShowDownloadConfirmation(false);
+            onClose(); // סגירת המודאל הראשי לאחר ההורדה
+          }}
+          className="w-full py-3 bg-amber-600 text-white font-black rounded-xl active:scale-95 transition-all"
+        >
+          פתח קישור הורדה
+        </button>
+      </div>
+    </div>
+  )}
 };
 
 export default PurchaseModal;

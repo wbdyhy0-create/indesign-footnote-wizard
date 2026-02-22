@@ -1,20 +1,14 @@
-
-export interface ScriptFeature {
-  title: string;
-  description: string;
+export enum MessageRole {
+  USER = 'user',
+  MODEL = 'model',
+  INFO = 'info'
 }
 
-export interface FAQItem {
-  question: string;
-  answer: string;
-}
-
-export interface Lead {
+export interface ChatMessage {
   id: string;
-  name: string;
-  email: string;
-  scriptName: string;
-  timestamp: string;
+  role: MessageRole;
+  text: string;
+  timestamp: Date;
 }
 
 export interface ScriptData {
@@ -22,22 +16,20 @@ export interface ScriptData {
   name: string;
   shortDesc: string;
   fullDesc: string;
-  features: ScriptFeature[];
+  features: { title: string; description: string }[];
   steps: string[];
-  videoUrl: string;
+  faqs: { question: string; answer: string }[];
+  videoUrl?: string;
   price: string;
   originalPrice?: string;
   color: string;
   downloadUrl?: string;
   trialDownloadUrl?: string;
-  faqs?: FAQItem[];
-  isDownloadable?: boolean; // New field for controlling full download availability
-  isTrialDownloadable?: boolean; // New field for controlling trial download availability
+  isDownloadable?: boolean;
+  isTrialDownloadable?: boolean;
 }
 
-export interface PurchaseDetails {
-  name: string;
-  email: string;
-  phone: string;
-  scriptId: string;
+export interface FAQItem {
+  question: string;
+  answer: string;
 }

@@ -7,14 +7,8 @@ export const SCRIPTS: ScriptData[] = [
     "shortDesc": "עיצוב הערות שוליים ברמה הגבוהה ביותר כולל תמיכה בגימטריה וכותרות.",
     "fullDesc": "פתרון מקצועי לניהול הערות שוליים מורכבות. מאפשר עיצוב תיבות הערות נפרדות, שליטה בטורים, כותרות מעוצבות, וקישוטים אוטומטיים.",
     "features": [
-      {
-        "title": "מספור בגימטריה",
-        "description": "תמיכה מלאה במספור אותיות עבריות עד תתקצ\"ט."
-      },
-      {
-        "title": "כותרות מעוצבות",
-        "description": "הוספת כותרת \"הערות שוליים\" מעל ההערות ברוחב מלא."
-      }
+      { "title": "מספור בגימטריה", "description": "תמיכה מלאה במספור אותיות עבריות עד תתקצ\"ט." },
+      { "title": "כותרות מעוצבות", "description": "הוספת כותרת \"הערות שוליים\" מעל ההערות ברוחב מלא." }
     ],
     "steps": [
       "התקן את הסקריפט בתיקיית Scripts Panel של אינדיזיין.",
@@ -29,32 +23,26 @@ export const SCRIPTS: ScriptData[] = [
       },
       {
         "question": "האם ניתן להוסיף קו מפריד מעל הכותרת של ההערות?",
-        "answer": "כן. בלשונית 'כותרת ומפרידים' ניתן לבחור אובייקט מהעמוד שישמש כקו מפריד, ולהגדיר לו אורך, עובי ויישור."
+        "answer": "כן. בלשונית 'כותרת ומפרידים' ניתן לבחור אובייקט מהעמוד שישמש כקו מפריד."
       }
     ],
-    "videoUrl": "https://www.youtube.com/watch?v=NdKZwgFfrTA&t=1604s",
+    "videoUrl": "https://www.youtube.com/watch?v=NdKZwgFfrTA&t=1605s",
     "price": "₪550",
     "originalPrice": "₪750",
     "color": "emerald",
-    "downloadUrl": "https://drive.google.com/file/d/your-real-link-here",
-    "trialDownloadUrl": "https://drive.google.com/file/d/your-real-trial-link-here",
+    "downloadUrl": "https://drive.google.com/file/d/1nlp4MOy8K8uyGXl4goRtIZwFio1g-Vbv/view?usp=drive_link",
+    "trialDownloadUrl": "https://drive.google.com/file/d/1SFJgFBjeRrECh_cyHlYpFwmpS49rwXI7/view?usp=drive_link",
     "isDownloadable": true,
     "isTrialDownloadable": true
   },
   {
     "id": "processor-2026",
     "name": "מעבד העימוד 2026",
-    "shortDesc": "המערכת המקיפה ביותר לניקוי, עיבוד והכנת טקסטים לעימוד מקצועי.",
-    "fullDesc": "סקריפט עוצמתי המשלב 5 לשוניות עבודה: ניקוי וורד, המרת צבעים, מחולל סגנונות חכם, החלפה קבוצתית וניקוי תגיות.",
+    "shortDesc": "המערכת המקיפה ביותר לניקוי וורד בייבוא לאינדיזיין, עיבוד והכנת טקסטים לעימוד מקצועי.",
+    "fullDesc": "סקריפט עוצמתי המשלב 5 לשוניות עבודה: עבודה עם ייבוא קבצים מוורד, ניהול סגנונות, חיפוש והחלפה ממוקדים, ומחיקת רווחים.",
     "features": [
-      {
-        "title": "ניקוי וורד חכם",
-        "description": "איתור והחלפת סגנונות מקור מהירה עם סייר מובנה."
-      },
-      {
-        "title": "המרת צבע לסגנון",
-        "description": "דגימה אוטומטית של צבעי טקסט והחלפתם בסגנונות פסקה."
-      }
+      { "title": "ניקוי וורד חכם", "description": "איתור והחלפת סגנונות מקור מהירה עם סייר מובנה." },
+      { "title": "המרת צבע לסגנון", "description": "דגימה אוטומטית של צבעי טקסט והחלפתם בסגנונות פסקה." }
     ],
     "steps": [
       "ייבא את הטקסט מוורד לאינדיזיין.",
@@ -67,25 +55,22 @@ export const SCRIPTS: ScriptData[] = [
         "answer": "בלשונית 'כלים וניקוי', לחץ על הכפתור 'צמצם רווחים כפולים לרווח אחד'."
       }
     ],
-    "videoUrl": "https://www.youtube.com/watch?v=vNroXBCfjec",
+    "videoUrl": "https://www.youtube.com/watch?v=X5gDKRbbOJ8",
     "price": "350",
+    "originalPrice": "550",
     "color": "blue",
-    "downloadUrl": "https://drive.google.com/file/d/1j5_sm22QU6-FUHGiMI7i0e69SSxeI05A/view?usp=drive_link",
-    "trialDownloadUrl": "https://drive.google.com/file/d/1j5_sm22QU6-FUHGiMI7i0e69SSxeI05A/view?usp=drive_link",
+    "downloadUrl": "https://drive.google.com/file/d/12VPYGOXiFByZn0AXUT0intyv0v8hc7hb/view?usp=sharing",
+    "trialDownloadUrl": "https://drive.google.com/file/d/1qcC_y2AoY4X_p5lLVrxJsgJ_Grs-vSTs/view?usp=sharing",
     "isDownloadable": true,
-    "isTrialDownloadable": true,
-    "originalPrice": "550"
+    "isTrialDownloadable": true
   },
   {
     "id": "script-1771412573455",
-    "name": "אינדיזיין מדריך אינטרקטיבי מלא ללימוד תוכנת אינדיזיין",
+    "name": "אינדיזיין מדריך אינטרקטיבי מלא",
     "shortDesc": "המדריך המקצועי שיהפוך את המסמכים שלך לחוויה דיגיטלית חיה ונושמת.",
-    "fullDesc": "רוצה להפוך את הספרים והמסמכים שלך ליצירת אמנות חיה ונושמת?\n\nהמדריך המקצועי של \"אשף הערות השוליים\" (Footnote Wizard) לוקח אותך צעד אחר צעד אל עולם הדיגיטל המתקדם. בעידן שבו הקוראים מצפים ליותר מטקסט סטטי, המדריך הזה מעניק לך את הכלים להפוך כל קובץ PDF לחוויית משתמש אינטראקטיבית ומרשימה.\n\nמה תלמד במדריך?\nניווט חכם (Hyperlinks): יצירת קישורים פנימיים וחיצוניים, חיבור בין הערות שוליים לטקסט המקור, ובניית תוכן עניינים לחיץ.\n\nכפתורים ופעולות: הפיכת אלמנטים גרפיים לכפתורים המפעילים פקודות, מעברי דפים והצגת מידע נוסף.\n\nשימוש בסימניות (Bookmarks): ארגון המסמך בצורה נוחה המאפשרת לקורא לקפוץ בין פרקים בקלות ובמהירות.\n\nהכנה לייצוא דיגיטלי: דגשים קריטיים לייצוא נכון של PDF אינטראקטיבי השומר על כל היכולות המתקדמות שבנית.\n\nלמי המדריך מיועד?\nמעמדים וגרפיקאים שרוצים לשדרג את השירות שלהם ללקוחות.\n\nמחברי ספרים תורניים המעוניינים להנגיש את המקורות והערות השוליים בצורה דיגיטלית חכמה.\n\nיוצרי קטלוגים, מצגות ומסמכים עסקיים שרוצים להשאיר רושם מקצועי וחדשני.\n\nאל תשאיר את העימוד שלך מאחור. הורד עכשיו את המדריך והתחל להפיח חיים בעיצובים שלך!",
+    "fullDesc": "המדריך המקצועי לוקח אותך צעד אחר צעד אל עולם הדיגיטל המתקדם. יצירת קישורים, כפתורים, סימניות והכנה לייצוא אינטראקטיבי.",
     "features": [
-      {
-        "title": "ניווט אינטראקטיבי",
-        "description": "לימוד יצירת תוכן עניינים לחיץ וסימניות חכמות."
-      }
+      { "title": "ניווט אינטראקטיבי", "description": "לימוד יצירת תוכן עניינים לחיץ וסימניות חכמות." }
     ],
     "steps": [
       "הורד את קובץ המדריך.",
@@ -97,14 +82,39 @@ export const SCRIPTS: ScriptData[] = [
     "originalPrice": "₪450",
     "color": "blue",
     "faqs": [],
-    "downloadUrl": "https://drive.google.com/file/d/1nNmqssO12DPqvc6vq4Qpl07Ax2zmOWJW/view?usp=sharing",
-    "trialDownloadUrl": "https://drive.google.com/file/d/1r0_mQGwaI8wwPiVBFm5vSwP87zsq557v/view?usp=sharing",
+    "downloadUrl": "https://drive.google.com/file/d/1bGRj8Uyz7PEAAFqJyD2GbB_w3yGshjXp/view?usp=drive_link",
+    "trialDownloadUrl": "https://drive.google.com/file/d/1j5_sm22QU6-FUHGiMI7i0e69SSxeI05A/view?usp=drive_link",
     "isDownloadable": true,
-    "isTrialDownloadable": true,
-    "isPublished": true
+    "isTrialDownloadable": true
+  },
+  {
+    "id": "script-1771782328519",
+    "name": "עיצוב הערות שוליים הקצר",
+    "shortDesc": "אשף הערות שוליים 2026 הקצר - סקריפט מקצועי לעימוד מהיר כולל כותרות ועיטורים.",
+    "fullDesc": "גרסה ממוקדת הכוללת: עימוד מהיר ויציב, תמיכה מלאה בעברית (RTL), מספור גימטרי, כותרות רצות ועיטורים סימטריים.",
+    "features": [
+      { "title": "עימוד מהיר", "description": "אופטימיזציה מלאה המונעת צווארי בקבוק." }
+    ],
+    "steps": [
+      "התקן את הסקריפט.",
+      "הרץ ובחר סגנונות פסקה.",
+      "בצע עימוד מלא."
+    ],
+    "videoUrl": "",
+    "price": "250",
+    "originalPrice": "400",
+    "color": "blue",
+    "faqs": [],
+    "downloadUrl": "https://drive.google.com/file/d/12PIrg1KiDpBp0XTzQf2c90tsxz_Nx9ed/view?usp=sharing",
+    "trialDownloadUrl": "https://drive.google.com/file/d/1inIragw7eaHvluhTRGLXxri2wjCzY7wo/view?usp=sharing",
+    "isDownloadable": true,
+    "isTrialDownloadable": true
   }
 ];
 
 export const FAQ: FAQItem[] = [
-  { question: 'לכמה זמן פתוחה גרסת הניסיון?', answer: 'גרסת הניסיון פתוחה לשימוש מלא למשך 24 שעות מרגע ההפעלה הראשונה במחשב.' }
+  { 
+    question: 'לכמה זמן פתוחה גרסת הניסיון?', 
+    answer: 'גרסת הניסיון פתוחה לשימוש מלא למשך 24 שעות מרגע ההפעלה הראשונה במחשב.' 
+  }
 ];

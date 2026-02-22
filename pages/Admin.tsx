@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { SCRIPTS } from '../constants';
 import { ScriptData, FAQItem, ScriptFeature, Lead } from '../types';
@@ -8,6 +7,18 @@ interface AdminProps {
 }
 
 const Admin: React.FC<AdminProps> = ({ onDataUpdate }) => {
+  // --- תוספת הגנת סיסמה ---
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [password, setPassword] = useState('');
+  const SECRET_PASSWORD = "1967";
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (password === SECRET_PASSWORD) setIsAuthenticated(true);
+    else alert("סיסמה שגויה!");
+  };
+  // -------------------------
+
   const [scripts, setScripts] = useState<ScriptData[]>(() => {
     const saved = localStorage.getItem('yosef_scripts_data');
     return saved ? JSON.parse(saved) : SCRIPTS;
@@ -66,15 +77,9 @@ const Admin: React.FC<AdminProps> = ({ onDataUpdate }) => {
   };
 
   const copyConstantsToClipboard = () => {
-    const code = `import { ScriptData, FAQItem } from './types';
-
-export const SCRIPTS: ScriptData[] = ${JSON.stringify(scripts, null, 2)};
-
-export const FAQ: FAQItem[] = [
-  { question: 'לכמה זמן פתוחה גרסת הניסיון?', answer: 'גרסת הניסיון פתוחה לשימוש מלא למשך 24 שעות מרגע ההפעלה הראשונה במחשב.' }
-];`;
+    const code = `import { ScriptData, FAQItem } from './types';\n\nexport const SCRIPTS: ScriptData[] = ${JSON.stringify(scripts, null, 2)};\n\nexport const FAQ: FAQItem[] = [\n  { question: 'לכמה זמן פתוחה גרסת הניסיון?', answer: 'גרסת הניסיון פתוחה לשימוש מלא למשך 24 שעות מרגע ההפעלה הראשונה במחשב.' }\n];`;
     navigator.clipboard.writeText(code);
-    alert('הקוד המלא עבור קובץ ה-constants.tsx הועתק! שלח אותו ליועץ ה-AI שלך כדי לעדכן את האתר לצמיתות.');
+    alert('הקוד המלא עבור קובץ ה-constants.tsx הועתק! שלח אותו ליועץ ה-AI כדי לעדכן את האתר לצמיתות.');
   };
 
   const manualSave = () => {
@@ -111,6 +116,22 @@ export const FAQ: FAQItem[] = [
     setConfirmDeleteId(null);
   };
 
+  // --- מסך ההתחברות (יוצג אם המשתמש לא מחובר) ---
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-[#020617] flex items-center justify-center p-4 text-right" dir="rtl">
+        <div className="bg-slate-900 border border-slate-800 p-8 rounded-[2.5rem] w-full max-w-md shadow-2xl text-white text-center">
+          <h1 className="text-2xl font-black mb-6 italic text-amber-500 uppercase tracking-tighter">כניסת מנהל</h1>
+          <form onSubmit={handleLogin} className="space-y-4">
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-5 py-4 text-center text-white outline-none focus:border-amber-500" placeholder="הזן סיסמה" />
+            <button type="submit" className="w-full py-4 bg-amber-600 text-white font-black rounded-2xl shadow-xl hover:bg-amber-500 transition-all">התחבר</button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  // --- הממשק המקורי שלך ---
   return (
     <div className="animate-fadeIn pb-24 max-w-5xl mx-auto text-right" dir="rtl">
       {/* HEADER CONTROL BAR */}
@@ -132,7 +153,7 @@ export const FAQ: FAQItem[] = [
                  הוסף סקריפט
                </button>
                <button onClick={copyConstantsToClipboard} className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold text-sm shadow-lg flex items-center gap-2">
-                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 01-2-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
                  העתק קוד לעדכון קבוע
                </button>
                <button onClick={() => setShowCode(!showCode)} className="px-5 py-2.5 bg-slate-800 text-slate-300 rounded-xl font-bold text-sm border border-slate-700">
@@ -140,6 +161,9 @@ export const FAQ: FAQItem[] = [
                </button>
              </>
            )}
+           <button onClick={() => setIsAuthenticated(false)} className="px-5 py-2.5 bg-slate-800 text-slate-400 rounded-xl hover:text-red-500 font-bold text-sm border border-slate-700">
+             התנתק
+           </button>
         </div>
       </div>
 
@@ -210,7 +234,6 @@ export const FAQ: FAQItem[] = [
 
               {editingId === script.id && (
                 <div className="p-10 space-y-8 animate-fadeIn">
-                  {/* Basic Info */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                      <div className="space-y-6">
                         <label className="block">
@@ -253,13 +276,11 @@ export const FAQ: FAQItem[] = [
                      </div>
                   </div>
 
-                  {/* Detailed Description */}
                   <label className="block">
                      <span className="text-xs font-bold text-slate-500 mb-2 block mr-1">תיאור מלא ומפורט (עמוד מוצר)</span>
                      <textarea value={script.fullDesc} onChange={e => updateScriptField(script.id, 'fullDesc', e.target.value)} className="w-full h-48 bg-slate-950 border border-slate-800 p-6 rounded-3xl text-white leading-relaxed" />
                   </label>
 
-                  {/* Features & FAQs Section Toggle (simplified) */}
                   <div className="border-t border-slate-800 pt-8 mt-8">
                      <h3 className="text-lg font-bold text-white mb-6">ניהול שאלות ותשובות (FAQs)</h3>
                      <div className="space-y-4">

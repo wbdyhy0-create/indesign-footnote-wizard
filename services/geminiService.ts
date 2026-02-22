@@ -1,45 +1,38 @@
+import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
+import { ChatMessage } from "@/types";
 
-import { GoogleGenAI } from "@google/genai";
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-const MODEL_NAME = 'gemini-3-flash-preview';
-
-export async function askAssistant(prompt: string, context: string = "", history: {role: 'user' | 'model', text: string}[] = []) {
-  const ai = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
-  
-  const systemInstruction = `
-    You are the official AI support agent for FOOTNOTE WIZARD, a professional InDesign Automation solution.
-    Context about the project: ${context}
-    
-    Rules:
-    - Answer in professional, helpful Hebrew.
-    - If the user asks about InDesign issues, provide professional layout advice.
-    - Refer to the software as "FOOTNOTE WIZARD" exclusively.
-    - Be concise but thorough.
-    - Your goal is to support the user until their issue is resolved.
-  `;
+export async function askAssistant(
+  userMessage: string,
+  context: string,
+  chatHistory: ChatMessage[]
+): Promise<string> {
+  const history = chatHistory.map(msg => ({
+    role: msg.role === 'user' ? 'user' : 'model',
+    parts: [{ text: msg.text }],
+  }));
 
   try {
-    const chatHistory = history.map(h => ({
-      role: h.role === 'user' ? 'user' : 'model',
-      parts: [{ text: h.text }]
-    }));
-
-    const response = await ai.models.generateContent({
-      model: MODEL_NAME,
+    const result = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
       contents: [
-        { role: 'user', parts: [{ text: systemInstruction }] },
-        ...chatHistory,
-        { role: 'user', parts: [{ text: prompt }] }
+        { role: 'user', parts: [{ text: `Context: ${context}` }] },
+        ...history,
+        { role: 'user', parts: [{ text: userMessage }] },
       ],
-      config: {
-        temperature: 0.7,
-        topP: 0.95,
-      },
     });
-    
-    return response.text;
+
+    console.log("Gemini API raw result:", result);
+    if (result && result.text) {
+      return result.text;
+    } else {
+      console.error("Gemini API returned an empty or invalid response:", result);
+      return "אני מצטער, קיבלתי תגובה לא תקינה מה-AI.";
+    }
   } catch (error) {
-    console.error("Gemini API Error:", error);
-    return "מצטער, חלה שגיאה בתקשורת. האם תוכל לנסות לשאול שוב?";
+    console.error("Error calling Gemini API:", error);
+    return "אני מצטער, אירעה שגיאה בעת התקשורת עם ה-AI. אנא נסה שוב מאוחר יותר.";
   }
 }
+

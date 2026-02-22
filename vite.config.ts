@@ -3,7 +3,9 @@ import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig(({ mode }) => {
+    // טעינת משתני הסביבה (במחשב המקומי הוא יחפש בקובץ .env, ב-Vercel הוא ימשוך מה"כספת")
     const env = loadEnv(mode, '.', '');
+    
     return {
       server: {
         port: 3000,
@@ -11,8 +13,8 @@ export default defineConfig(({ mode }) => {
       },
       plugins: [react()],
       define: {
-        'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
+        // התיקון המרכזי: הגדרת השם שגוגל סטודיו מחפש
+        'process.env.API_KEY': JSON.stringify(env.API_KEY),
       },
       resolve: {
         alias: {

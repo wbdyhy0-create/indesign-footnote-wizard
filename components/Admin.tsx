@@ -15,7 +15,7 @@ const AdminPortal: React.FC = () => {
     isTrialDownloadable: true 
   });
 
-  const SECRET_PASSWORD = "1234"; 
+  const SECRET_PASSWORD = "1967"; 
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
