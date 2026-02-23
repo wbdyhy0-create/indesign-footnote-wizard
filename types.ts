@@ -11,12 +11,17 @@ export interface ChatMessage {
   timestamp: Date;
 }
 
+export interface ScriptFeature {
+  title: string;
+  description: string;
+}
+
 export interface ScriptData {
   id: string;
   name: string;
   shortDesc: string;
   fullDesc: string;
-  features: { title: string; description: string }[];
+  features: ScriptFeature[];
   steps: string[];
   faqs: { question: string; answer: string }[];
   videoUrl?: string;
@@ -27,9 +32,18 @@ export interface ScriptData {
   trialDownloadUrl?: string;
   isDownloadable?: boolean;
   isTrialDownloadable?: boolean;
+  isPublished?: boolean;
 }
 
 export interface FAQItem {
   question: string;
   answer: string;
+}
+
+export interface Lead {
+  id: string;
+  name: string;
+  email: string;
+  scriptName: string;
+  timestamp: string;
 }
