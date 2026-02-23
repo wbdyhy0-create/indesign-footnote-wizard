@@ -9,18 +9,32 @@ import Admin from './pages/Admin';
 import { SCRIPTS as DEFAULT_SCRIPTS } from './constants';
 import { ScriptData } from './types';
 
+// כל פעם שמעדכנים את constants.tsx, יש להעלות את המספר הזה ב-1
+const SCRIPTS_VERSION = '2';
+
 const App: React.FC = () => {
   const [activePage, setActivePage] = useState('home');
   const [scripts, setScripts] = useState<ScriptData[]>(DEFAULT_SCRIPTS);
 
-  // טעינת הנתונים המעודכנים (כולל המחירים החדשים שהדבקת ב-constants)
   useEffect(() => {
+    const savedVersion = localStorage.getItem('yosef_scripts_version');
+    
+    // אם הגרסה ישנה או לא קיימת - טען מ-constants ואפס את localStorage
+    if (savedVersion !== SCRIPTS_VERSION) {
+      localStorage.setItem('yosef_scripts_data', JSON.stringify(DEFAULT_SCRIPTS));
+      localStorage.setItem('yosef_scripts_version', SCRIPTS_VERSION);
+      setScripts(DEFAULT_SCRIPTS);
+      return;
+    }
+
+    // אחרת טען מ-localStorage
     const savedScripts = localStorage.getItem('yosef_scripts_data');
     if (savedScripts) {
       try {
         setScripts(JSON.parse(savedScripts));
       } catch (e) {
         console.error("Failed to load saved scripts", e);
+        setScripts(DEFAULT_SCRIPTS);
       }
     }
   }, []);
@@ -48,7 +62,6 @@ const App: React.FC = () => {
   };
 
   return (
-    // ה-Layout כבר מכיל את עוזר ה-AI הצף, כך שאין צורך לייבא אותו כאן בנפרד
     <Layout activePage={activePage} setActivePage={setActivePage} scripts={scripts}>
       {renderContent()}
     </Layout>

@@ -1,26 +1,38 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { SCRIPTS as initialScripts } from '../constants';
 
 const AdminPortal: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
-  const [scripts, setScripts] = useState(initialScripts);
+  const [scripts, setScripts] = useState<any[]>(initialScripts);
   const [showAddForm, setShowAddForm] = useState(false);
-  
-  // השורה המעודכנת: מעכשיו כל סקריפט חדש נוצר כשהוא "דלוק" (true) בהכל
-  const [editingScript, setEditingScript] = useState<any>({ 
-    name: '', 
-    isPublished: true, 
-    isDownloadable: true, 
-    isTrialDownloadable: true 
-  });
+  const [editingScript, setEditingScript] = useState<any>(null);
 
-  const SECRET_PASSWORD = "1967"; 
+  const SECRET_PASSWORD = "1967";
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (password === SECRET_PASSWORD) setIsAuthenticated(true);
     else alert("סיסמה שגויה!");
+  };
+
+  // פונקציית פרסום לענן (Upstash KV)
+  const publishToCloud = async () => {
+    const confirmPublish = window.confirm("האם אתה בטוח שברצונך לפרסם את השינויים לאתר החי?");
+    if (!confirmPublish) return;
+
+    try {
+      const res = await fetch('/api/update-scripts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(scripts),
+      });
+      
+      if (res.ok) alert("🎉 האתר עודכן בהצלחה בענן!");
+      else alert("❌ שגיאה בעדכון (בדוק חיבור KV בורסל).");
+    } catch (e) {
+      alert("🔌 תקלת תקשורת עם השרת.");
+    }
   };
 
   if (!isAuthenticated) {
@@ -29,8 +41,8 @@ const AdminPortal: React.FC = () => {
         <div className="bg-slate-900 border border-slate-800 p-8 rounded-[2.5rem] w-full max-w-md shadow-2xl text-white text-center">
           <h1 className="text-2xl font-black mb-6">כניסת מנהל</h1>
           <form onSubmit={handleLogin} className="space-y-4">
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-5 py-4 text-center text-white" placeholder="הזן סיסמה" />
-            <button type="submit" className="w-full py-4 bg-amber-600 text-white font-black rounded-2xl shadow-xl">התחבר</button>
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-5 py-4 text-center text-white outline-none focus:border-amber-500" placeholder="הזן סיסמה" />
+            <button type="submit" className="w-full py-4 bg-amber-600 text-white font-black rounded-2xl shadow-xl hover:bg-amber-500 transition-colors">התחבר</button>
           </form>
         </div>
       </div>
@@ -38,89 +50,61 @@ const AdminPortal: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#020617] p-6 md:p-12 text-right text-white" dir="rtl">
-      <div className="max-w-6xl mx-auto">
-        <div className="flex justify-between items-center mb-12">
-           <button onClick={() => setIsAuthenticated(false)} className="text-slate-500 hover:text-white text-sm">התנתק</button>
-           <h1 className="text-3xl font-black text-amber-500 italic">ADMIN PANEL</h1>
-           <button 
-              onClick={() => { 
-                // איפוס לערכי ברירת מחדל "דלוקים" בעת הוספת סקריפט חדש
-                setEditingScript({ name: '', isPublished: true, isDownloadable: true, isTrialDownloadable: true, price: '₪550' }); 
-                setShowAddForm(true); 
-              }}
-              className="bg-amber-500 text-slate-900 px-8 py-3 rounded-2xl font-black hover:bg-amber-400 shadow-lg shadow-amber-500/20"
-           >
-             + הוסף סקריפט חדש
-           </button>
+    <div className="min-h-screen bg-[#080c1d] p-6 md:p-12 text-right text-white font-sans" dir="rtl">
+      <div className="max-w-5xl mx-auto">
+        {/* כותרת וניהול עליון */}
+        <div className="bg-slate-900/50 border border-slate-800/50 p-8 rounded-[2.5rem] mb-10 flex flex-col md:flex-row justify-between items-center gap-6 shadow-2xl backdrop-blur-sm">
+          <div>
+            <h1 className="text-4xl font-black text-amber-500 mb-1">ניהול המערכת</h1>
+            <p className="text-slate-500 text-sm font-bold">שמירה אוטומטית פעילה. שמירה אחרונה: {new Date().toLocaleTimeString('he-IL')}</p>
+          </div>
+          
+          <div className="flex flex-wrap gap-3 justify-center">
+            <button onClick={publishToCloud} className="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-3 rounded-2xl font-black shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2">
+              🚀 פרסם לאתר
+            </button>
+            <button onClick={() => { setEditingScript({ name: '', isPublished: true, isDownloadable: true, isTrialDownloadable: true, price: '₪550', id: Date.now().toString() }); setShowAddForm(true); }} className="bg-amber-500 hover:bg-amber-400 text-slate-950 px-6 py-3 rounded-2xl font-black shadow-lg shadow-amber-900/20 transition-all">
+              + הוסף סקריפט
+            </button>
+            <button onClick={() => setIsAuthenticated(false)} className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-6 py-3 rounded-2xl font-bold transition-all">התנתק</button>
+          </div>
         </div>
 
-        {/* רשימת הסקריפטים עם חיווי מצב */}
-        <div className="space-y-4 mb-12">
-          {scripts.map(s => (
-            <div key={s.id} className="bg-slate-900 border border-slate-800 p-6 rounded-3xl flex justify-between items-center">
-              <div className="flex items-center gap-4">
-                <div className={`w-3 h-3 rounded-full ${s.isPublished ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-red-500'}`}></div>
-                <h3 className="font-black text-xl">{s.name}</h3>
+        {/* רשימת כרטיסי סקריפטים */}
+        <div className="grid gap-6">
+          {scripts.map((s) => (
+            <div key={s.id} className="group bg-slate-900/40 border border-slate-800 hover:border-amber-500/30 p-8 rounded-[2rem] flex flex-col md:flex-row justify-between items-center transition-all duration-300 shadow-xl">
+              <div className="flex items-center gap-6 mb-4 md:mb-0">
+                <button onClick={() => setScripts(scripts.filter(item => item.id !== s.id))} className="w-12 h-12 flex items-center justify-center rounded-2xl bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all">
+                   🗑️
+                </button>
+                <h3 className="text-2xl font-black text-white group-hover:text-amber-500 transition-colors">{s.name}</h3>
               </div>
-              <button onClick={() => { setEditingScript(s); setShowAddForm(true); }} className="bg-slate-800 border border-slate-700 px-6 py-2 rounded-xl font-bold text-amber-500">ערוך</button>
+              <button onClick={() => { setEditingScript(s); setShowAddForm(true); }} className="bg-slate-800/80 hover:bg-amber-500 hover:text-slate-950 px-10 py-3 rounded-2xl font-black text-amber-500 transition-all border border-slate-700">
+                ערוך סקריפט
+              </button>
             </div>
           ))}
         </div>
 
-        {showAddForm && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
-            <div className="bg-[#0f172a] border-2 border-amber-500/30 w-full max-w-4xl rounded-[2.5rem] p-8 md:p-10 my-10 shadow-2xl relative">
-              <div className="flex justify-between items-center mb-8 border-b border-slate-800 pb-6">
-                <h2 className="text-3xl font-black text-white">הגדרות סקריפט</h2>
-                <button onClick={() => setShowAddForm(false)} className="bg-amber-500 text-slate-900 px-6 py-2 rounded-xl font-black">סגור</button>
-              </div>
-
-              <div className="space-y-8">
-                {/* שלושת כפתורי הסטטוס - דלוקים אוטומטית ביצירה חדשה */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className={`p-5 rounded-3xl border-2 transition-all ${editingScript.isPublished ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-slate-800/50 border-slate-700'}`}>
-                    <p className="text-xs font-bold text-slate-500 mb-3 text-center uppercase">פרסום באתר</p>
-                    <button onClick={() => setEditingScript({...editingScript, isPublished: !editingScript.isPublished})} className={`w-full py-3 rounded-xl font-black text-sm ${editingScript.isPublished ? 'bg-emerald-600 text-white' : 'bg-slate-700 text-slate-400'}`}>
-                      {editingScript.isPublished ? '✓ מפורסם' : '🔒 מוסתר'}
-                    </button>
-                  </div>
-
-                  <div className={`p-5 rounded-3xl border-2 transition-all ${editingScript.isDownloadable ? 'bg-blue-500/10 border-blue-500/30' : 'bg-slate-800/50 border-slate-700'}`}>
-                    <p className="text-xs font-bold text-slate-500 mb-3 text-center uppercase">כפתור רכישה</p>
-                    <button onClick={() => setEditingScript({...editingScript, isDownloadable: !editingScript.isDownloadable})} className={`w-full py-3 rounded-xl font-black text-sm ${editingScript.isDownloadable ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-400'}`}>
-                      {editingScript.isDownloadable ? '✓ פעיל' : '🔒 כבוי'}
-                    </button>
-                  </div>
-
-                  <div className={`p-5 rounded-3xl border-2 transition-all ${editingScript.isTrialDownloadable ? 'bg-purple-500/10 border-purple-500/30' : 'bg-slate-800/50 border-slate-700'}`}>
-                    <p className="text-xs font-bold text-slate-500 mb-3 text-center uppercase">גרסת ניסיון</p>
-                    <button onClick={() => setEditingScript({...editingScript, isTrialDownloadable: !editingScript.isTrialDownloadable})} className={`w-full py-3 rounded-xl font-black text-sm ${editingScript.isTrialDownloadable ? 'bg-purple-600 text-white' : 'bg-slate-700 text-slate-400'}`}>
-                      {editingScript.isTrialDownloadable ? '✓ פעיל' : '🔒 כבוי'}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-slate-500 mr-2 uppercase">שם הסקריפט</label>
-                    <input value={editingScript.name} onChange={(e) => setEditingScript({...editingScript, name: e.target.value})} className="w-full bg-slate-950 border border-slate-800 p-4 rounded-xl text-white outline-none focus:border-amber-500" placeholder="למשל: אשף השוליים" />
-                  </div>
-                  <div className="space-y-2 text-left">
-                    <label className="text-xs font-bold text-slate-500 mr-2 uppercase">Price (₪)</label>
-                    <input value={editingScript.price} onChange={(e) => setEditingScript({...editingScript, price: e.target.value})} className="w-full bg-slate-950 border border-slate-800 p-4 rounded-xl text-white text-left" placeholder="₪550" />
-                  </div>
-                </div>
-
-                <button 
-                  onClick={() => {
-                    alert("השינויים נשמרו! זכור לעדכן את קובץ constants.tsx לשמירה קבועה.");
+        {/* חלונית עריכה */}
+        {showAddForm && editingScript && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
+            <div className="bg-[#0f172a] border-2 border-amber-500/20 w-full max-w-2xl rounded-[3rem] p-10 shadow-2xl">
+              <h2 className="text-3xl font-black mb-8 text-amber-500 border-b border-slate-800 pb-4">הגדרות סקריפט</h2>
+              <div className="space-y-6">
+                <input value={editingScript.name} onChange={(e) => setEditingScript({...editingScript, name: e.target.value})} className="w-full bg-slate-950 border border-slate-800 p-5 rounded-2xl text-white font-bold outline-none focus:border-amber-500" placeholder="שם הסקריפט" />
+                <input value={editingScript.price} onChange={(e) => setEditingScript({...editingScript, price: e.target.value})} className="w-full bg-slate-950 border border-slate-800 p-5 rounded-2xl text-white font-bold text-left outline-none focus:border-amber-500" placeholder="Price (e.g. ₪550)" />
+                
+                <div className="flex gap-4">
+                  <button onClick={() => {
+                    const exists = scripts.find(i => i.id === editingScript.id);
+                    if (exists) setScripts(scripts.map(i => i.id === editingScript.id ? editingScript : i));
+                    else setScripts([...scripts, editingScript]);
                     setShowAddForm(false);
-                  }}
-                  className="w-full py-6 bg-amber-600 hover:bg-amber-500 text-white font-black rounded-3xl text-xl shadow-2xl transition-all"
-                >
-                  עדכן ופרסם עכשיו
-                </button>
+                  }} className="flex-1 py-5 bg-amber-600 text-white font-black rounded-2xl text-lg hover:bg-amber-500 transition-all">שמור שינויים</button>
+                  <button onClick={() => setShowAddForm(false)} className="px-10 py-5 bg-slate-800 text-white font-bold rounded-2xl hover:bg-slate-700 transition-all">ביטול</button>
+                </div>
               </div>
             </div>
           </div>
