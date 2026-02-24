@@ -127,16 +127,24 @@ export const OTHER_PRODUCTS = [
     "id": "book-nezer-yosef",
     "name": "סדרת שו\"ת נזר יוסף",
     "description": "חיבור מקיף הכולל ביאורים וחידושים על הש\"ס וההלכה. לאחרונה יצא לאור החלק על אורח חיים ח\"ט - ח\"י.",
+    "fullDesc": "",
+    "videoUrl": "",
+    "features": [],
     "price": "₪120",
-    "image": "📚",
+    "image": "",
+    "imageUrl": "",
     "isPublished": true
   },
   {
     "id": "book-hachashifa",
     "name": "הספר החשיפה - יוסף עובדיה",
     "description": "ספר הדרכה מקיף ומעשי לטיפול עצמי ב-OCD והתמודדות נכונה.",
+    "fullDesc": "",
+    "videoUrl": "",
+    "features": [],
     "price": "₪80",
-    "image": "🧠",
+    "image": "",
+    "imageUrl": "",
     "isPublished": true,
     "downloadUrl": "https://drive.google.com/file/d/1ITGcufU98zMRzDFgAIhR0x2kjB64FPTW/view?usp=sharing"
   }
