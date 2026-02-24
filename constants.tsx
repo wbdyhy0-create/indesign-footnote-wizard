@@ -1,4 +1,4 @@
-﻿export const SCRIPTS = [
+export const SCRIPTS = [
   {
     "id": "footnote-wizard",
     "name": "אשף הערות שוליים 2026",
@@ -63,7 +63,11 @@
     "features": [
       { "title": "ניווט אינטראקטיבי", "description": "לימוד יצירת תוכן עניינים לחיץ וסימניות חכמות." }
     ],
-    "steps": ["הורד את קובץ המדריך.", "פתח אותו ב-PDF.", "עקוב אחר ההוראות."],
+    "steps": [
+      "הורד את קובץ המדריך.",
+      "פתח אותו ב-PDF.",
+      "עקוב אחר ההוראות."
+    ],
     "faqs": [],
     "videoUrl": "https://www.youtube.com/embed/vNroXBCfjec",
     "price": "₪250",
@@ -83,7 +87,10 @@
     "features": [
       { "title": "עימוד מהיר", "description": "אופטימיזציה מלאה המונעת צווארי בקבוק." }
     ],
-    "steps": ["התקן את הסקריפט.", "פתח קובץ והרץ."],
+    "steps": [
+      "התקן את הסקריפט.",
+      "פתח קובץ והרץ."
+    ],
     "faqs": [],
     "videoUrl": "https://www.youtube.com/embed/MgWsoA1fUeA",
     "price": "₪250",
