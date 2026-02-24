@@ -7,6 +7,7 @@ export const SCRIPTS = [
       "סקריפט עוצמתי המשלב 5 לשוניות עבודה: ניהול סגנונות, חיפוש והחלפה ממוקדים, ומחיקת רווחים.",
     price: "₪350",
     isPublished: true,
+    videoUrl: "",
   },
   {
     id: "script-interactive-guide",
@@ -15,6 +16,7 @@ export const SCRIPTS = [
     fullDesc: "מדריך צעד אחר צעד לעולם הדיגיטל המתקדם באינדיזיין.",
     price: "₪250",
     isPublished: true,
+    videoUrl: "",
   },
 ];
 

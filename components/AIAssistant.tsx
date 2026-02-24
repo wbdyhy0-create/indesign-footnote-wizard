@@ -53,7 +53,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ scripts }) => {
       `סקריפט: ${s.name}. תיאור: ${s.shortDesc}. שאלות נפוצות: ${s.faqs?.map(f => f.question).join(', ')}`
     ).join('\n');
 
-    const response = await askAssistant(query, scriptsContext);
+    const response = await askAssistant(query, scriptsContext, []);
     setAiResponse(response || "מצטער, לא מצאתי תשובה מתאימה.");
     setIsLoading(false);
   };

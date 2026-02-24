@@ -24,6 +24,12 @@ const AdminPortal: React.FC = () => {
   const [editingProduct, setEditingProduct] = useState<any>(null); // תוספת: סטייט לעריכת מוצר
   const [viewMode, setViewMode] = useState<'scripts' | 'products' | 'leads' | 'json'>('scripts'); // תוספת: products
 
+  const handleLogout = () => {
+    if (typeof window !== 'undefined') {
+      window.location.reload();
+    }
+  };
+
   // העלאת תמונת מוצר מהמחשב והמרה ל-Base64
   const handleProductImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -109,7 +115,12 @@ const AdminPortal: React.FC = () => {
           </div>
 
           <div className="flex flex-wrap justify-center gap-3 items-center">
-            <button className="bg-slate-800/50 text-slate-400 px-5 py-2.5 rounded-xl font-bold border border-slate-700/50 text-sm hover:bg-slate-800 transition">התנתק</button>
+            <button
+              onClick={handleLogout}
+              className="bg-slate-800/50 text-slate-400 px-5 py-2.5 rounded-xl font-bold border border-slate-700/50 text-sm hover:bg-slate-800 transition"
+            >
+              התנתק
+            </button>
             <button onClick={() => { setEditingScript(null); setEditingProduct(null); setViewMode('leads'); }} className={`px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 transition ${viewMode === 'leads' ? 'bg-[#064e3b] text-white' : 'bg-[#064e3b]/30 text-[#10b981] hover:bg-[#064e3b]/50 border border-[#10b981]/20'}`}>👤 לידים ({leads.length})</button>
             
             {/* --- לשוניות חדשות לניווט בין סקריפטים למוצרים --- */}

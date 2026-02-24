@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import PurchaseModal from '../components/PurchaseModal'; // ייבוא טופס הלידים והרכישה
+import TrialModal from '../components/TrialModal';
 
 interface ScriptDetailProps {
   product: any;
@@ -7,8 +8,9 @@ interface ScriptDetailProps {
 }
 
 const ProductDetail: React.FC<ScriptDetailProps> = ({ product, onBack }) => {
-  // סטייט לניהול הפתיחה והסגירה של חלון הלידים
+  // סטייט לניהול הפתיחה והסגירה של חלונות הרכישה וגרסת הניסיון
   const [isPurchaseModalOpen, setIsPurchaseModalOpen] = useState(false);
+  const [isTrialModalOpen, setIsTrialModalOpen] = useState(false);
 
   // תיקון אוטומטי לקישורי יוטיוב (אם תשים סרטון לספר)
   const formatYouTubeUrl = (url: string) => {
@@ -20,8 +22,9 @@ const ProductDetail: React.FC<ScriptDetailProps> = ({ product, onBack }) => {
 
   const embedUrl = product.videoUrl ? formatYouTubeUrl(product.videoUrl) : '';
   
-  // בדיקה אם קיים קישור הורדה
+  // בדיקה אם קיים קישור הורדה / גרסת ניסיון
   const isPurchaseAvailable = !!product.downloadUrl;
+  const hasTrial = !!product.trialDownloadUrl;
 
   const longDescription = product.fullDesc || product.description || product.shortDesc;
   const features = Array.isArray(product.features) ? product.features : [];
@@ -68,8 +71,8 @@ const ProductDetail: React.FC<ScriptDetailProps> = ({ product, onBack }) => {
               </div>
             </div>
 
-            {/* כפתור הרכישה שפותח את הפופ-אפ עכשיו */}
-            <div>
+            {/* כפתורי הרכישה וגרסת הניסיון */}
+            <div className="space-y-3">
               <button 
                 onClick={() => setIsPurchaseModalOpen(true)}
                 disabled={!isPurchaseAvailable}
@@ -78,8 +81,16 @@ const ProductDetail: React.FC<ScriptDetailProps> = ({ product, onBack }) => {
                 לרכישה והורדה מיידית
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
               </button>
+              {hasTrial && (
+                <button
+                  onClick={() => setIsTrialModalOpen(true)}
+                  className="w-full md:w-auto flex items-center justify-center gap-3 px-10 py-3 rounded-2xl border border-emerald-500/60 text-emerald-400 text-sm font-black bg-transparent hover:bg-emerald-500/10 transition-all"
+                >
+                  הורד גרסת ניסיון
+                </button>
+              )}
               {!isPurchaseAvailable && (
-                <p className="text-red-400 text-sm mt-3 font-bold">שימו לב: טרם הוזן קישור הורדה למוצר זה במערכת הניהול.</p>
+                <p className="text-red-400 text-sm mt-1 font-bold">שימו לב: טרם הוזן קישור הורדה למוצר זה במערכת הניהול.</p>
               )}
             </div>
           </div>
@@ -184,11 +195,17 @@ const ProductDetail: React.FC<ScriptDetailProps> = ({ product, onBack }) => {
         </section>
       )}
 
-      {/* --- חלון הלידים והרכישה המוסתר (מופיע רק בלחיצה) --- */}
+      {/* --- חלון הלידים והרכישה --- */}
       <PurchaseModal 
         script={product} 
         isOpen={isPurchaseModalOpen} 
         onClose={() => setIsPurchaseModalOpen(false)} 
+      />
+      {/* --- חלון גרסת הניסיון --- */}
+      <TrialModal 
+        script={product}
+        isOpen={isTrialModalOpen}
+        onClose={() => setIsTrialModalOpen(false)}
       />
 
     </div>
