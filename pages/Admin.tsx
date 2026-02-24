@@ -87,10 +87,14 @@ const AdminPortal: React.FC = () => {
 
   const handleCopyCode = () => {
     const preparedScripts = scripts.map(s => ({ ...s, videoUrl: formatYouTubeUrl(s.videoUrl) }));
-    // העתקת כל המידע כולל מוצרים
-    const fullData = { SCRIPTS: preparedScripts, OTHER_PRODUCTS: products };
+    // מוצרים: מחליפים תמונות Base64 במחרוזת ריקה כדי שה-JSON לא יתנפח (מיליוני תווים)
+    const preparedProducts = products.map((p: any) => {
+      const imageUrl = p.imageUrl && String(p.imageUrl).startsWith('data:') ? '' : (p.imageUrl || '');
+      return { ...p, imageUrl };
+    });
+    const fullData = { SCRIPTS: preparedScripts, OTHER_PRODUCTS: preparedProducts };
     navigator.clipboard.writeText(JSON.stringify(fullData, null, 2));
-    alert("✅ הקוד הועתק בהצלחה!\n(כל קישורי היוטיוב תוקנו, ומוצרי החנות הועתקו יחד עם הסקריפטים)");
+    alert("✅ הקוד הועתק בהצלחה!\n(קישורי יוטיוב תוקנו. תמונות שהועלו כקובץ הוחלפו בריק בהעתקה כדי שלא יגדילו את ה-JSON – אפשר להזין קישור לתמונה או להעלות מחדש במנהל.)");
   };
 
   return (
@@ -128,6 +132,7 @@ const AdminPortal: React.FC = () => {
                     description: '',
                     fullDesc: '',
                     videoUrl: '',
+                    pdfPreviewUrl: '',
                     downloadUrl: '',
                     imageUrl: '',
                     features: [],
@@ -300,6 +305,16 @@ const AdminPortal: React.FC = () => {
                 />
               </div>
 
+              <div>
+                <label className="block text-slate-500 text-sm font-bold mb-2">קישור לדוגמת PDF (תצוגה מקדימה נגללת)</label>
+                <input
+                  placeholder="קישור ל-PDF או Google Drive – לדוגמה: הגדה של פסח"
+                  value={editingProduct.pdfPreviewUrl || ''}
+                  onChange={(e) => setEditingProduct({ ...editingProduct, pdfPreviewUrl: e.target.value })}
+                  className="w-full bg-[#060b14] border border-slate-800 p-4 rounded-2xl text-slate-300 font-mono text-sm text-left outline-none focus:border-amber-500"
+                />
+              </div>
+
               <div className="md:col-span-2">
                 <label className="block text-slate-500 text-sm font-bold mb-2">תיאור קצר (לכרטיס המוצר)</label>
                 <textarea
@@ -406,7 +421,17 @@ const AdminPortal: React.FC = () => {
               <button onClick={() => { localStorage.removeItem('yosef_admin_backup'); localStorage.removeItem('yosef_admin_products_backup'); alert('הזיכרון אופס בהצלחה!'); }} className="text-sm text-red-500 hover:underline">אפס זיכרון דפדפן</button>
             </div>
             <pre className="bg-[#060b14] border border-slate-800 p-6 rounded-2xl overflow-x-auto text-left font-mono text-xs text-emerald-400 h-[60vh] scrollbar-thin">
-              {JSON.stringify({ SCRIPTS: scripts, OTHER_PRODUCTS: products }, null, 2)}
+              {JSON.stringify(
+                {
+                  SCRIPTS: scripts,
+                  OTHER_PRODUCTS: products.map((p: any) => ({
+                    ...p,
+                    imageUrl: p.imageUrl && String(p.imageUrl).startsWith('data:') ? '[תמונה Base64 – הוסרה לתצוגה]' : (p.imageUrl || '')
+                  }))
+                },
+                null,
+                2
+              )}
             </pre>
           </div>
 

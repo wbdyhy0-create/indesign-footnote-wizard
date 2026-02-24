@@ -54,7 +54,17 @@ const App: React.FC = () => {
     }
 
     // 2. בדיקה אם הגולש לוחץ על מוצר (התוספת החדשה שלנו!)
-    const product = products.find((p: any) => p.id === activePage);
+    // תמיד קוראים את המוצרים העדכניים מ-localStorage כדי ששינויים במנהל יופיעו מיד
+    let productsSource = products;
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('yosef_admin_products_backup');
+        if (saved) productsSource = JSON.parse(saved);
+      } catch {
+        productsSource = products;
+      }
+    }
+    const product = productsSource.find((p: any) => p.id === activePage);
     if (product) {
       // אם כן, פתח את דף הפירוט והעבר לו את נתוני המוצר
       return <ProductDetail product={product} onBack={() => setActivePage('other-products')} />;

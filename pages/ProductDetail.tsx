@@ -20,6 +20,15 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack }) => {
   const embedUrl = product.videoUrl ? formatYouTubeUrl(product.videoUrl) : '';
   const isPurchaseAvailable = !!product.downloadUrl;
 
+  // קישור לתצוגת PDF: אם זה Google Drive – ממירים ל־preview כדי שייטען ב־iframe
+  const pdfPreviewUrl = (() => {
+    const url = (product.pdfPreviewUrl || '').trim();
+    if (!url) return '';
+    const driveMatch = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
+    if (driveMatch) return `https://drive.google.com/file/d/${driveMatch[1]}/preview`;
+    return url;
+  })();
+
   const longDescription = product.fullDesc || product.description || product.shortDesc;
   const features = Array.isArray(product.features) ? product.features : [];
   const hasFeatures = features.length > 0;
@@ -127,6 +136,28 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack }) => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* תצוגה נגללת של דוגמת PDF */}
+      {pdfPreviewUrl && (
+        <section className="mt-12">
+          <div className="mb-6 text-right">
+            <h2 className="text-2xl md:text-3xl font-black text-white mb-2">דוגמת מוצר – צפייה מקדימה</h2>
+            <p className="text-slate-400 text-sm md:text-base">
+              גלול למטה לעיון בדוגמת המוצר (תצוגת PDF).
+            </p>
+          </div>
+          <div className="bg-[#0b1121] border border-slate-700 rounded-[2rem] overflow-hidden shadow-2xl">
+            <div className="h-[75vh] min-h-[420px] w-full">
+              <iframe
+                title="דוגמת מוצר PDF"
+                src={pdfPreviewUrl}
+                className="w-full h-full min-h-[420px] border-0"
+                allow="autoplay"
+              />
+            </div>
+          </div>
+        </section>
       )}
 
       {/* תיבות Features / יכולות מרכזיות */}
