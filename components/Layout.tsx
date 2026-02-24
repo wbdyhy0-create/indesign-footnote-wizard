@@ -130,6 +130,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage, sc
           <nav className="flex items-center gap-2 md:gap-4 py-2">
             {navButton('home', 'דף הבית')}
             {navButton('scripts-catalog', 'הסקריפטים שלנו')}
+            {navButton('other-products', 'מוצרים נוספים')} {/* הנה הכפתור החדש שהוספנו! */}
             {navButton('about', 'אודות')}
             {navButton('contact', 'צור קשר')}
           </nav>

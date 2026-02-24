@@ -6,20 +6,28 @@ import ScriptDetail from './pages/ScriptDetail';
 import About from './pages/About';
 import Contact from './pages/Contact';
 import Admin from './pages/Admin';
-import { SCRIPTS as DEFAULT_SCRIPTS } from './constants';
+import OtherProducts from './pages/OtherProducts';
+import ProductDetail from './pages/ProductDetail'; // ייבוא של דף הפירוט החדש
+import { SCRIPTS as DEFAULT_SCRIPTS, OTHER_PRODUCTS as DEFAULT_PRODUCTS } from './constants';
 import { ScriptData } from './types';
 
-// כל פעם שמעדכנים את constants.tsx, יש להעלות את המספר הזה ב-1
 const SCRIPTS_VERSION = '2';
 
 const App: React.FC = () => {
   const [activePage, setActivePage] = useState('home');
   const [scripts, setScripts] = useState<ScriptData[]>(DEFAULT_SCRIPTS);
+  
+  // טעינת המוצרים פעם אחת (הגרסה שתישמר היא זו מהמנהל אם קיימת)
+  const [products] = useState<any[]>(() => {
+    const savedProducts = typeof window !== 'undefined'
+      ? localStorage.getItem('yosef_admin_products_backup')
+      : null;
+    return savedProducts ? JSON.parse(savedProducts) : DEFAULT_PRODUCTS;
+  });
 
   useEffect(() => {
     const savedVersion = localStorage.getItem('yosef_scripts_version');
     
-    // אם הגרסה ישנה או לא קיימת - טען מ-constants ואפס את localStorage
     if (savedVersion !== SCRIPTS_VERSION) {
       localStorage.setItem('yosef_scripts_data', JSON.stringify(DEFAULT_SCRIPTS));
       localStorage.setItem('yosef_scripts_version', SCRIPTS_VERSION);
@@ -27,7 +35,6 @@ const App: React.FC = () => {
       return;
     }
 
-    // אחרת טען מ-localStorage
     const savedScripts = localStorage.getItem('yosef_scripts_data');
     if (savedScripts) {
       try {
@@ -40,24 +47,41 @@ const App: React.FC = () => {
   }, []);
 
   const renderContent = () => {
+    // 1. בדיקה אם הגולש לוחץ על סקריפט
     const script = scripts.find(s => s.id === activePage);
     if (script) {
-      return <ScriptDetail script={script} />;
+      return <ScriptDetail product={script} onBack={() => setActivePage('scripts-catalog')} />;
     }
 
+    // 2. בדיקה אם הגולש לוחץ על מוצר (התוספת החדשה שלנו!)
+    const product = products.find((p: any) => p.id === activePage);
+    if (product) {
+      // אם כן, פתח את דף הפירוט והעבר לו את נתוני המוצר
+      return <ProductDetail product={product} onBack={() => setActivePage('other-products')} />;
+    }
+
+    // 3. ניווט כללי של האתר
     switch (activePage) {
       case 'home':
-        return <Home onNavigateToCatalog={() => setActivePage('scripts-catalog')} />;
+        return <Home 
+                 onNavigateToCatalog={() => setActivePage('scripts-catalog')} 
+                 onNavigateToProducts={() => setActivePage('other-products')} 
+               />;
       case 'scripts-catalog':
         return <ScriptsCatalog scripts={scripts} onSelectScript={(id) => setActivePage(id)} />;
+      case 'other-products': 
+        return <OtherProducts onNavigate={(page) => setActivePage(page)} />;
       case 'about':
         return <About />;
       case 'contact':
         return <Contact />;
       case 'admin':
-        return <Admin onDataUpdate={(updated) => setScripts(updated)} />;
+        return <Admin />;
       default:
-        return <Home onNavigateToCatalog={() => setActivePage('scripts-catalog')} />;
+        return <Home 
+                 onNavigateToCatalog={() => setActivePage('scripts-catalog')}
+                 onNavigateToProducts={() => setActivePage('other-products')}
+               />;
     }
   };
 

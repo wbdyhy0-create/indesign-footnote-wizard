@@ -1,16 +1,15 @@
 import React, { useState } from 'react';
-import PurchaseModal from '../components/PurchaseModal'; // ייבוא טופס הלידים והרכישה
+import PurchaseModal from '../components/PurchaseModal';
 
-interface ScriptDetailProps {
+interface ProductDetailProps {
   product: any;
   onBack: () => void;
 }
 
-const ProductDetail: React.FC<ScriptDetailProps> = ({ product, onBack }) => {
-  // סטייט לניהול הפתיחה והסגירה של חלון הלידים
+const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack }) => {
   const [isPurchaseModalOpen, setIsPurchaseModalOpen] = useState(false);
 
-  // תיקון אוטומטי לקישורי יוטיוב (אם תשים סרטון לספר)
+  // תיקון אוטומטי לקישורי יוטיוב
   const formatYouTubeUrl = (url: string) => {
     if (!url) return '';
     if (url.includes('embed')) return url;
@@ -19,8 +18,6 @@ const ProductDetail: React.FC<ScriptDetailProps> = ({ product, onBack }) => {
   };
 
   const embedUrl = product.videoUrl ? formatYouTubeUrl(product.videoUrl) : '';
-  
-  // בדיקה אם קיים קישור הורדה
   const isPurchaseAvailable = !!product.downloadUrl;
 
   const longDescription = product.fullDesc || product.description || product.shortDesc;
@@ -98,6 +95,7 @@ const ProductDetail: React.FC<ScriptDetailProps> = ({ product, onBack }) => {
               </div>
             )}
           </div>
+
         </div>
       </div>
 
@@ -108,11 +106,11 @@ const ProductDetail: React.FC<ScriptDetailProps> = ({ product, onBack }) => {
             <div className="flex-1 text-right space-y-4">
               <h2 className="text-2xl md:text-3xl font-black text-white">סרטון הדגמה מלא</h2>
               <p className="text-slate-300 text-sm md:text-base leading-relaxed">
-                צפה בסרטון שמציג בפירוט את כל היכולות של {product.name} וכיצד להפיק ממנו את המקסימום.
+                צפה בסרטון שמציג כיצד להשתמש ב-{product.name} שלב-אחר-שלב, עם כל הטיפים החשובים לעבודה חלקה.
               </p>
               <button
                 onClick={() => {
-                  const iframe = document.getElementById('script-video-section');
+                  const iframe = document.getElementById('product-video-section');
                   if (iframe && 'scrollIntoView' in iframe) {
                     (iframe as HTMLElement).scrollIntoView({ behavior: 'smooth', block: 'center' });
                   }
@@ -122,7 +120,7 @@ const ProductDetail: React.FC<ScriptDetailProps> = ({ product, onBack }) => {
                 ▶️ צפה עכשיו בסרטון
               </button>
             </div>
-            <div className="flex-1 w-full" id="script-video-section">
+            <div className="flex-1 w-full" id="product-video-section">
               <div className="aspect-video w-full rounded-2xl overflow-hidden border border-red-500/40 bg-black shadow-2xl">
                 <iframe src={embedUrl} className="w-full h-full" allowFullScreen></iframe>
               </div>
@@ -136,7 +134,7 @@ const ProductDetail: React.FC<ScriptDetailProps> = ({ product, onBack }) => {
         <section className="mt-12">
           <div className="flex flex-col md:flex-row-reverse md:items-center md:justify-between gap-4 mb-6">
             <div className="text-right">
-              <h2 className="text-2xl md:text-3xl font-black text-white mb-2">יכולות מרכזיות / מה הסקריפט יודע לעשות</h2>
+              <h2 className="text-2xl md:text-3xl font-black text-white mb-2">יכולות מרכזיות / מה תקבל בפנים</h2>
               {longDescription && (
                 <p className="text-sm md:text-base text-slate-400 leading-relaxed max-w-2xl">
                   {longDescription}
@@ -184,7 +182,6 @@ const ProductDetail: React.FC<ScriptDetailProps> = ({ product, onBack }) => {
         </section>
       )}
 
-      {/* --- חלון הלידים והרכישה המוסתר (מופיע רק בלחיצה) --- */}
       <PurchaseModal 
         script={product} 
         isOpen={isPurchaseModalOpen} 
