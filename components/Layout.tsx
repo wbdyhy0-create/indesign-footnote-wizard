@@ -108,11 +108,12 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage, sc
   );
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#0f172a] text-slate-200 font-sans" dir="rtl">
+    <div className="min-h-screen flex flex-col overflow-x-hidden bg-[#0f172a] text-slate-200 font-sans" dir="rtl">
 
       {/* סרגל ניווט עליון - גובה עודכן ל-h-28 למניעת דחיסה */}
       <header className="sticky top-0 z-50 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 shadow-xl">
-        <div className="max-w-7xl mx-auto px-6 h-28 flex items-center justify-between flex-row-reverse">
+      <div className="max-w-7xl mx-auto px-6 h-28 flex items-center justify-between lg:justify-start gap-4 lg:gap-16">
+
 
           {/* לוגו בשמאל */}
           <div
