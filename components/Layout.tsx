@@ -13,6 +13,7 @@ interface LayoutProps {
 
 const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage, scripts }) => {
   const [isHelpOpen, setIsHelpOpen] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showAdminDialog, setShowAdminDialog] = useState(false);
   const [adminCodeInput, setAdminCodeInput] = useState('');
   const [adminError, setAdminError] = useState('');
@@ -35,6 +36,10 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage, sc
   useEffect(() => {
     if (isHelpOpen) scrollToBottom();
   }, [chatHistory, isHelpOpen]);
+
+  useEffect(() => {
+    setIsMenuOpen(false);
+  }, [activePage]);
 
   const handleSendMessage = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -92,12 +97,20 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage, sc
     }
   };
 
+  const navItems = [
+    { page: 'home', label: 'דף הבית' },
+    { page: 'scripts-catalog', label: 'הסקריפטים שלנו' },
+    { page: 'other-products', label: 'מוצרים נוספים' },
+    { page: 'about', label: 'אודות' },
+    { page: 'contact', label: 'צור קשר' },
+  ];
+
   // פונקציית כפתור ניווט ללא Scale שגורם לגלילה
   const navButton = (page: string, label: string) => (
     <button
       key={page}
       onClick={() => setActivePage(page)}
-      className={`transition-all duration-300 flex items-center gap-2 px-5 py-2.5 rounded-2xl text-lg font-black tracking-tight whitespace-nowrap ${
+      className={`transition-all duration-300 flex items-center gap-2 px-3 md:px-4 lg:px-5 py-2.5 rounded-2xl text-sm md:text-base lg:text-lg font-black tracking-tight whitespace-nowrap ${
         activePage === page 
         ? 'text-white bg-amber-600 shadow-[0_0_15px_rgba(245,158,11,0.2)] border-2 border-amber-400' 
         : 'text-slate-300 hover:text-white hover:bg-slate-800/80 border-2 border-transparent'
@@ -111,14 +124,17 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage, sc
     <div className="min-h-screen flex flex-col overflow-x-hidden bg-[#0f172a] text-slate-200 font-sans" dir="rtl">
 
       {/* סרגל ניווט עליון - גובה עודכן ל-h-28 למניעת דחיסה */}
-      <header className="sticky top-0 z-50 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 shadow-xl">
-      <div className="max-w-7xl mx-auto px-6 h-28 flex items-center justify-between lg:justify-start gap-4 lg:gap-16">
+      <header className="sticky top-0 z-50 relative bg-slate-900/95 backdrop-blur-md border-b border-slate-800 shadow-xl">
+      <div className="max-w-7xl mx-auto px-6 h-28 flex items-center justify-between md:justify-start gap-4 md:gap-6 lg:gap-16">
 
 
           {/* לוגו בשמאל */}
           <div
             className="flex items-center gap-4 cursor-pointer group shrink-0"
-            onClick={() => setActivePage('home')}
+            onClick={() => {
+              setActivePage('home');
+              setIsMenuOpen(false);
+            }}
           >
             <div className="text-left hidden lg:block">
               <h1 className="text-2xl font-black text-amber-500 leading-none uppercase italic tracking-tighter">FOOTNOTE WIZARD</h1>
@@ -127,16 +143,56 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage, sc
             <div className="w-12 h-12 bg-amber-500 rounded-2xl flex items-center justify-center text-3xl shadow-lg shadow-amber-500/20 group-hover:rotate-6 transition-transform">✒️</div>
           </div>
 
-          {/* תפריט ניווט בימין - ללא overflow שיוצר פס גלילה */}
-          <nav className="flex items-center gap-2 md:gap-4 py-2">
-            {navButton('home', 'דף הבית')}
-            {navButton('scripts-catalog', 'הסקריפטים שלנו')}
-            {navButton('other-products', 'מוצרים נוספים')} {/* הנה הכפתור החדש שהוספנו! */}
-            {navButton('about', 'אודות')}
-            {navButton('contact', 'צור קשר')}
-          </nav>
+          {/* ניווט בדסקטופ - גלוי מ-sm ומעלה */}
+          <div className="hidden md:flex items-center min-w-0">
+            <nav className="flex items-center gap-2 md:gap-3 lg:gap-4 py-2 flex-wrap">
+              {navItems.map((item) => navButton(item.page, item.label))}
+            </nav>
+          </div>
+
+          {/* כפתור המבורגר לנייד */}
+          <button
+            type="button"
+            aria-label={isMenuOpen ? 'סגור תפריט' : 'פתח תפריט'}
+            aria-expanded={isMenuOpen}
+            onClick={() => setIsMenuOpen((prev) => !prev)}
+            className="md:hidden block w-12 h-12 rounded-2xl border-2 border-slate-700 bg-slate-800/80 text-slate-200 flex items-center justify-center text-2xl shadow-lg hover:border-amber-500/60 hover:text-amber-400 transition-colors z-[110]"
+          >
+            {isMenuOpen ? '✕' : '☰'}
+          </button>
 
         </div>
+
+        {isMenuOpen && (
+          <div className="md:hidden fixed inset-0 z-[100] bg-slate-900/95 flex flex-col items-center justify-center gap-8">
+            <button
+              type="button"
+              onClick={() => setIsMenuOpen(false)}
+              className="absolute top-8 left-8 text-slate-300 hover:text-white text-3xl"
+              aria-label="סגור תפריט"
+            >
+              ✕
+            </button>
+            <nav className="w-full max-w-sm px-6 flex flex-col gap-3">
+              {navItems.map((item) => (
+                <button
+                  key={item.page}
+                  onClick={() => {
+                    setActivePage(item.page);
+                    setIsMenuOpen(false);
+                  }}
+                  className={`w-full text-right transition-all duration-300 px-5 py-3 rounded-2xl text-base font-black tracking-tight ${
+                    activePage === item.page
+                      ? 'text-white bg-amber-600 shadow-[0_0_15px_rgba(245,158,11,0.2)] border-2 border-amber-400'
+                      : 'text-slate-300 bg-slate-900/70 hover:text-white hover:bg-slate-800 border-2 border-slate-700/60'
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </nav>
+          </div>
+        )}
       </header>
 
       {/* אזור התוכן המרכזי */}
