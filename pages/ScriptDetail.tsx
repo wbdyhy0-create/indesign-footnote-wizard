@@ -48,10 +48,10 @@ const ProductDetail: React.FC<ScriptDetailProps> = ({ product, onBack }) => {
       <div className="bg-[#0b1121] border border-slate-800 rounded-[3rem] p-8 md:p-16 shadow-[0_0_50px_rgba(0,0,0,0.5)] overflow-hidden relative">
         <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-amber-600 via-amber-400 to-amber-600 opacity-50"></div>
         
-        <div className="flex flex-col lg:flex-row gap-16 items-center lg:items-start">
+        <div className="flex flex-col gap-10 items-start">
           
-          {/* צד ימין - פרטי הספר/המוצר */}
-          <div className="flex-1 space-y-10 text-right">
+          {/* פרטי הסקריפט */}
+          <div className="w-full space-y-10 text-right">
             <div>
               <div className="inline-block px-4 py-1.5 mb-6 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-500 text-xs font-black uppercase tracking-widest">
                 מידע על המוצר
@@ -94,30 +94,15 @@ const ProductDetail: React.FC<ScriptDetailProps> = ({ product, onBack }) => {
               )}
             </div>
           </div>
-
-          {/* צד שמאל - תמונה / אייקון בלבד (הוידאו מופיע באזור הוידאו למטה) */}
-          <div className="flex-1 w-full lg:w-auto relative">
-            {product.imageUrl ? (
-              <div className="w-full rounded-[2rem] overflow-hidden shadow-2xl border border-slate-800 bg-slate-900 flex justify-center items-center p-4">
-                <img src={product.imageUrl} alt={product.name} className="w-full h-auto max-h-[500px] object-contain rounded-xl" />
-              </div>
-            ) : (
-              <div className="w-full aspect-square rounded-[2rem] overflow-hidden shadow-2xl border border-slate-800 bg-slate-950 flex justify-center items-center">
-                 <span className="text-9xl z-10 hover:scale-110 transition-transform duration-700">
-                  {product.image || '📘'}
-                 </span>
-              </div>
-            )}
-          </div>
         </div>
       </div>
 
       {/* אזור וידאו מודגש כמו בדף המוצרים הנוספים */}
       {embedUrl && (
-        <div className="mt-12 bg-gradient-to-r from-[#020617] via-[#0b1121] to-black border border-red-600/40 rounded-[2.5rem] p-6 md:p-10 shadow-[0_0_60px_rgba(0,0,0,0.7)]">
+        <div className="mt-6 bg-gradient-to-r from-[#020617] via-[#0b1121] to-black border border-red-600/40 rounded-[2.5rem] p-6 md:p-10 shadow-[0_0_60px_rgba(0,0,0,0.7)]">
           <div className="flex flex-col lg:flex-row-reverse items-center gap-10">
             <div className="flex-1 text-right space-y-4">
-              <h2 className="text-2xl md:text-3xl font-black text-white">סרטון הדגמה מלא</h2>
+              <h2 className="text-2xl md:text-3xl font-black text-white">סרטון הדרכה מלא</h2>
               <p className="text-slate-300 text-sm md:text-base leading-relaxed">
                 צפה בסרטון שמציג בפירוט את כל היכולות של {product.name} וכיצד להפיק ממנו את המקסימום.
               </p>

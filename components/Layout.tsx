@@ -125,10 +125,40 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage, sc
 
       {/* סרגל ניווט עליון - גובה עודכן ל-h-28 למניעת דחיסה */}
       <header className="sticky top-0 z-50 relative bg-slate-900/95 backdrop-blur-md border-b border-slate-800 shadow-xl">
-      <div className="max-w-7xl mx-auto px-6 h-28 flex items-center justify-between md:justify-start gap-4 md:gap-6 lg:gap-16">
+      <div className="max-w-7xl mx-auto px-6 h-28 flex items-center justify-between gap-4">
 
 
-          {/* לוגו בשמאל */}
+          {/* כפתורי פעולה קבועים - בצד ימין */}
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              aria-label={isMenuOpen ? 'סגור תפריט' : 'פתח תפריט'}
+              aria-expanded={isMenuOpen}
+              onClick={() => setIsMenuOpen((prev) => !prev)}
+              className="block w-12 h-12 rounded-2xl border-2 border-slate-700 bg-slate-800/80 text-slate-200 flex items-center justify-center text-2xl shadow-lg hover:border-amber-500/60 hover:text-amber-400 transition-colors z-[110]"
+            >
+              {isMenuOpen ? '✕' : '☰'}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setActivePage('home');
+                setIsMenuOpen(false);
+              }}
+              className="px-4 py-2 rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 hover:text-amber-200 text-sm font-bold transition-colors"
+            >
+              דף הבית
+            </button>
+          </div>
+
+          {/* ניווט בדסקטופ - במרכז */}
+          <div className="hidden md:flex items-center min-w-0 flex-1 justify-center">
+            <nav className="flex items-center gap-2 md:gap-3 lg:gap-4 py-2 flex-wrap">
+              {navItems.map((item) => navButton(item.page, item.label))}
+            </nav>
+          </div>
+
+          {/* לוגו בקצה שמאל */}
           <div
             className="flex items-center gap-4 cursor-pointer group shrink-0"
             onClick={() => {
@@ -143,37 +173,11 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage, sc
             <div className="w-12 h-12 bg-amber-500 rounded-2xl flex items-center justify-center text-3xl shadow-lg shadow-amber-500/20 group-hover:rotate-6 transition-transform">✒️</div>
           </div>
 
-          {/* ניווט בדסקטופ - גלוי מ-sm ומעלה */}
-          <div className="hidden md:flex items-center min-w-0">
-            <nav className="flex items-center gap-2 md:gap-3 lg:gap-4 py-2 flex-wrap">
-              {navItems.map((item) => navButton(item.page, item.label))}
-            </nav>
-          </div>
-
-          {/* כפתור המבורגר לנייד */}
-          <button
-            type="button"
-            aria-label={isMenuOpen ? 'סגור תפריט' : 'פתח תפריט'}
-            aria-expanded={isMenuOpen}
-            onClick={() => setIsMenuOpen((prev) => !prev)}
-            className="md:hidden block w-12 h-12 rounded-2xl border-2 border-slate-700 bg-slate-800/80 text-slate-200 flex items-center justify-center text-2xl shadow-lg hover:border-amber-500/60 hover:text-amber-400 transition-colors z-[110]"
-          >
-            {isMenuOpen ? '✕' : '☰'}
-          </button>
-
         </div>
 
         {isMenuOpen && (
-          <div className="md:hidden fixed inset-0 z-[100] bg-slate-900/95 flex flex-col items-center justify-center gap-8">
-            <button
-              type="button"
-              onClick={() => setIsMenuOpen(false)}
-              className="absolute top-8 left-8 text-slate-300 hover:text-white text-3xl"
-              aria-label="סגור תפריט"
-            >
-              ✕
-            </button>
-            <nav className="w-full max-w-sm px-6 flex flex-col gap-3">
+          <div className="absolute top-full right-6 mt-3 z-[100] w-[min(22rem,90vw)] bg-slate-950 border border-slate-700 rounded-2xl shadow-2xl p-3">
+            <nav className="w-full flex flex-col gap-2">
               {navItems.map((item) => (
                 <button
                   key={item.page}

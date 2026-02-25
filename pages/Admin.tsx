@@ -23,6 +23,7 @@ const AdminPortal: React.FC = () => {
   const [editingScript, setEditingScript] = useState<any>(null);
   const [editingProduct, setEditingProduct] = useState<any>(null); // תוספת: סטייט לעריכת מוצר
   const [viewMode, setViewMode] = useState<'scripts' | 'products' | 'leads' | 'json'>('scripts'); // תוספת: products
+  const [isCloudReady, setIsCloudReady] = useState(false);
 
   const handleLogout = () => {
     if (typeof window !== 'undefined') {
@@ -59,11 +60,51 @@ const AdminPortal: React.FC = () => {
     return '';
   };
 
-  // שמירה אוטומטית לזיכרון הדפדפן בכל פעם שיש שינוי
+  // טעינה ראשונית מהענן כדי לסנכרן בין כל המכשירים
+  useEffect(() => {
+    const loadCloudData = async () => {
+      try {
+        const response = await fetch('/api/update-scripts');
+        if (!response.ok) throw new Error('Failed to load cloud data');
+        const data = await response.json();
+
+        if (Array.isArray(data?.scripts)) {
+          setScripts(data.scripts);
+        }
+        if (Array.isArray(data?.products)) {
+          setProducts(data.products);
+        }
+      } catch (error) {
+        console.warn('Cloud sync load failed, using local data:', error);
+      } finally {
+        setIsCloudReady(true);
+      }
+    };
+
+    loadCloudData();
+  }, []);
+
+  // שמירה אוטומטית לזיכרון המקומי + לענן בכל פעם שיש שינוי
   useEffect(() => {
     localStorage.setItem('yosef_admin_backup', JSON.stringify(scripts));
     localStorage.setItem('yosef_admin_products_backup', JSON.stringify(products)); // תוספת: שמירת מוצרים
-  }, [scripts, products]);
+
+    if (!isCloudReady) return;
+
+    const timeoutId = window.setTimeout(async () => {
+      try {
+        await fetch('/api/update-scripts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ scripts, products }),
+        });
+      } catch (error) {
+        console.warn('Cloud sync save failed:', error);
+      }
+    }, 600);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [scripts, products, isCloudReady]);
 
   // נתונים וירטואליים ללידים
   const [leads] = useState([

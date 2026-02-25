@@ -42,8 +42,8 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
 
   return (
     <>
-      <div className="fixed inset-0 z-[999] flex items-start md:items-center justify-center p-4 bg-black/90 backdrop-blur-md overflow-y-auto pt-10 md:pt-4">
-        <div className="bg-[#0f172a] border border-slate-700 w-full max-w-md rounded-[2.5rem] shadow-2xl relative p-8 md:p-10 text-center mb-10">
+      <div className="fixed inset-0 z-[999] flex items-start md:items-center justify-center p-4 pt-8 md:pt-4 bg-black/90 backdrop-blur-md overflow-y-auto">
+        <div className="bg-[#0f172a] border border-slate-700 w-full max-w-md rounded-[2.5rem] shadow-2xl relative p-8 md:p-10 text-center">
           <button onClick={onClose} className="absolute top-6 right-6 text-slate-400 hover:text-white text-2xl">✕</button>
 
           {step === 1 ? (
