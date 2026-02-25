@@ -77,7 +77,7 @@ const TrialModal: React.FC<TrialModalProps> = ({ script, isOpen, onClose }) => {
             {step === 'form' && (
               <form onSubmit={handleDownloadRequest} className="space-y-5 text-right" dir="rtl">
                 <p className="text-sm text-slate-300 leading-relaxed">
-                  הזן את פרטיך וקישור להורדת גרסת הניסיון של <span className="text-white font-bold">{script.name}</span> יישלח לתיבת המייל שלך וייפתח להורדה מיידית.
+                  הזן את פרטיך וההורדה של גרסת הניסיון עבור <span className="text-white font-bold">{script.name}</span> תתחיל כעת.
                 </p>
                 
                 {error && <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-xs animate-shake">{error}</div>}
@@ -112,10 +112,10 @@ const TrialModal: React.FC<TrialModalProps> = ({ script, isOpen, onClose }) => {
                 <div className="w-20 h-20 bg-emerald-500/20 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6">
                   <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
                 </div>
-                <h3 className="text-2xl font-bold text-white mb-2">נשלח בהצלחה!</h3>
+                <h3 className="text-2xl font-bold text-white mb-2">ההורדה מתבצעת כעת!</h3>
                 <p className="text-slate-400 leading-relaxed text-sm mb-6">
-                  קישור להורדה נשלח לכתובת: <span className="text-amber-500 font-bold">{formData.email}</span><br/>
-                  שימו לב: גרסת הניסיון תקפה ל-24 שעות.
+                  גרסת הניסיון שלך נפתחה להורדה בדפדפן.<br/>
+                  אם ההורדה לא התחילה, ניתן ללחוץ על הקישור למטה.
                 </p>
                 
                 <div className="p-4 bg-slate-800/50 rounded-2xl border border-slate-700 text-right">

@@ -101,6 +101,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage, sc
     { page: 'home', label: 'דף הבית' },
     { page: 'scripts-catalog', label: 'הסקריפטים שלנו' },
     { page: 'other-products', label: 'מוצרים נוספים' },
+    { page: 'torah-covers', label: 'עיצוב כריכות תורניים' },
     { page: 'about', label: 'אודות' },
     { page: 'contact', label: 'צור קשר' },
   ];

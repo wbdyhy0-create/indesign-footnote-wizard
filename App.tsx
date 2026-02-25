@@ -7,8 +7,9 @@ import About from './pages/About';
 import Contact from './pages/Contact';
 import Admin from './pages/Admin';
 import OtherProducts from './pages/OtherProducts';
+import TorahCovers from './pages/TorahCovers';
 import ProductDetail from './pages/ProductDetail'; // ייבוא של דף הפירוט החדש
-import { SCRIPTS as DEFAULT_SCRIPTS, OTHER_PRODUCTS as DEFAULT_PRODUCTS } from './constants';
+import { SCRIPTS as DEFAULT_SCRIPTS, OTHER_PRODUCTS as DEFAULT_PRODUCTS, TORAH_COVER_DESIGNS as DEFAULT_COVERS } from './constants';
 import { ScriptData } from './types';
 
 const SCRIPTS_VERSION = '2';
@@ -23,6 +24,13 @@ const App: React.FC = () => {
       ? localStorage.getItem('yosef_admin_products_backup')
       : null;
     return savedProducts ? JSON.parse(savedProducts) : DEFAULT_PRODUCTS;
+  });
+
+  const [covers] = useState<any[]>(() => {
+    const savedCovers = typeof window !== 'undefined'
+      ? localStorage.getItem('yosef_admin_covers_backup')
+      : null;
+    return savedCovers ? JSON.parse(savedCovers) : DEFAULT_COVERS;
   });
 
   useEffect(() => {
@@ -70,6 +78,20 @@ const App: React.FC = () => {
       return <ProductDetail product={product} onBack={() => setActivePage('other-products')} />;
     }
 
+    let coversSource = covers;
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('yosef_admin_covers_backup');
+        if (saved) coversSource = JSON.parse(saved);
+      } catch {
+        coversSource = covers;
+      }
+    }
+    const cover = coversSource.find((c: any) => c.id === activePage);
+    if (cover) {
+      return <ProductDetail product={cover} onBack={() => setActivePage('torah-covers')} />;
+    }
+
     // 3. ניווט כללי של האתר
     switch (activePage) {
       case 'home':
@@ -81,6 +103,8 @@ const App: React.FC = () => {
         return <ScriptsCatalog scripts={scripts} onSelectScript={(id) => setActivePage(id)} />;
       case 'other-products': 
         return <OtherProducts onNavigate={(page) => setActivePage(page)} />;
+      case 'torah-covers':
+        return <TorahCovers onNavigate={(page) => setActivePage(page)} />;
       case 'about':
         return <About />;
       case 'contact':

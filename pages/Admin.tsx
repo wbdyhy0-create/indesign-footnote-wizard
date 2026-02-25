@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { SCRIPTS as initialScripts, OTHER_PRODUCTS as initialProducts } from '../constants'; // הוספנו ייבוא מוצרים
+import { SCRIPTS as initialScripts, OTHER_PRODUCTS as initialProducts, TORAH_COVER_DESIGNS as initialCovers } from '../constants';
 
 const AdminPortal: React.FC = () => {
   // טעינת סקריפטים מהזיכרון המקומי
@@ -19,10 +19,18 @@ const AdminPortal: React.FC = () => {
     }
     return initialProducts || [];
   });
+  const [covers, setCovers] = useState<any[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('yosef_admin_covers_backup');
+      if (saved) return JSON.parse(saved);
+    }
+    return initialCovers || [];
+  });
   
   const [editingScript, setEditingScript] = useState<any>(null);
-  const [editingProduct, setEditingProduct] = useState<any>(null); // תוספת: סטייט לעריכת מוצר
-  const [viewMode, setViewMode] = useState<'scripts' | 'products' | 'leads' | 'json'>('scripts'); // תוספת: products
+  const [editingProduct, setEditingProduct] = useState<any>(null);
+  const [editingProductKind, setEditingProductKind] = useState<'products' | 'covers'>('products');
+  const [viewMode, setViewMode] = useState<'scripts' | 'products' | 'covers' | 'leads' | 'json'>('scripts');
   const [isCloudReady, setIsCloudReady] = useState(false);
 
   const handleLogout = () => {
@@ -74,6 +82,9 @@ const AdminPortal: React.FC = () => {
         if (Array.isArray(data?.products)) {
           setProducts(data.products);
         }
+        if (Array.isArray(data?.covers)) {
+          setCovers(data.covers);
+        }
       } catch (error) {
         console.warn('Cloud sync load failed, using local data:', error);
       } finally {
@@ -87,7 +98,8 @@ const AdminPortal: React.FC = () => {
   // שמירה אוטומטית לזיכרון המקומי + לענן בכל פעם שיש שינוי
   useEffect(() => {
     localStorage.setItem('yosef_admin_backup', JSON.stringify(scripts));
-    localStorage.setItem('yosef_admin_products_backup', JSON.stringify(products)); // תוספת: שמירת מוצרים
+    localStorage.setItem('yosef_admin_products_backup', JSON.stringify(products));
+    localStorage.setItem('yosef_admin_covers_backup', JSON.stringify(covers));
 
     if (!isCloudReady) return;
 
@@ -96,7 +108,7 @@ const AdminPortal: React.FC = () => {
         await fetch('/api/update-scripts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ scripts, products }),
+          body: JSON.stringify({ scripts, products, covers }),
         });
       } catch (error) {
         console.warn('Cloud sync save failed:', error);
@@ -104,7 +116,7 @@ const AdminPortal: React.FC = () => {
     }, 600);
 
     return () => window.clearTimeout(timeoutId);
-  }, [scripts, products, isCloudReady]);
+  }, [scripts, products, covers, isCloudReady]);
 
   // נתונים וירטואליים ללידים
   const [leads] = useState([
@@ -139,7 +151,11 @@ const AdminPortal: React.FC = () => {
       const imageUrl = p.imageUrl && String(p.imageUrl).startsWith('data:') ? '' : (p.imageUrl || '');
       return { ...p, imageUrl };
     });
-    const fullData = { SCRIPTS: preparedScripts, OTHER_PRODUCTS: preparedProducts };
+    const preparedCovers = covers.map((c: any) => {
+      const imageUrl = c.imageUrl && String(c.imageUrl).startsWith('data:') ? '' : (c.imageUrl || '');
+      return { ...c, imageUrl };
+    });
+    const fullData = { SCRIPTS: preparedScripts, OTHER_PRODUCTS: preparedProducts, TORAH_COVER_DESIGNS: preparedCovers };
     navigator.clipboard.writeText(JSON.stringify(fullData, null, 2));
     alert("✅ הקוד הועתק בהצלחה!\n(קישורי יוטיוב תוקנו. תמונות שהועלו כקובץ הוחלפו בריק בהעתקה כדי שלא יגדילו את ה-JSON – אפשר להזין קישור לתמונה או להעלות מחדש במנהל.)");
   };
@@ -164,10 +180,11 @@ const AdminPortal: React.FC = () => {
             </button>
             <button onClick={() => { setEditingScript(null); setEditingProduct(null); setViewMode('leads'); }} className={`px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 transition ${viewMode === 'leads' ? 'bg-[#064e3b] text-white' : 'bg-[#064e3b]/30 text-[#10b981] hover:bg-[#064e3b]/50 border border-[#10b981]/20'}`}>👤 לידים ({leads.length})</button>
             
-            {/* --- לשוניות חדשות לניווט בין סקריפטים למוצרים --- */}
+            {/* --- לשוניות ניווט --- */}
             <div className="flex bg-slate-800/50 p-1 rounded-xl mx-2 border border-slate-700/50">
               <button onClick={() => { setEditingScript(null); setEditingProduct(null); setViewMode('scripts'); }} className={`px-4 py-1.5 rounded-lg text-sm font-bold transition ${viewMode === 'scripts' ? 'bg-[#f59e0b] text-slate-950' : 'text-slate-400 hover:text-white'}`}>סקריפטים</button>
               <button onClick={() => { setEditingScript(null); setEditingProduct(null); setViewMode('products'); }} className={`px-4 py-1.5 rounded-lg text-sm font-bold transition ${viewMode === 'products' ? 'bg-[#5c5cfc] text-white' : 'text-slate-400 hover:text-white'}`}>מוצרים</button>
+              <button onClick={() => { setEditingScript(null); setEditingProduct(null); setViewMode('covers'); }} className={`px-4 py-1.5 rounded-lg text-sm font-bold transition ${viewMode === 'covers' ? 'bg-[#14b8a6] text-white' : 'text-slate-400 hover:text-white'}`}>כריכות</button>
             </div>
 
             {/* כפתור הוספה מתחלף בהתאם ללשונית */}
@@ -177,6 +194,7 @@ const AdminPortal: React.FC = () => {
             {viewMode === 'products' && (
               <button
                 onClick={() => {
+                  setEditingProductKind('products');
                   setEditingProduct({
                     id: Date.now().toString(),
                     name: '',
@@ -195,6 +213,30 @@ const AdminPortal: React.FC = () => {
                 className="bg-[#5c5cfc] hover:bg-[#4a4af0] text-white px-6 py-2.5 rounded-xl font-black shadow-lg transition"
               >
                 + הוסף מוצר
+              </button>
+            )}
+            {viewMode === 'covers' && (
+              <button
+                onClick={() => {
+                  setEditingProductKind('covers');
+                  setEditingProduct({
+                    id: `cover-${Date.now()}`,
+                    name: '',
+                    price: '₪1200',
+                    description: '',
+                    fullDesc: '',
+                    videoUrl: '',
+                    pdfPreviewUrl: '',
+                    downloadUrl: '',
+                    imageUrl: '',
+                    features: [],
+                    featuresText: '',
+                    isPublished: true,
+                  });
+                }}
+                className="bg-[#14b8a6] hover:bg-[#0d9488] text-white px-6 py-2.5 rounded-xl font-black shadow-lg transition"
+              >
+                + הוסף כריכה
               </button>
             )}
 
@@ -287,14 +329,25 @@ const AdminPortal: React.FC = () => {
 
         ) : editingProduct ? (
           
-          // --- ממשק עריכה למוצרים (ספרים) - כולל שדה תמונה וקישור להורדה ---
+          // --- ממשק עריכה למוצרים/כריכות ---
           <div className="bg-[#0b1121] border border-[#5c5cfc] rounded-[2.5rem] p-8 md:p-12 shadow-2xl relative animate-in fade-in zoom-in-95 duration-300">
             <div className="flex justify-between items-center mb-10 pb-6 border-b border-slate-800">
               <div className="flex gap-4">
-                <button onClick={() => setProducts(products.filter(i => i.id !== editingProduct.id))} className="w-12 h-12 flex items-center justify-center border border-red-500/30 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition">🗑️</button>
+                <button
+                  onClick={() => {
+                    if (editingProductKind === 'covers') {
+                      setCovers(covers.filter(i => i.id !== editingProduct.id));
+                    } else {
+                      setProducts(products.filter(i => i.id !== editingProduct.id));
+                    }
+                  }}
+                  className="w-12 h-12 flex items-center justify-center border border-red-500/30 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition"
+                >
+                  🗑️
+                </button>
                 <button onClick={() => setEditingProduct(null)} className="bg-[#5c5cfc] text-white px-8 py-2 rounded-xl font-black hover:bg-[#4a4af0] transition">סגור עריכה</button>
               </div>
-              <h2 className="text-3xl font-black text-white">{editingProduct.name || 'מוצר חדש'}</h2>
+              <h2 className="text-3xl font-black text-white">{editingProduct.name || (editingProductKind === 'covers' ? 'כריכה חדשה' : 'מוצר חדש')}</h2>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8 max-h-[50vh] overflow-y-auto px-2 custom-scrollbar">
@@ -421,17 +474,22 @@ const AdminPortal: React.FC = () => {
                     features: featuresValue,
                   };
 
-                  const exists = products.find(i => i.id === editingProduct.id);
+                  const currentList = editingProductKind === 'covers' ? covers : products;
+                  const exists = currentList.find(i => i.id === editingProduct.id);
                   if (exists) {
-                    setProducts(products.map(i => i.id === editingProduct.id ? productToSave : i));
+                    const nextList = currentList.map(i => i.id === editingProduct.id ? productToSave : i);
+                    if (editingProductKind === 'covers') setCovers(nextList);
+                    else setProducts(nextList);
                   } else {
-                    setProducts([...products, productToSave]);
+                    const nextList = [...currentList, productToSave];
+                    if (editingProductKind === 'covers') setCovers(nextList);
+                    else setProducts(nextList);
                   }
                   setEditingProduct(null);
                 }}
                 className="w-full py-5 bg-[#5c5cfc] text-white font-black rounded-2xl text-xl shadow-xl hover:bg-[#4a4af0] transition-all"
               >
-                שמור מוצר במערכת
+                {editingProductKind === 'covers' ? 'שמור כריכה במערכת' : 'שמור מוצר במערכת'}
               </button>
             </div>
           </div>
@@ -470,7 +528,7 @@ const AdminPortal: React.FC = () => {
           <div className="bg-[#0b1121] border border-slate-800 rounded-[2.5rem] p-8 shadow-xl animate-in fade-in duration-300">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-black text-indigo-400">קוד המערכת המלא (JSON)</h2>
-              <button onClick={() => { localStorage.removeItem('yosef_admin_backup'); localStorage.removeItem('yosef_admin_products_backup'); alert('הזיכרון אופס בהצלחה!'); }} className="text-sm text-red-500 hover:underline">אפס זיכרון דפדפן</button>
+              <button onClick={() => { localStorage.removeItem('yosef_admin_backup'); localStorage.removeItem('yosef_admin_products_backup'); localStorage.removeItem('yosef_admin_covers_backup'); alert('הזיכרון אופס בהצלחה!'); }} className="text-sm text-red-500 hover:underline">אפס זיכרון דפדפן</button>
             </div>
             <pre className="bg-[#060b14] border border-slate-800 p-6 rounded-2xl overflow-x-auto text-left font-mono text-xs text-emerald-400 h-[60vh] scrollbar-thin">
               {JSON.stringify(
@@ -479,6 +537,10 @@ const AdminPortal: React.FC = () => {
                   OTHER_PRODUCTS: products.map((p: any) => ({
                     ...p,
                     imageUrl: p.imageUrl && String(p.imageUrl).startsWith('data:') ? '[תמונה Base64 – הוסרה לתצוגה]' : (p.imageUrl || '')
+                  })),
+                  TORAH_COVER_DESIGNS: covers.map((c: any) => ({
+                    ...c,
+                    imageUrl: c.imageUrl && String(c.imageUrl).startsWith('data:') ? '[תמונה Base64 – הוסרה לתצוגה]' : (c.imageUrl || '')
                   }))
                 },
                 null,
@@ -510,14 +572,50 @@ const AdminPortal: React.FC = () => {
                 </div>
                 <button
                   onClick={() =>
-                    setEditingProduct({
-                      ...p,
-                      featuresText: p.featuresText || mapFeaturesToText(p.features),
-                    })
+                    {
+                      setEditingProductKind('products');
+                      setEditingProduct({
+                        ...p,
+                        featuresText: p.featuresText || mapFeaturesToText(p.features),
+                      });
+                    }
                   }
                   className="bg-slate-800 hover:bg-[#5c5cfc] hover:text-white px-10 py-3 rounded-2xl font-black text-[#5c5cfc] transition-all border border-slate-700 w-full md:w-auto"
                 >
                   ערוך מוצר
+                </button>
+              </div>
+            ))}
+          </div>
+
+        ) : viewMode === 'covers' ? (
+
+          <div className="grid gap-6 animate-in fade-in duration-300">
+            {covers.map((c) => (
+              <div key={c.id} className="bg-[#0b1121] border border-slate-800 p-8 rounded-[2.5rem] flex flex-col md:flex-row justify-between items-center shadow-lg hover:border-slate-700 transition">
+                <div className="flex items-center gap-6 mb-4 md:mb-0">
+                  <button onClick={() => setCovers(covers.filter(i => i.id !== c.id))} className="text-red-500 hover:scale-110 transition-transform bg-red-500/10 p-3 rounded-xl">🗑️</button>
+                  {c.imageUrl ? (
+                    <img src={c.imageUrl} className="w-12 h-12 rounded-lg object-cover" alt="" />
+                  ) : (
+                    <span className="text-4xl">🖼️</span>
+                  )}
+                  <div>
+                    <h3 className="text-2xl font-black text-white">{c.name}</h3>
+                    <p className="text-slate-400 text-sm">{c.price}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setEditingProductKind('covers');
+                    setEditingProduct({
+                      ...c,
+                      featuresText: c.featuresText || mapFeaturesToText(c.features),
+                    });
+                  }}
+                  className="bg-slate-800 hover:bg-[#14b8a6] hover:text-white px-10 py-3 rounded-2xl font-black text-[#14b8a6] transition-all border border-slate-700 w-full md:w-auto"
+                >
+                  ערוך כריכה
                 </button>
               </div>
             ))}

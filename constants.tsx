@@ -38,6 +38,24 @@ export const OTHER_PRODUCTS = [
   },
 ];
 
+export const TORAH_COVER_DESIGNS = [
+  {
+    id: "torah-cover-design-1",
+    name: "עיצוב כריכה תורנית מהודרת",
+    description: "שירות עיצוב כריכה תורנית מקצועית לספרי קודש, כולל התאמה מלאה לסגנון התוכן והדפוס.",
+    fullDesc: "עיצוב כריכה תורנית בהתאמה אישית: קומפוזיציה, טיפוגרפיה, צבעוניות, ועיטורים בסגנון נקי ומהודר. מתאים למחברים, הוצאות לאור ומעמדים.",
+    price: "₪1200",
+    image: "📘",
+    imageUrl: "",
+    isPublished: true,
+    featuresText: "",
+    features: [],
+    videoUrl: "",
+    downloadUrl: "",
+    pdfPreviewUrl: "",
+  },
+];
+
 export const FAQ = [
   { 
     "question": "איך מתבצעת התקנת הסקריפטים?", 
