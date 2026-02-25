@@ -10,6 +10,7 @@ const TorahCovers: React.FC<TorahCoversProps> = ({ onNavigate }) => {
     typeof window !== 'undefined' ? localStorage.getItem('yosef_admin_covers_backup') : null;
   const coversList = savedCovers ? JSON.parse(savedCovers) : TORAH_COVER_DESIGNS;
   const publishedCovers = coversList.filter((c: any) => c.isPublished);
+  const [brokenImages, setBrokenImages] = React.useState<Record<string, boolean>>({});
 
   return (
     <div className="animate-fadeIn pb-24 max-w-7xl mx-auto px-4" dir="rtl">
@@ -20,14 +21,28 @@ const TorahCovers: React.FC<TorahCoversProps> = ({ onNavigate }) => {
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
-        {publishedCovers.map((cover: any) => (
+        {publishedCovers.map((cover: any) => {
+          const imageUrl = typeof cover.imageUrl === 'string' ? cover.imageUrl.trim() : '';
+          const shouldShowImage = Boolean(imageUrl) && !brokenImages[cover.id];
+          return (
           <div
             key={cover.id}
             className="group bg-slate-900/40 rounded-[2.5rem] border border-slate-800 overflow-hidden hover:bg-slate-800/60 transition-all duration-500 hover:-translate-y-2 shadow-xl flex flex-col"
           >
             <div className="h-64 bg-slate-950 flex items-center justify-center relative">
-              {cover.imageUrl ? (
-                <img src={cover.imageUrl} alt={cover.name} className="w-full h-full object-contain p-6" />
+              {shouldShowImage ? (
+                <img
+                  src={imageUrl}
+                  alt={cover.name}
+                  className="w-full h-full object-contain p-6"
+                  loading="lazy"
+                  onError={() =>
+                    setBrokenImages((prev) => ({
+                      ...prev,
+                      [cover.id]: true,
+                    }))
+                  }
+                />
               ) : (
                 <span className="text-8xl">{cover.image || '📘'}</span>
               )}
@@ -50,7 +65,8 @@ const TorahCovers: React.FC<TorahCoversProps> = ({ onNavigate }) => {
               </div>
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

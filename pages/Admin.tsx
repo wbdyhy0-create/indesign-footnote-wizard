@@ -32,6 +32,8 @@ const AdminPortal: React.FC = () => {
   const [editingProductKind, setEditingProductKind] = useState<'products' | 'covers'>('products');
   const [viewMode, setViewMode] = useState<'scripts' | 'products' | 'covers' | 'leads' | 'json'>('scripts');
   const [isCloudReady, setIsCloudReady] = useState(false);
+  const [isUploadingCoverImage, setIsUploadingCoverImage] = useState(false);
+  const [coverUploadError, setCoverUploadError] = useState<string | null>(null);
 
   const handleLogout = () => {
     if (typeof window !== 'undefined') {
@@ -39,17 +41,60 @@ const AdminPortal: React.FC = () => {
     }
   };
 
-  // העלאת תמונת מוצר מהמחשב והמרה ל-Base64
-  const handleProductImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  // העלאת תמונת מוצר/כריכה מהמחשב
+  const handleProductImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const base64 = reader.result as string;
+    const fileToDataUrl = (selectedFile: File) =>
+      new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = () => reject(new Error('Failed to read image file'));
+        reader.readAsDataURL(selectedFile);
+      });
+
+    try {
+      // כריכות נשמרות בענן כדי שהלינק יעבוד לכל הגולשים באתר החי
+      if (editingProductKind === 'covers') {
+        setCoverUploadError(null);
+        setIsUploadingCoverImage(true);
+
+        const dataUrl = await fileToDataUrl(file);
+        const response = await fetch('/api/upload-cover-image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fileName: file.name,
+            contentType: file.type || 'image/png',
+            dataUrl,
+          }),
+        });
+
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || !result?.url) {
+          throw new Error(result?.error || 'העלאת התמונה נכשלה');
+        }
+
+        setEditingProduct((prev: any) => (prev ? { ...prev, imageUrl: result.url } : prev));
+        return;
+      }
+
+      // מוצרים רגילים: נשמרים כ-Base64 כמו שהיה עד עכשיו
+      const base64 = await fileToDataUrl(file);
       setEditingProduct((prev: any) => (prev ? { ...prev, imageUrl: base64 } : prev));
-    };
-    reader.readAsDataURL(file);
+    } catch (error: any) {
+      const message = error?.message || 'שגיאה בהעלאת התמונה';
+      if (editingProductKind === 'covers') {
+        setCoverUploadError(message);
+      }
+      alert(`❌ ${message}`);
+    } finally {
+      if (editingProductKind === 'covers') {
+        setIsUploadingCoverImage(false);
+      }
+      event.target.value = '';
+    }
   };
 
   const mapFeaturesToText = (features: any): string => {
@@ -372,16 +417,27 @@ const AdminPortal: React.FC = () => {
                   />
                   <div className="flex items-center gap-3">
                     <label className="inline-flex items-center px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold cursor-pointer">
-                      בחר תמונה
+                      {isUploadingCoverImage && editingProductKind === 'covers' ? 'מעלה לענן...' : 'בחר תמונה'}
                       <input
                         type="file"
                         accept="image/*"
                         onChange={handleProductImageUpload}
+                        disabled={isUploadingCoverImage && editingProductKind === 'covers'}
                         className="hidden"
                       />
                     </label>
-                    <span className="text-xs text-slate-500">ניתן לבחור קובץ מהמחשב, והוא יישמר כ-Base64.</span>
+                    <span className="text-xs text-slate-500">
+                      {editingProductKind === 'covers'
+                        ? 'בכריכות: הקובץ יועלה לענן ויישמר כלינק ציבורי (https).'
+                        : 'במוצרים: הקובץ נשמר כ-Base64 בדפדפן.'}
+                    </span>
                   </div>
+                  {isUploadingCoverImage && editingProductKind === 'covers' && (
+                    <p className="text-xs text-amber-400 font-bold">שומר תמונה בענן... נא להמתין.</p>
+                  )}
+                  {coverUploadError && editingProductKind === 'covers' && (
+                    <p className="text-xs text-red-400 font-bold">{coverUploadError}</p>
+                  )}
                   {editingProduct.imageUrl && (
                     <div className="mt-2">
                       <p className="text-xs text-slate-500 mb-1">תצוגה מקדימה:</p>

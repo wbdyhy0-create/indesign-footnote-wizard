@@ -70,6 +70,26 @@ export default defineConfig(({ mode }) => {
               res.end(JSON.stringify({ success: false, error: 'שיטה לא מורשית' }));
             });
 
+            // local route for cover image upload (Vercel Blob is not available in plain vite dev)
+            server.middlewares.use('/api/upload-cover-image', (req, res) => {
+              if (req.method !== 'POST') {
+                res.statusCode = 405;
+                res.setHeader('Content-Type', 'application/json; charset=utf-8');
+                res.end(JSON.stringify({ success: false, error: 'שיטה לא מורשית' }));
+                return;
+              }
+
+              res.statusCode = 501;
+              res.setHeader('Content-Type', 'application/json; charset=utf-8');
+              res.end(
+                JSON.stringify({
+                  success: false,
+                  error:
+                    'העלאה לענן זמינה בפריסת Vercel בלבד. לפיתוח מקומי השתמש ב-vercel dev או הזן URL ציבורי לתמונה.',
+                }),
+              );
+            });
+
             // local route for AI assistant in dev
             server.middlewares.use('/api/ask-assistant', async (req, res, next) => {
               if (req.method !== 'POST') {
