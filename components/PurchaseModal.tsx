@@ -30,7 +30,6 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
 
   useEffect(() => {
     if (isOpen) {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
       setStep('form');
       setOrderInfo(null);
       setStatusMessage(null);
@@ -174,8 +173,8 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
 
   return (
     <>
-      <div className="fixed inset-0 z-[999] flex items-start md:items-center justify-center p-4 pt-8 md:pt-4 bg-black/85 overflow-y-auto">
-        <div className="bg-[#0f172a] border border-slate-700 w-full max-w-md rounded-[2.5rem] shadow-2xl relative p-8 md:p-10 text-center">
+      <div className="fixed inset-0 z-[999] flex min-h-screen items-center justify-center bg-black/75 p-4 overflow-y-auto">
+        <div className="relative z-[1001] bg-[#0f172a] border border-slate-700 w-full max-w-md rounded-[2.5rem] shadow-2xl p-8 md:p-10 text-center">
           <button onClick={onClose} className="absolute top-6 right-6 text-slate-400 hover:text-white text-2xl">✕</button>
 
           {step === 'form' ? (
