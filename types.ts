@@ -47,3 +47,19 @@ export interface Lead {
   scriptName: string;
   timestamp: string;
 }
+
+export type OrderStatus = 'pending' | 'paid';
+
+export interface PurchaseOrder {
+  id: string;
+  orderCode: string;
+  customerName: string;
+  customerEmail: string;
+  productId: string;
+  productName: string;
+  amountNis: number;
+  priceLabel: string;
+  status: OrderStatus;
+  createdAt: string;
+  paidAt: string | null;
+}

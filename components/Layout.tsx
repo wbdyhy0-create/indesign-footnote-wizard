@@ -119,9 +119,9 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage, sc
   return (
     <div className="min-h-screen flex flex-col overflow-x-hidden bg-[#0f172a] text-slate-200 font-sans" dir="rtl">
 
-      {/* סרגל ניווט עליון - גובה עודכן ל-h-28 למניעת דחיסה */}
+      {/* סרגל ניווט עליון */}
       <header className="sticky top-0 z-50 relative bg-slate-900/95 backdrop-blur-md border-b border-slate-800 shadow-xl">
-      <div className="max-w-6xl mx-auto px-5 md:px-6 h-24 flex items-center justify-between gap-4">
+      <div className="max-w-6xl mx-auto px-4 md:px-5 h-20 flex items-center justify-between gap-3">
 
 
           {/* כפתורי פעולה קבועים - בצד ימין */}
@@ -131,7 +131,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage, sc
               aria-label={isMenuOpen ? 'סגור תפריט' : 'פתח תפריט'}
               aria-expanded={isMenuOpen}
               onClick={() => setIsMenuOpen((prev) => !prev)}
-              className="block w-12 h-12 rounded-2xl border-2 border-slate-700 bg-slate-800/80 text-slate-200 flex items-center justify-center text-2xl shadow-lg hover:border-amber-500/60 hover:text-amber-400 transition-colors z-[110]"
+              className="block w-10 h-10 rounded-xl border-2 border-slate-700 bg-slate-800/80 text-slate-200 flex items-center justify-center text-xl shadow-lg hover:border-amber-500/60 hover:text-amber-400 transition-colors z-[110]"
             >
               {isMenuOpen ? '✕' : '☰'}
             </button>
@@ -141,7 +141,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage, sc
                 setActivePage('home');
                 setIsMenuOpen(false);
               }}
-              className="px-4 py-2 rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 hover:text-amber-200 text-sm font-bold transition-colors"
+              className="px-3 py-2 rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 hover:text-amber-200 text-xs md:text-sm font-bold transition-colors"
             >
               דף הבית
             </button>
@@ -186,10 +186,10 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage, sc
             }}
           >
             <div className="text-left hidden lg:block">
-              <h1 className="text-2xl font-black text-amber-500 leading-none uppercase italic tracking-tighter">FOOTNOTE WIZARD</h1>
+              <h1 className="text-xl font-black text-amber-500 leading-none uppercase italic tracking-tighter">FOOTNOTE WIZARD</h1>
               <p className="text-xs text-slate-400 font-bold tracking-[0.2em]">INDESIGN AUTOMATION</p>
             </div>
-            <div className="w-12 h-12 bg-amber-500 rounded-2xl flex items-center justify-center text-3xl shadow-lg shadow-amber-500/20 group-hover:rotate-6 transition-transform">✒️</div>
+            <div className="w-10 h-10 bg-amber-500 rounded-xl flex items-center justify-center text-2xl shadow-lg shadow-amber-500/20 group-hover:rotate-6 transition-transform">✒️</div>
           </div>
 
         </div>
@@ -199,13 +199,13 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage, sc
 
       {/* אזור התוכן המרכזי */}
       <div className="flex-1 flex flex-col relative overflow-hidden">
-        <main className="flex-1 w-full max-w-6xl mx-auto p-5 md:p-8 overflow-y-auto custom-scrollbar">
+        <main className="flex-1 w-full max-w-6xl mx-auto p-4 md:p-6 overflow-y-auto custom-scrollbar">
           {children}
         </main>
 
         {/* Floating AI */}
         <div className="fixed bottom-8 left-0 right-0 z-50 pointer-events-none">
-          <div className="max-w-7xl mx-auto px-6 flex justify-start">
+          <div className="max-w-6xl mx-auto px-4 md:px-5 flex justify-start">
             <div className="flex flex-col items-start pointer-events-auto">
               {isHelpOpen && (
                 <div className="mb-6 w-80 md:w-96 bg-slate-900 border border-slate-700 rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden animate-fadeIn shadow-amber-500/5">
