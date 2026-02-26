@@ -41,8 +41,6 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
     }
   }, [isOpen]);
 
-  if (!isOpen) return null;
-
   const handleCreateOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -156,6 +154,8 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
 
     return () => window.clearInterval(timer);
   }, [isOpen, step, orderInfo?.id, customerInfo.email]);
+
+  if (!isOpen) return null;
 
   const handleWhatsAppSupport = () => {
     const orderCode = orderInfo?.orderCode || 'ללא קוד הזמנה';
