@@ -26,6 +26,7 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
   const [isCreatingOrder, setIsCreatingOrder] = useState(false);
   const [isCheckingPayment, setIsCheckingPayment] = useState(false);
   const [showDownloadConfirmation, setShowDownloadConfirmation] = useState(false);
+  const [isAutoChecking, setIsAutoChecking] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -37,6 +38,7 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
       setIsCreatingOrder(false);
       setIsCheckingPayment(false);
       setShowDownloadConfirmation(false);
+      setIsAutoChecking(false);
     }
   }, [isOpen]);
 
@@ -94,13 +96,17 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
     window.open(orderInfo.bitPayUrl, '_blank');
   };
 
-  const handleCheckPayment = async () => {
+  const checkPaymentStatus = async (manualCheck: boolean) => {
     if (!orderInfo?.id) return;
-    setError(null);
-    setStatusMessage(null);
+    if (manualCheck) {
+      setError(null);
+      setStatusMessage(null);
+      setIsCheckingPayment(true);
+    } else {
+      setIsAutoChecking(true);
+    }
 
     try {
-      setIsCheckingPayment(true);
       const response = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -122,13 +128,35 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
         return;
       }
 
-      setStatusMessage('עדיין לא התקבל אישור תשלום. לאחר אישור ידני באדמין ניתן ללחוץ שוב.');
+      if (manualCheck) {
+        setStatusMessage('עדיין לא התקבל אישור תשלום. לאחר אישור ידני באדמין ניתן ללחוץ שוב.');
+      }
     } catch (err: any) {
-      setError(err?.message || 'שגיאה בבדיקת סטטוס התשלום');
+      if (manualCheck) {
+        setError(err?.message || 'שגיאה בבדיקת סטטוס התשלום');
+      }
     } finally {
-      setIsCheckingPayment(false);
+      if (manualCheck) {
+        setIsCheckingPayment(false);
+      } else {
+        setIsAutoChecking(false);
+      }
     }
   };
+
+  const handleCheckPayment = async () => {
+    await checkPaymentStatus(true);
+  };
+
+  useEffect(() => {
+    if (!isOpen || step !== 'payment' || !orderInfo?.id) return;
+
+    const timer = window.setInterval(() => {
+      checkPaymentStatus(false);
+    }, 7000);
+
+    return () => window.clearInterval(timer);
+  }, [isOpen, step, orderInfo?.id, customerInfo.email]);
 
   const handleWhatsAppSupport = () => {
     const orderCode = orderInfo?.orderCode || 'ללא קוד הזמנה';
@@ -196,8 +224,11 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
 
                 <div className="py-6 border-t border-slate-800 mt-6 text-right space-y-3">
                   <p className="text-[11px] font-bold text-slate-300 leading-tight bg-slate-800/30 p-4 rounded-2xl border border-slate-700/50">
-                    אחרי התשלום בביט, אשר את ההזמנה דרך אדמין ואז חזור לכאן ולחץ "בדוק אישור תשלום".
+                    אחרי התשלום בביט, אשר את ההזמנה דרך אדמין. אנחנו בודקים אוטומטית כל כמה שניות.
                   </p>
+                  {isAutoChecking && (
+                    <p className="text-[11px] text-indigo-300 font-bold">בודק אוטומטית אישור תשלום...</p>
+                  )}
 
                   {statusMessage && <p className="text-xs text-amber-300 font-bold">{statusMessage}</p>}
                   {error && <p className="text-xs text-red-400 font-bold">{error}</p>}
