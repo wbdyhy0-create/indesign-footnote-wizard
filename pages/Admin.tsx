@@ -31,7 +31,8 @@ const AdminPortal: React.FC = () => {
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [editingProductKind, setEditingProductKind] = useState<'products' | 'covers'>('products');
   const [viewMode, setViewMode] = useState<'scripts' | 'products' | 'covers' | 'leads' | 'json'>('scripts');
-  const [isCloudReady, setIsCloudReady] = useState(false);
+  const [isPublishingLive, setIsPublishingLive] = useState(false);
+  const [publishStatus, setPublishStatus] = useState<string | null>(null);
   const [isUploadingCoverImage, setIsUploadingCoverImage] = useState(false);
   const [coverUploadError, setCoverUploadError] = useState<string | null>(null);
 
@@ -113,6 +114,27 @@ const AdminPortal: React.FC = () => {
     return '';
   };
 
+  const handlePublishToLive = async () => {
+    try {
+      setIsPublishingLive(true);
+      setPublishStatus(null);
+      const response = await fetch('/api/update-scripts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scripts, products, covers }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data?.success === false) {
+        throw new Error(data?.error || 'שגיאה בפרסום לאתר החי');
+      }
+      setPublishStatus('✅ פורסם בהצלחה לאתר החי');
+    } catch (error: any) {
+      setPublishStatus(`❌ ${error?.message || 'שגיאה בפרסום לאתר החי'}`);
+    } finally {
+      setIsPublishingLive(false);
+    }
+  };
+
   // טעינה ראשונית מהענן כדי לסנכרן בין כל המכשירים
   useEffect(() => {
     const loadCloudData = async () => {
@@ -132,36 +154,19 @@ const AdminPortal: React.FC = () => {
         }
       } catch (error) {
         console.warn('Cloud sync load failed, using local data:', error);
-      } finally {
-        setIsCloudReady(true);
       }
     };
 
     loadCloudData();
   }, []);
 
-  // שמירה אוטומטית לזיכרון המקומי + לענן בכל פעם שיש שינוי
+  // שמירה אוטומטית לזיכרון המקומי בכל פעם שיש שינוי
   useEffect(() => {
     localStorage.setItem('yosef_admin_backup', JSON.stringify(scripts));
     localStorage.setItem('yosef_admin_products_backup', JSON.stringify(products));
     localStorage.setItem('yosef_admin_covers_backup', JSON.stringify(covers));
-
-    if (!isCloudReady) return;
-
-    const timeoutId = window.setTimeout(async () => {
-      try {
-        await fetch('/api/update-scripts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ scripts, products, covers }),
-        });
-      } catch (error) {
-        console.warn('Cloud sync save failed:', error);
-      }
-    }, 600);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [scripts, products, covers, isCloudReady]);
+    setPublishStatus(null);
+  }, [scripts, products, covers]);
 
   // נתונים וירטואליים ללידים
   const [leads] = useState([
@@ -213,7 +218,7 @@ const AdminPortal: React.FC = () => {
         <div className="bg-[#0b1121] border border-slate-800 rounded-3xl p-6 md:p-8 mb-8 flex flex-col md:flex-row-reverse justify-between items-center gap-6 shadow-xl">
           <div className="text-center md:text-right">
             <h1 className="text-3xl font-black text-[#f59e0b] tracking-wide">ניהול המערכת</h1>
-            <p className="text-slate-500 text-xs font-bold mt-1">שמירה אוטומטית פעילה. שמירה אחרונה: {new Date().toLocaleTimeString('he-IL')}</p>
+            <p className="text-slate-500 text-xs font-bold mt-1">השינויים נשמרים מקומית אוטומטית. לפרסום באתר החי לחץ "פרסם לאתר החי".</p>
           </div>
 
           <div className="flex flex-wrap justify-center gap-3 items-center">
@@ -285,10 +290,22 @@ const AdminPortal: React.FC = () => {
               </button>
             )}
 
+            <button
+              onClick={handlePublishToLive}
+              disabled={isPublishingLive}
+              className={`px-6 py-2.5 rounded-xl font-black shadow-lg transition flex items-center gap-2 ${isPublishingLive ? 'bg-emerald-700 text-white cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-500 text-white'}`}
+            >
+              {isPublishingLive ? 'מפרסם...' : '🚀 פרסם לאתר החי'}
+            </button>
             <button onClick={handleCopyCode} className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2.5 rounded-xl font-black shadow-lg transition flex items-center gap-2">📋 העתק קוד לעדכון קבוע</button>
             <button onClick={() => { setEditingScript(null); setEditingProduct(null); setViewMode('json'); }} className="bg-slate-800/50 text-slate-300 px-5 py-2.5 rounded-xl font-bold border border-slate-700 text-sm hover:bg-slate-700 transition">תצוגת JSON</button>
           </div>
         </div>
+        {publishStatus && (
+          <div className="mb-6 text-sm font-bold text-center bg-slate-900/70 border border-slate-700 rounded-xl py-3 px-4">
+            {publishStatus}
+          </div>
+        )}
 
         {/* --- אזור התוכן המשתנה --- */}
 

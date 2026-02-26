@@ -12,46 +12,46 @@ import ProductDetail from './pages/ProductDetail'; // ייבוא של דף הפ�
 import { SCRIPTS as DEFAULT_SCRIPTS, OTHER_PRODUCTS as DEFAULT_PRODUCTS, TORAH_COVER_DESIGNS as DEFAULT_COVERS } from './constants';
 import { ScriptData } from './types';
 
-const SCRIPTS_VERSION = '2';
-
 const App: React.FC = () => {
   const [activePage, setActivePage] = useState('home');
   const [scripts, setScripts] = useState<ScriptData[]>(DEFAULT_SCRIPTS);
-  
-  // טעינת המוצרים פעם אחת (הגרסה שתישמר היא זו מהמנהל אם קיימת)
-  const [products] = useState<any[]>(() => {
-    const savedProducts = typeof window !== 'undefined'
-      ? localStorage.getItem('yosef_admin_products_backup')
-      : null;
-    return savedProducts ? JSON.parse(savedProducts) : DEFAULT_PRODUCTS;
-  });
+  const [products, setProducts] = useState<any[]>(DEFAULT_PRODUCTS);
+  const [covers, setCovers] = useState<any[]>(DEFAULT_COVERS);
 
-  const [covers] = useState<any[]>(() => {
-    const savedCovers = typeof window !== 'undefined'
-      ? localStorage.getItem('yosef_admin_covers_backup')
-      : null;
-    return savedCovers ? JSON.parse(savedCovers) : DEFAULT_COVERS;
-  });
-
+  // טעינת תוכן מהענן לאתר החי (fallback לקבועים במקרה כשל)
   useEffect(() => {
-    const savedVersion = localStorage.getItem('yosef_scripts_version');
-    
-    if (savedVersion !== SCRIPTS_VERSION) {
-      localStorage.setItem('yosef_scripts_data', JSON.stringify(DEFAULT_SCRIPTS));
-      localStorage.setItem('yosef_scripts_version', SCRIPTS_VERSION);
-      setScripts(DEFAULT_SCRIPTS);
-      return;
-    }
-
-    const savedScripts = localStorage.getItem('yosef_scripts_data');
-    if (savedScripts) {
+    const loadLiveData = async () => {
       try {
-        setScripts(JSON.parse(savedScripts));
+        const response = await fetch('/api/update-scripts');
+        if (!response.ok) throw new Error('Failed to load cloud data');
+        const data = await response.json();
+
+        if (Array.isArray(data?.scripts) && data.scripts.length > 0) {
+          setScripts(data.scripts);
+        } else {
+          setScripts(DEFAULT_SCRIPTS);
+        }
+
+        if (Array.isArray(data?.products) && data.products.length > 0) {
+          setProducts(data.products);
+        } else {
+          setProducts(DEFAULT_PRODUCTS);
+        }
+
+        if (Array.isArray(data?.covers) && data.covers.length > 0) {
+          setCovers(data.covers);
+        } else {
+          setCovers(DEFAULT_COVERS);
+        }
       } catch (e) {
-        console.error("Failed to load saved scripts", e);
+        console.warn('Cloud data unavailable, using constants fallback:', e);
         setScripts(DEFAULT_SCRIPTS);
+        setProducts(DEFAULT_PRODUCTS);
+        setCovers(DEFAULT_COVERS);
       }
-    }
+    };
+
+    loadLiveData();
   }, []);
 
   const renderContent = () => {
@@ -61,33 +61,14 @@ const App: React.FC = () => {
       return <ScriptDetail product={script} onBack={() => setActivePage('scripts-catalog')} />;
     }
 
-    // 2. בדיקה אם הגולש לוחץ על מוצר (התוספת החדשה שלנו!)
-    // תמיד קוראים את המוצרים העדכניים מ-localStorage כדי ששינויים במנהל יופיעו מיד
-    let productsSource = products;
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem('yosef_admin_products_backup');
-        if (saved) productsSource = JSON.parse(saved);
-      } catch {
-        productsSource = products;
-      }
-    }
-    const product = productsSource.find((p: any) => p.id === activePage);
+    // 2. בדיקה אם הגולש לוחץ על מוצר
+    const product = products.find((p: any) => p.id === activePage);
     if (product) {
       // אם כן, פתח את דף הפירוט והעבר לו את נתוני המוצר
       return <ProductDetail product={product} onBack={() => setActivePage('other-products')} />;
     }
 
-    let coversSource = covers;
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem('yosef_admin_covers_backup');
-        if (saved) coversSource = JSON.parse(saved);
-      } catch {
-        coversSource = covers;
-      }
-    }
-    const cover = coversSource.find((c: any) => c.id === activePage);
+    const cover = covers.find((c: any) => c.id === activePage);
     if (cover) {
       return <ProductDetail product={cover} onBack={() => setActivePage('torah-covers')} />;
     }
