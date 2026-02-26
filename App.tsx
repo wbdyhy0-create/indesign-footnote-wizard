@@ -111,12 +111,19 @@ const App: React.FC = () => {
     const readPageFromLocation = () => {
       if (typeof window === 'undefined') return;
       const pageFromPath = getPageFromLocation(window.location.pathname, window.location.hash);
+      if (pageFromPath === 'admin' && !normalizePath(window.location.pathname).startsWith('/admin')) {
+        window.history.replaceState(null, '', '/admin');
+      }
       setActivePage(pageFromPath);
     };
 
     readPageFromLocation();
     window.addEventListener('popstate', readPageFromLocation);
-    return () => window.removeEventListener('popstate', readPageFromLocation);
+    window.addEventListener('hashchange', readPageFromLocation);
+    return () => {
+      window.removeEventListener('popstate', readPageFromLocation);
+      window.removeEventListener('hashchange', readPageFromLocation);
+    };
   }, []);
 
   // טעינת תוכן מהענן לאתר החי (fallback לקבועים במקרה כשל)
