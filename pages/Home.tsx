@@ -6,31 +6,31 @@ interface HomeProps {
 
 const Home: React.FC<HomeProps> = ({ onNavigateToCatalog }) => {
   return (
-    <div className="animate-fadeIn pb-24">
-      <header className="text-center mb-24 pt-12">
-        <div className="inline-block px-6 py-2 mb-8 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-500 text-[10px] font-black uppercase tracking-[0.4em] animate-pulse">
+    <div className="animate-fadeIn pb-16">
+      <header className="text-center mb-16 pt-8">
+        <div className="inline-block px-5 py-2 mb-6 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-500 text-[10px] font-black uppercase tracking-[0.35em] animate-pulse">
           Premium Indesign Automation
         </div>
-        <h1 className="text-6xl md:text-8xl font-black mb-6 bg-gradient-to-r from-white via-amber-200 to-white bg-clip-text text-transparent leading-[0.9] tracking-tighter uppercase italic">
+        <h1 className="text-5xl md:text-7xl font-black mb-5 bg-gradient-to-r from-white via-amber-200 to-white bg-clip-text text-transparent leading-[0.9] tracking-tighter uppercase italic">
           FOOTNOTE<br/>WIZARD
         </h1>
-        <div className="text-2xl md:text-4xl font-black text-amber-500 mb-12 tracking-tight drop-shadow-[0_0_20px_rgba(245,158,11,0.5)]">
+        <div className="text-xl md:text-3xl font-black text-amber-500 mb-8 tracking-tight drop-shadow-[0_0_20px_rgba(245,158,11,0.5)]">
           הדור הבא של העימוד המקצועי
         </div>
         
-        <p className="text-slate-400 text-lg md:text-xl max-w-3xl mx-auto leading-relaxed mb-16 font-medium">
+        <p className="text-slate-400 text-base md:text-lg max-w-3xl mx-auto leading-relaxed mb-10 font-medium">
           אנחנו לא רק בונים סקריפטים, אנחנו מגדירים מחדש את גבולות האפשר באינדיזיין. 
           דיוק מושלם, מהירות חסרת תקדים ונוחות עבודה שתגרום לך להתאהב במקצוע מחדש.
         </p>
         
-        <div className="flex justify-center mb-16">
+        <div className="flex justify-center mb-12">
           <button 
             onClick={onNavigateToCatalog}
-            className="group relative px-14 py-7 bg-amber-600 text-white font-black text-2xl rounded-[2rem] shadow-[0_20px_50px_rgba(245,158,11,0.3)] transition-all hover:scale-105 active:scale-95 flex items-center gap-6 border border-amber-400/20 overflow-hidden"
+            className="group relative px-10 md:px-12 py-5 md:py-6 bg-amber-600 text-white font-black text-xl md:text-2xl rounded-[2rem] shadow-[0_20px_50px_rgba(245,158,11,0.3)] transition-all hover:scale-105 active:scale-95 flex items-center gap-4 md:gap-6 border border-amber-400/20 overflow-hidden"
           >
             <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
             לצפייה בקטלוג 2026
-            <svg className="w-8 h-8 rtl-flip transition-transform group-hover:translate-x-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-7 h-7 md:w-8 md:h-8 rtl-flip transition-transform group-hover:translate-x-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M14 5l7 7m0 0l-7 7m7-7H3" />
             </svg>
           </button>
