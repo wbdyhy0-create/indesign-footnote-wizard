@@ -148,23 +148,44 @@ export const SCRIPTS = [
     isTrialDownloadable: false,
     isPublished: true,
   },
+  {
+    id: "1772090106952",
+    name: "מניעת יתומים ואלמנות ומתיחה חכמה Layout Wizard",
+    price: "₪100",
+    originalPrice: "₪450",
+    videoUrl: "",
+    downloadUrl: "https://drive.google.com/file/d/1IJbB83Tox4qavG4QhrHM0HoKoun_Ok6L/view?usp=sharing",
+    trialDownloadUrl: "https://drive.google.com/file/d/15MbcdumgKB33EDnR2C_Hfr4bQW_8U8WZ/view?usp=sharing",
+    description: "נמאס לכם לעבור דף-דף ולסדר ידנית את ה-Vertical Justification? הכירו את ה-Footnote Wizard Layout Fix.\nהסקריפט פותח במיוחד עבור מעמדי ספרי קודש וספרות עיונית, שבהם הדיוק האסתטי ביישור העמודים הוא קריטי. הסקריפט מבצע \"ניתוח כירורגי\" של זרימת הטקסט במסמך ומחיל עליו חוקי עימוד קשוחים שמונעים שורות בודדות בתחילת או בסוף פסקה, תוך שהוא מוודא שתיבות הטקסט יישארו מתוחות ומיושרות לקו התחתון של העמוד.\n\nמה הופך את גרסה 3 לכל כך חזקה?\n\nעבודה דרך Stories: הסקריפט יודע לרוץ על כל שרשראות הטקסט במסמך בבת אחת, בלי שתצטרכו לבחור דבר.\n\nטיפול כירורגי בבחירה: ניתן להחיל את התיקון רק על תיבות ספציפיות או על קטע טקסט נבחר.\n",
+    shortDesc: "הדור הבא של הדיוק באינדיזיין. סרגל כלים עוצמתי לטיפול אוטומטי ביתומים ואלמנות (Keep Lines) בשילוב מתיחה אנכית חכמה. כלי חובה לכל מעמד שרוצה דפים מיושרים וטקסט רציף בלחיצת כפתור.",
+    color: "blue",
+    isPublished: true
+  },
 ];
 
 export const OTHER_PRODUCTS = [
   {
     id: "book-nezer-yosef",
-    name: "הגדה של פסח (קובץ אינדיזיין מעוצב)",
-    description: "אנו מגישים לכם את קובץ המקור של הגדה של פסח \"נוסח 2026\" בפורמט InDesign (INDD/IDML), המאפשר עריכה מלאה ושליטה מוחלטת בכל רכיבי העיצוב.",
-    price: "900 ש\"ח",
+    name: "סדרת שו\"ת נזר יוסף",
+    description: "חיבור מקיף הכולל ביאורים וחידושים על הש\"ס וההלכה. לאחרונה יצא לאור החלק על אורח חיים ח\"ט - ח\"י.",
+    price: "₪120",
     image: "📚",
     isPublished: true,
-    imageUrl: "",
     featuresText: "",
-    downloadUrl:
-      "https://drive.google.com/file/d/1ITGcufU98zMRzDFgAIhR0x2kjB64FPTW/view?usp=sharing",
-    fullDesc: "מה מקבלים בחבילה:\n\nקובץ פתוח ומאורגן: עבודה נכונה עם סגנונות פסקה (Paragraph Styles) וסגנונות תו (Character Styles) לשינוי מהיר של גופנים וגדלים.\n\nעימוד מקצועי: נוסח עדות המזרח מדויק, הכולל בדיקת חמץ, סדר הקערה, הגדה מלאה, ברכת המזון ושיר השירים.\n\nגמישות מקסימלית: ניתן להוסיף פירושים, לשנות את גודל העמוד, להחליף עיטורים ולהתאים את ההגדה לצרכי הלקוחות שלכם או להקדשות אישיות.\n\nמוכן לדפוס: הגדרות שוליים, בליד (Bleed) ומספור עמודים מובנים בתוך הקובץ.\n\nאידיאלי עבור:\nמעמדים שרוצים בסיס חזק ומקצועי, בתי דפוס שזקוקים להגדה איכותית להזמנות מהירות, וגרפיקאים המעוניינים להוסיף נופך אישי לעיצוב הקיים.",
-    pdfPreviewUrl:
-      "https://drive.google.com/file/d/1NB0aCIG2_GpIgVeDMOB4kDCfsusyuQAA/view?usp=sharing",
+    videoUrl: "https://www.youtube.com/watch?v=Tm5d5fUvpLo",
+    imageUrl: ""
+  },
+  {
+    id: "book-hachashifa",
+    name: "הספר החשיפה - יוסף עובדיה",
+    description: "ספר הדרכה מקיף ומעשי לטיפול עצמי ב-OCD והתמודדות נכונה.",
+    price: "₪80",
+    image: "🧠",
+    isPublished: true,
+    downloadUrl: "https://drive.google.com/file/d/1ITGcufU98zMRzDFgAIhR0x2kjB64FPTW/view?usp=sharing",
+    featuresText: "",
+    videoUrl: "https://www.youtube.com/watch?v=Tm5d5fUvpLo",
+    imageUrl: ""
   },
 ];
 
