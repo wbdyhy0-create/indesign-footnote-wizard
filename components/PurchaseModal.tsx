@@ -126,7 +126,7 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
       }
 
       if (manualCheck) {
-        setStatusMessage('עדיין לא התקבל אישור תשלום. לאחר אישור ידני באדמין ניתן ללחוץ שוב.');
+        setStatusMessage('עדיין האימות לא אושר על ידי מנהל. ברגע שיאושר הכפתור ישתנה ל"הורד עכשיו", אין צורך ללחוץ שוב ושוב.');
       }
     } catch (err: any) {
       if (manualCheck) {
