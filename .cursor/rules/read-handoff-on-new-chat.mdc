@@ -1,0 +1,10 @@
+---
+description: Always read handoff at chat start
+alwaysApply: true
+---
+
+# Handoff First
+
+- At the beginning of a new chat, read `docs/HANDOFF.md` before proposing changes.
+- Use `docs/HANDOFF.md` as the default source of project context and current state.
+- If the handoff conflicts with a new user request, follow the user's latest request and then update `docs/HANDOFF.md`.
