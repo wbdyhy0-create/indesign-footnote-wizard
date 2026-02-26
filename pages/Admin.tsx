@@ -22,13 +22,9 @@ const getAdminViewFromPath = (pathname: string): AdminViewMode => {
   return isAdminViewMode(next) ? next : 'scripts';
 };
 
-const ADMIN_PASSWORD = '1967';
 const ADMIN_CODE = '1967';
 
 const AdminPortal: React.FC = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [password, setPassword] = useState('');
-  const [authError, setAuthError] = useState<string | null>(null);
 
   // טעינת סקריפטים מהזיכרון המקומי
   const [scripts, setScripts] = useState<any[]>(() => {
@@ -133,31 +129,9 @@ const AdminPortal: React.FC = () => {
     }
   };
 
-  const handleLogin = (event: React.FormEvent) => {
-    event.preventDefault();
-    if (password.trim() === ADMIN_PASSWORD) {
-      setIsAuthenticated(true);
-      setAuthError(null);
-      setPassword('');
-      if (typeof window !== 'undefined') {
-        const currentPath = normalizePath(window.location.pathname);
-        if (!currentPath.startsWith('/admin')) {
-          window.history.replaceState(null, '', '/admin');
-        }
-      }
-      return;
-    }
-    setAuthError('קוד מנהל שגוי');
-  };
-
-  const handleLogout = () => {
-    setIsAuthenticated(false);
-    setAuthError(null);
-    setPassword('');
-    setViewMode('scripts');
-    if (typeof window !== 'undefined') {
-      window.history.replaceState(null, '', '/admin');
-    }
+  const goToClientHome = () => {
+    if (typeof window === 'undefined') return;
+    window.location.href = '/';
   };
 
   const fileToDataUrl = (selectedFile: File) =>
@@ -398,38 +372,6 @@ const AdminPortal: React.FC = () => {
     alert("✅ הקוד הועתק בהצלחה!\n(קישורי יוטיוב תוקנו. תמונות Base64 הוחלפו בריק כדי למנוע JSON ענק. מומלץ להשתמש בהעלאה לענן או בקישור https.)");
   };
 
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-[#060b14] flex items-center justify-center p-6 text-right text-white font-sans" dir="rtl">
-        <div className="w-full max-w-md bg-[#0b1121] border border-slate-800 rounded-3xl p-8 shadow-xl">
-          <h1 className="text-3xl font-black text-[#f59e0b] mb-2 text-center">כניסת מנהל</h1>
-          <p className="text-slate-400 text-sm text-center mb-6">הזן קוד מנהל כדי להיכנס למערכת הניהול.</p>
-          <form onSubmit={handleLogin} className="space-y-4">
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
-                if (authError) setAuthError(null);
-              }}
-              placeholder="הזן קוד מנהל"
-              className="w-full bg-[#060b14] border border-slate-700 rounded-2xl px-4 py-3 text-white outline-none focus:border-[#f59e0b] text-center"
-            />
-            {authError && (
-              <p className="text-red-400 text-xs font-bold text-center">{authError}</p>
-            )}
-            <button
-              type="submit"
-              className="w-full py-3 bg-[#f59e0b] hover:bg-[#d97706] text-slate-950 font-black rounded-2xl transition"
-            >
-              כניסה למערכת
-            </button>
-          </form>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-[#060b14] p-6 md:p-12 text-right text-white font-sans" dir="rtl">
       <div className="max-w-6xl mx-auto">
@@ -443,10 +385,10 @@ const AdminPortal: React.FC = () => {
 
           <div className="flex flex-wrap justify-center gap-3 items-center">
             <button
-              onClick={handleLogout}
+              onClick={goToClientHome}
               className="bg-slate-800/50 text-slate-400 px-5 py-2.5 rounded-xl font-bold border border-slate-700/50 text-sm hover:bg-slate-800 transition"
             >
-              התנתק
+              מעבר לאתר
             </button>
             <button
               onClick={() => { setEditingScript(null); setEditingProduct(null); setOrderCodeFilter(''); setViewMode('orders'); }}
