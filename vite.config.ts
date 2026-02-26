@@ -17,6 +17,34 @@ export default defineConfig(({ mode }) => {
         {
           name: 'local-api-routes',
           configureServer(server) {
+            const upsertById = (existing: any, incoming: any) => {
+              const base = Array.isArray(existing) ? [...existing] : [];
+              const next = Array.isArray(incoming) ? incoming : [];
+
+              const indexById = new Map<string, number>();
+              base.forEach((item, index) => {
+                if (item && typeof item.id === 'string') {
+                  indexById.set(item.id, index);
+                }
+              });
+
+              next.forEach((item) => {
+                if (item && typeof item.id === 'string') {
+                  const existingIndex = indexById.get(item.id);
+                  if (existingIndex === undefined) {
+                    indexById.set(item.id, base.length);
+                    base.push(item);
+                  } else {
+                    base[existingIndex] = item;
+                  }
+                  return;
+                }
+                base.push(item);
+              });
+
+              return base;
+            };
+
             // in-memory store for local dev sync between devices simulation
             let localCloudData: { scripts: any[] | null; products: any[] | null; covers: any[] | null } = {
               scripts: null,
@@ -52,7 +80,11 @@ export default defineConfig(({ mode }) => {
                       return;
                     }
 
-                    localCloudData = { scripts, products: products || null, covers: covers || null };
+                    localCloudData = {
+                      scripts: upsertById(localCloudData.scripts, scripts),
+                      products: products ? upsertById(localCloudData.products, products) : localCloudData.products,
+                      covers: covers ? upsertById(localCloudData.covers, covers) : localCloudData.covers,
+                    };
                     res.statusCode = 200;
                     res.setHeader('Content-Type', 'application/json; charset=utf-8');
                     res.end(JSON.stringify({ success: true, message: 'Local cloud sync updated' }));
