@@ -1,15 +1,12 @@
 import React from 'react';
-import { TORAH_COVER_DESIGNS } from '../constants';
 
 interface TorahCoversProps {
   onNavigate: (page: string) => void;
+  covers: any[];
 }
 
-const TorahCovers: React.FC<TorahCoversProps> = ({ onNavigate }) => {
-  const savedCovers =
-    typeof window !== 'undefined' ? localStorage.getItem('yosef_admin_covers_backup') : null;
-  const coversList = savedCovers ? JSON.parse(savedCovers) : TORAH_COVER_DESIGNS;
-  const publishedCovers = coversList.filter((c: any) => c.isPublished);
+const TorahCovers: React.FC<TorahCoversProps> = ({ onNavigate, covers }) => {
+  const publishedCovers = covers.filter((c: any) => c.isPublished);
   const [brokenImages, setBrokenImages] = React.useState<Record<string, boolean>>({});
 
   return (

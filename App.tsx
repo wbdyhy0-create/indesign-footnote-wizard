@@ -118,9 +118,9 @@ const App: React.FC = () => {
       case 'scripts-catalog':
         return <ScriptsCatalog scripts={scripts} onSelectScript={(id) => setActivePage(id)} />;
       case 'other-products': 
-        return <OtherProducts onNavigate={(page) => setActivePage(page)} />;
+        return <OtherProducts products={products} onNavigate={(page) => setActivePage(page)} />;
       case 'torah-covers':
-        return <TorahCovers onNavigate={(page) => setActivePage(page)} />;
+        return <TorahCovers covers={covers} onNavigate={(page) => setActivePage(page)} />;
       case 'about':
         return <About />;
       case 'contact':

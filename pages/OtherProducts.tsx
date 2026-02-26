@@ -1,16 +1,12 @@
 import React from 'react';
-import { OTHER_PRODUCTS } from '../constants';
 
 interface OtherProductsProps {
   onNavigate: (page: string) => void; // הפונקציה שמעבירה דפים ב-App.tsx
+  products: any[];
 }
 
-const OtherProducts: React.FC<OtherProductsProps> = ({ onNavigate }) => {
-  // טעינת המוצרים מהזיכרון כדי לראות שינויים בזמן אמת מהמנהל
-  const savedProducts = typeof window !== 'undefined' ? localStorage.getItem('yosef_admin_products_backup') : null;
-  const productsList = savedProducts ? JSON.parse(savedProducts) : OTHER_PRODUCTS;
-  
-  const publishedProducts = productsList.filter((p: any) => p.isPublished);
+const OtherProducts: React.FC<OtherProductsProps> = ({ onNavigate, products }) => {
+  const publishedProducts = products.filter((p: any) => p.isPublished);
 
   return (
     <div className="animate-fadeIn pb-24 max-w-7xl mx-auto px-4" dir="rtl">
