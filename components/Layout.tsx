@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { createPortal } from 'react-dom';
 import { ScriptData, ChatMessage, MessageRole } from '../types'; 
 import { askAssistant } from '../services/geminiService'; 
 import ChatMessageComponent from './ChatMessage'; 
@@ -14,9 +13,6 @@ interface LayoutProps {
 const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage, scripts }) => {
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [showAdminDialog, setShowAdminDialog] = useState(false);
-  const [adminCodeInput, setAdminCodeInput] = useState('');
-  const [adminError, setAdminError] = useState('');
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([
     {
       id: 'initial-ai',
@@ -81,19 +77,6 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage, sc
       setChatHistory(prev => [...prev, errorChatMessage]);
     } finally {
       setIsAiTyping(false);
-    }
-  };
-
-  const handleAdminLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (adminCodeInput === '1967') { 
-      setActivePage('admin');
-      window.scrollTo(0, 0);
-      setShowAdminDialog(false);
-      setAdminCodeInput('');
-      setAdminError('');
-    } else {
-      setAdminError('קוד שגוי. נסה שוב.');
     }
   };
 
@@ -204,18 +187,6 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage, sc
       <div className="flex-1 flex flex-col relative overflow-hidden">
         <main className="flex-1 w-full max-w-7xl mx-auto p-6 md:p-12 overflow-y-auto custom-scrollbar">
           {children}
-
-          {activePage === 'home' && (
-            <div className="mt-20 pt-10 border-t border-slate-800/50 flex justify-center pb-10">
-              <button
-                onClick={() => setShowAdminDialog(true)}
-                className="flex items-center gap-3 px-6 py-3 rounded-xl text-xs font-bold bg-slate-900/50 text-slate-600 hover:text-amber-500 hover:bg-slate-800 border border-slate-800 transition-all group"
-              >
-                <span className="opacity-50 group-hover:opacity-100">🔒</span>
-                כניסה לממשק ניהול האתר
-              </button>
-            </div>
-          )}
         </main>
 
         {/* Floating AI */}
@@ -266,37 +237,6 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage, sc
         </div>
       </div>
 
-      {showAdminDialog && createPortal(
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[100] animate-fadeIn">
-          <div className="bg-slate-900 p-8 rounded-3xl shadow-2xl border border-slate-700 w-96 text-center animate-scaleIn">
-            <h2 className="text-2xl font-bold text-amber-500 mb-6">כניסה לממשק ניהול</h2>
-            <form onSubmit={handleAdminLogin} className="flex flex-col gap-4">
-              <input
-                type="password"
-                value={adminCodeInput}
-                onChange={(e) => { setAdminCodeInput(e.target.value); setAdminError(''); }}
-                placeholder="הזן קוד גישה"
-                className="w-full p-3 rounded-xl bg-slate-800 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
-              />
-              {adminError && <p className="text-red-500 text-sm">{adminError}</p>}
-              <button
-                type="submit"
-                className="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold py-3 rounded-xl transition-colors shadow-lg shadow-amber-600/20"
-              >
-                כניסה
-              </button>
-              <button
-                type="button"
-                onClick={() => { setShowAdminDialog(false); setAdminCodeInput(''); setAdminError(''); }}
-                className="w-full bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold py-3 rounded-xl transition-colors"
-              >
-                ביטול
-              </button>
-            </form>
-          </div>
-        </div>,
-        document.body
-      )}
     </div>
   );
 };

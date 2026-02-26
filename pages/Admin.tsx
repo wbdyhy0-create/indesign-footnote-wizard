@@ -42,58 +42,71 @@ const AdminPortal: React.FC = () => {
     }
   };
 
-  // העלאת תמונת מוצר/כריכה מהמחשב
+  const fileToDataUrl = (selectedFile: File) =>
+    new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = () => reject(new Error('Failed to read image file'));
+      reader.readAsDataURL(selectedFile);
+    });
+
+  const uploadImageFileToCloud = async (file: File) => {
+    const dataUrl = await fileToDataUrl(file);
+    const response = await fetch('/api/upload-cover-image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fileName: file.name,
+        contentType: file.type || 'image/png',
+        dataUrl,
+      }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || !result?.url) {
+      throw new Error(result?.error || 'העלאת התמונה נכשלה');
+    }
+    return String(result.url);
+  };
+
+  const stripDataUrl = (value: any) =>
+    value && String(value).startsWith('data:') ? '' : (value || '');
+
+  // העלאת תמונת מוצר/כריכה מהמחשב (נשמרת בענן כ-https)
   const handleProductImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    const fileToDataUrl = (selectedFile: File) =>
-      new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.onerror = () => reject(new Error('Failed to read image file'));
-        reader.readAsDataURL(selectedFile);
-      });
-
     try {
-      // כריכות נשמרות בענן כדי שהלינק יעבוד לכל הגולשים באתר החי
-      if (editingProductKind === 'covers') {
-        setCoverUploadError(null);
-        setIsUploadingCoverImage(true);
-
-        const dataUrl = await fileToDataUrl(file);
-        const response = await fetch('/api/upload-cover-image', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            fileName: file.name,
-            contentType: file.type || 'image/png',
-            dataUrl,
-          }),
-        });
-
-        const result = await response.json().catch(() => ({}));
-        if (!response.ok || !result?.url) {
-          throw new Error(result?.error || 'העלאת התמונה נכשלה');
-        }
-
-        setEditingProduct((prev: any) => (prev ? { ...prev, imageUrl: result.url } : prev));
-        return;
-      }
-
-      // מוצרים רגילים: נשמרים כ-Base64 כמו שהיה עד עכשיו
-      const base64 = await fileToDataUrl(file);
-      setEditingProduct((prev: any) => (prev ? { ...prev, imageUrl: base64 } : prev));
+      setCoverUploadError(null);
+      setIsUploadingCoverImage(true);
+      const imageUrl = await uploadImageFileToCloud(file);
+      setEditingProduct((prev: any) => (prev ? { ...prev, imageUrl } : prev));
     } catch (error: any) {
       const message = error?.message || 'שגיאה בהעלאת התמונה';
-      if (editingProductKind === 'covers') {
-        setCoverUploadError(message);
-      }
+      setCoverUploadError(message);
       alert(`❌ ${message}`);
     } finally {
-      if (editingProductKind === 'covers') {
-        setIsUploadingCoverImage(false);
-      }
+      setIsUploadingCoverImage(false);
+      event.target.value = '';
+    }
+  };
+
+  // העלאת תמונת סקריפט מהמחשב (נשמרת בענן כ-https)
+  const handleScriptImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setCoverUploadError(null);
+      setIsUploadingCoverImage(true);
+      const imageUrl = await uploadImageFileToCloud(file);
+      setEditingScript((prev: any) => (prev ? { ...prev, imageUrl } : prev));
+    } catch (error: any) {
+      const message = error?.message || 'שגיאה בהעלאת תמונת הסקריפט';
+      setCoverUploadError(message);
+      alert(`❌ ${message}`);
+    } finally {
+      setIsUploadingCoverImage(false);
       event.target.value = '';
     }
   };
@@ -118,10 +131,13 @@ const AdminPortal: React.FC = () => {
     try {
       setIsPublishingLive(true);
       setPublishStatus(null);
+      const payloadScripts = scripts.map((s: any) => ({ ...s, imageUrl: stripDataUrl(s.imageUrl) }));
+      const payloadProducts = products.map((p: any) => ({ ...p, imageUrl: stripDataUrl(p.imageUrl) }));
+      const payloadCovers = covers.map((c: any) => ({ ...c, imageUrl: stripDataUrl(c.imageUrl) }));
       const response = await fetch('/api/update-scripts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scripts, products, covers }),
+        body: JSON.stringify({ scripts: payloadScripts, products: payloadProducts, covers: payloadCovers }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok || data?.success === false) {
@@ -195,19 +211,23 @@ const AdminPortal: React.FC = () => {
   };
 
   const handleCopyCode = () => {
-    const preparedScripts = scripts.map(s => ({ ...s, videoUrl: formatYouTubeUrl(s.videoUrl) }));
+    const preparedScripts = scripts.map((s: any) => ({
+      ...s,
+      videoUrl: formatYouTubeUrl(s.videoUrl),
+      imageUrl: stripDataUrl(s.imageUrl),
+    }));
     // מוצרים: מחליפים תמונות Base64 במחרוזת ריקה כדי שה-JSON לא יתנפח (מיליוני תווים)
     const preparedProducts = products.map((p: any) => {
-      const imageUrl = p.imageUrl && String(p.imageUrl).startsWith('data:') ? '' : (p.imageUrl || '');
+      const imageUrl = stripDataUrl(p.imageUrl);
       return { ...p, imageUrl };
     });
     const preparedCovers = covers.map((c: any) => {
-      const imageUrl = c.imageUrl && String(c.imageUrl).startsWith('data:') ? '' : (c.imageUrl || '');
+      const imageUrl = stripDataUrl(c.imageUrl);
       return { ...c, imageUrl };
     });
     const fullData = { SCRIPTS: preparedScripts, OTHER_PRODUCTS: preparedProducts, TORAH_COVER_DESIGNS: preparedCovers };
     navigator.clipboard.writeText(JSON.stringify(fullData, null, 2));
-    alert("✅ הקוד הועתק בהצלחה!\n(קישורי יוטיוב תוקנו. תמונות שהועלו כקובץ הוחלפו בריק בהעתקה כדי שלא יגדילו את ה-JSON – אפשר להזין קישור לתמונה או להעלות מחדש במנהל.)");
+    alert("✅ הקוד הועתק בהצלחה!\n(קישורי יוטיוב תוקנו. תמונות Base64 הוחלפו בריק כדי למנוע JSON ענק. מומלץ להשתמש בהעלאה לענן או בקישור https.)");
   };
 
   return (
@@ -239,7 +259,7 @@ const AdminPortal: React.FC = () => {
 
             {/* כפתור הוספה מתחלף בהתאם ללשונית */}
             {viewMode === 'scripts' && (
-              <button onClick={() => { setEditingScript({ id: Date.now().toString(), name: '', price: '₪250', originalPrice: '₪450', videoUrl: '', downloadUrl: '', trialDownloadUrl: '', description: '', shortDesc: '', color: 'blue', isPublished: true }); }} className="bg-[#f59e0b] hover:bg-[#d97706] text-slate-950 px-6 py-2.5 rounded-xl font-black shadow-lg transition">+ הוסף סקריפט</button>
+              <button onClick={() => { setEditingScript({ id: Date.now().toString(), name: '', price: '₪250', originalPrice: '₪450', videoUrl: '', downloadUrl: '', trialDownloadUrl: '', description: '', shortDesc: '', color: 'blue', imageUrl: '', isPublished: true }); }} className="bg-[#f59e0b] hover:bg-[#d97706] text-slate-950 px-6 py-2.5 rounded-xl font-black shadow-lg transition">+ הוסף סקריפט</button>
             )}
             {viewMode === 'products' && (
               <button
@@ -368,6 +388,43 @@ const AdminPortal: React.FC = () => {
                 <label className="block text-slate-500 text-sm font-bold mb-2">תיאור מלא ומפורט (עמוד מוצר)</label>
                 <textarea value={editingScript.description} onChange={(e) => setEditingScript({...editingScript, description: e.target.value})} className="w-full bg-[#060b14] border border-slate-800 p-4 rounded-2xl text-white text-sm h-32 outline-none focus:border-[#f59e0b]" />
               </div>
+              <div className="md:col-span-2">
+                <label className="block text-[#10b981] text-sm font-bold mb-2">תמונת הסקריפט (קישור או העלאה לענן)</label>
+                <div className="space-y-3">
+                  <input
+                    placeholder="הדבק כאן קישור לתמונה .jpg או .png"
+                    value={editingScript.imageUrl || ''}
+                    onChange={(e) => setEditingScript({ ...editingScript, imageUrl: e.target.value })}
+                    className="w-full bg-[#060b14] border border-slate-800 p-4 rounded-2xl text-white text-left outline-none focus:border-[#10b981]"
+                  />
+                  <div className="flex items-center gap-3">
+                    <label className="inline-flex items-center px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold cursor-pointer">
+                      {isUploadingCoverImage ? 'מעלה לענן...' : 'בחר תמונה'}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleScriptImageUpload}
+                        disabled={isUploadingCoverImage}
+                        className="hidden"
+                      />
+                    </label>
+                    <span className="text-xs text-slate-500">הקובץ יועלה לענן ויישמר כלינק ציבורי (https).</span>
+                  </div>
+                  {coverUploadError && (
+                    <p className="text-xs text-red-400 font-bold">{coverUploadError}</p>
+                  )}
+                  {editingScript.imageUrl && (
+                    <div className="mt-2">
+                      <p className="text-xs text-slate-500 mb-1">תצוגה מקדימה:</p>
+                      <img
+                        src={editingScript.imageUrl}
+                        alt=""
+                        className="w-24 h-24 rounded-xl object-cover border border-slate-700"
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
 
             <div className="mt-8 pt-6 border-t border-slate-800">
@@ -434,25 +491,23 @@ const AdminPortal: React.FC = () => {
                   />
                   <div className="flex items-center gap-3">
                     <label className="inline-flex items-center px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold cursor-pointer">
-                      {isUploadingCoverImage && editingProductKind === 'covers' ? 'מעלה לענן...' : 'בחר תמונה'}
+                      {isUploadingCoverImage ? 'מעלה לענן...' : 'בחר תמונה'}
                       <input
                         type="file"
                         accept="image/*"
                         onChange={handleProductImageUpload}
-                        disabled={isUploadingCoverImage && editingProductKind === 'covers'}
+                        disabled={isUploadingCoverImage}
                         className="hidden"
                       />
                     </label>
                     <span className="text-xs text-slate-500">
-                      {editingProductKind === 'covers'
-                        ? 'בכריכות: הקובץ יועלה לענן ויישמר כלינק ציבורי (https).'
-                        : 'במוצרים: הקובץ נשמר כ-Base64 בדפדפן.'}
+                      הקובץ יועלה לענן ויישמר כלינק ציבורי (https).
                     </span>
                   </div>
-                  {isUploadingCoverImage && editingProductKind === 'covers' && (
+                  {isUploadingCoverImage && (
                     <p className="text-xs text-amber-400 font-bold">שומר תמונה בענן... נא להמתין.</p>
                   )}
-                  {coverUploadError && editingProductKind === 'covers' && (
+                  {coverUploadError && (
                     <p className="text-xs text-red-400 font-bold">{coverUploadError}</p>
                   )}
                   {editingProduct.imageUrl && (
@@ -606,7 +661,10 @@ const AdminPortal: React.FC = () => {
             <pre className="bg-[#060b14] border border-slate-800 p-6 rounded-2xl overflow-x-auto text-left font-mono text-xs text-emerald-400 h-[60vh] scrollbar-thin">
               {JSON.stringify(
                 {
-                  SCRIPTS: scripts,
+                  SCRIPTS: scripts.map((s: any) => ({
+                    ...s,
+                    imageUrl: stripDataUrl(s.imageUrl)
+                  })),
                   OTHER_PRODUCTS: products.map((p: any) => ({
                     ...p,
                     imageUrl: p.imageUrl && String(p.imageUrl).startsWith('data:') ? '[תמונה Base64 – הוסרה לתצוגה]' : (p.imageUrl || '')

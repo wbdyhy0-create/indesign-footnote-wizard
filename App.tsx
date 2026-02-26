@@ -12,11 +12,46 @@ import ProductDetail from './pages/ProductDetail'; // ייבוא של דף הפ�
 import { SCRIPTS as DEFAULT_SCRIPTS, OTHER_PRODUCTS as DEFAULT_PRODUCTS, TORAH_COVER_DESIGNS as DEFAULT_COVERS } from './constants';
 import { ScriptData } from './types';
 
+const ROOT_PAGES = new Set([
+  'home',
+  'scripts-catalog',
+  'other-products',
+  'torah-covers',
+  'about',
+  'contact',
+  'admin',
+]);
+
 const App: React.FC = () => {
   const [activePage, setActivePage] = useState('home');
   const [scripts, setScripts] = useState<ScriptData[]>(DEFAULT_SCRIPTS);
   const [products, setProducts] = useState<any[]>(DEFAULT_PRODUCTS);
   const [covers, setCovers] = useState<any[]>(DEFAULT_COVERS);
+
+  // ניווט מבוסס hash: מאפשר גישה ישירה לעמוד מנהל דרך /#admin
+  useEffect(() => {
+    const readPageFromHash = () => {
+      if (typeof window === 'undefined') return;
+      const raw = decodeURIComponent(window.location.hash.replace(/^#/, '').trim());
+      if (raw && ROOT_PAGES.has(raw)) {
+        setActivePage(raw);
+      } else if (!raw) {
+        setActivePage('home');
+      }
+    };
+
+    readPageFromHash();
+    window.addEventListener('hashchange', readPageFromHash);
+    return () => window.removeEventListener('hashchange', readPageFromHash);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const targetHash = activePage === 'home' ? '' : `#${encodeURIComponent(activePage)}`;
+    if (window.location.hash !== targetHash) {
+      window.history.replaceState(null, '', `${window.location.pathname}${targetHash}`);
+    }
+  }, [activePage]);
 
   // טעינת תוכן מהענן לאתר החי (fallback לקבועים במקרה כשל)
   useEffect(() => {
