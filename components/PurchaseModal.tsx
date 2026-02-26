@@ -174,7 +174,7 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
 
   return (
     <>
-      <div className="fixed inset-0 z-[999] flex items-start md:items-center justify-center p-4 pt-8 md:pt-4 bg-black/90 backdrop-blur-md overflow-y-auto">
+      <div className="fixed inset-0 z-[999] flex items-start md:items-center justify-center p-4 pt-8 md:pt-4 bg-black/85 overflow-y-auto">
         <div className="bg-[#0f172a] border border-slate-700 w-full max-w-md rounded-[2.5rem] shadow-2xl relative p-8 md:p-10 text-center">
           <button onClick={onClose} className="absolute top-6 right-6 text-slate-400 hover:text-white text-2xl">✕</button>
 
@@ -257,7 +257,7 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
       </div>
 
       {showDownloadConfirmation && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/80">
           <div className="bg-[#0f172a] border border-slate-700 w-full max-w-sm rounded-2xl shadow-2xl p-6 text-center">
             <h3 className="text-xl font-black text-white mb-4">תודה על הרכישה!</h3>
             <p className="text-slate-300 mb-6">התשלום אומת וההורדה שלך שוחררה.</p>
