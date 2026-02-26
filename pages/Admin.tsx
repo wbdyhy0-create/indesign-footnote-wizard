@@ -70,6 +70,7 @@ const AdminPortal: React.FC = () => {
   const [isOrdersLoading, setIsOrdersLoading] = useState(false);
   const [ordersError, setOrdersError] = useState<string | null>(null);
   const [isMarkingOrderPaid, setIsMarkingOrderPaid] = useState<string | null>(null);
+  const [orderCodeFilter, setOrderCodeFilter] = useState('');
 
   const loadLeads = async () => {
     try {
@@ -139,7 +140,10 @@ const AdminPortal: React.FC = () => {
       setAuthError(null);
       setPassword('');
       if (typeof window !== 'undefined') {
-        window.history.replaceState(null, '', '/admin');
+        const currentPath = normalizePath(window.location.pathname);
+        if (!currentPath.startsWith('/admin')) {
+          window.history.replaceState(null, '', '/admin');
+        }
       }
       return;
     }
@@ -305,6 +309,8 @@ const AdminPortal: React.FC = () => {
     const syncViewFromUrl = () => {
       if (typeof window === 'undefined') return;
       setViewMode(getAdminViewFromPath(window.location.pathname));
+      const filterFromUrl = new URLSearchParams(window.location.search).get('orderCode') || '';
+      setOrderCodeFilter(filterFromUrl.trim());
     };
 
     syncViewFromUrl();
@@ -317,10 +323,21 @@ const AdminPortal: React.FC = () => {
     if (typeof window === 'undefined') return;
     const targetPath = viewMode === 'scripts' ? '/admin' : `/admin/${viewMode}`;
     const currentPath = normalizePath(window.location.pathname);
-    if (currentPath !== targetPath) {
-      window.history.pushState(null, '', targetPath);
+    const targetSearch =
+      viewMode === 'orders' && orderCodeFilter.trim()
+        ? `?orderCode=${encodeURIComponent(orderCodeFilter.trim())}`
+        : '';
+    const currentSearch = window.location.search || '';
+    if (currentPath !== targetPath || currentSearch !== targetSearch) {
+      window.history.pushState(null, '', `${targetPath}${targetSearch}`);
     }
-  }, [viewMode]);
+  }, [viewMode, orderCodeFilter]);
+
+  const filteredOrders = orders.filter((order) =>
+    orderCodeFilter.trim()
+      ? order.orderCode.toLowerCase().includes(orderCodeFilter.trim().toLowerCase())
+      : true,
+  );
 
   // שמירה אוטומטית לזיכרון המקומי בכל פעם שיש שינוי
   useEffect(() => {
@@ -432,7 +449,7 @@ const AdminPortal: React.FC = () => {
               התנתק
             </button>
             <button
-              onClick={() => { setEditingScript(null); setEditingProduct(null); setViewMode('orders'); }}
+              onClick={() => { setEditingScript(null); setEditingProduct(null); setOrderCodeFilter(''); setViewMode('orders'); }}
               className={`px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 transition ${
                 viewMode === 'orders'
                   ? 'bg-indigo-700 text-white'
@@ -820,12 +837,28 @@ const AdminPortal: React.FC = () => {
           <div className="bg-[#0b1121] border border-slate-800 rounded-[2.5rem] p-8 md:p-12 shadow-xl animate-in fade-in duration-300">
             <div className="flex justify-between items-center mb-8 border-b border-slate-800 pb-4">
               <h2 className="text-3xl font-black text-indigo-400">הזמנות ותשלומים</h2>
-              <button
-                onClick={loadOrders}
-                className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-3 rounded-xl font-bold transition shadow-lg flex items-center gap-2"
-              >
-                רענן הזמנות
-              </button>
+              <div className="flex items-center gap-3">
+                <input
+                  value={orderCodeFilter}
+                  onChange={(e) => setOrderCodeFilter(e.target.value)}
+                  placeholder="סינון לפי קוד הזמנה"
+                  className="bg-[#060b14] border border-slate-700 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-indigo-400"
+                />
+                {orderCodeFilter && (
+                  <button
+                    onClick={() => setOrderCodeFilter('')}
+                    className="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-2 rounded-xl text-xs font-bold transition"
+                  >
+                    נקה סינון
+                  </button>
+                )}
+                <button
+                  onClick={loadOrders}
+                  className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-3 rounded-xl font-bold transition shadow-lg flex items-center gap-2"
+                >
+                  רענן הזמנות
+                </button>
+              </div>
             </div>
 
             <div className="overflow-x-auto">
@@ -855,14 +888,14 @@ const AdminPortal: React.FC = () => {
                       </td>
                     </tr>
                   )}
-                  {!isOrdersLoading && !ordersError && orders.length === 0 && (
+                  {!isOrdersLoading && !ordersError && filteredOrders.length === 0 && (
                     <tr>
                       <td colSpan={6} className="py-10 px-4 text-center text-slate-500 font-bold">
-                        עדיין לא התקבלו הזמנות רכישה.
+                        {orders.length === 0 ? 'עדיין לא התקבלו הזמנות רכישה.' : 'לא נמצאו הזמנות עבור קוד זה.'}
                       </td>
                     </tr>
                   )}
-                  {!isOrdersLoading && !ordersError && orders.map((order) => (
+                  {!isOrdersLoading && !ordersError && filteredOrders.map((order) => (
                     <tr key={order.id} className="border-b border-slate-800/50 hover:bg-slate-800/20 transition">
                       <td className="py-5 px-4 text-indigo-300 font-mono font-bold text-xs">{order.orderCode}</td>
                       <td className="py-5 px-4 text-slate-200">
