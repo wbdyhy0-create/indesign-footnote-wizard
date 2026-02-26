@@ -253,6 +253,15 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
                   >
                     {isCheckingPayment ? 'בודק סטטוס...' : readyDownloadUrl ? 'הורד עכשיו' : 'בדוק אישור תשלום והורד'}
                   </button>
+                  <p className="text-[11px] text-slate-300 leading-tight text-center">
+                    הסתבכתם? כתבו הודעה ונחזור אליכם בהקדם.
+                  </p>
+                  <button
+                    onClick={handleWhatsAppSupport}
+                    className="w-full py-3 bg-emerald-700/20 text-emerald-300 text-sm font-bold rounded-xl border border-emerald-700/50 flex items-center justify-center gap-2 hover:bg-emerald-700/30 transition-all"
+                  >
+                    <span>💬</span> פניה בוואטסאפ
+                  </button>
                 </div>
                 <button onClick={() => setStep('form')} className="text-xs text-slate-500 underline">חזור לעדכון פרטים</button>
               </div>
