@@ -208,6 +208,10 @@ const App: React.FC = () => {
     }
   };
 
+  if (activePage === 'admin') {
+    return <Admin />;
+  }
+
   return (
     <Layout activePage={activePage} setActivePage={navigateToPage} scripts={scripts} products={products} covers={covers}>
       {renderContent()}
