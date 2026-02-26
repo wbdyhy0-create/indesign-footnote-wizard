@@ -31,7 +31,7 @@ const ProductDetail: React.FC<ScriptDetailProps> = ({ product, onBack }) => {
   const hasFeatures = features.length > 0;
 
   return (
-    <div className="animate-fadeIn pb-24 max-w-7xl mx-auto px-4 md:px-8 mt-12">
+    <div className="animate-fadeIn pb-16 max-w-6xl mx-auto px-4 md:px-6 mt-8">
       
       {/* כפתור חזור */}
       <button 
@@ -45,28 +45,28 @@ const ProductDetail: React.FC<ScriptDetailProps> = ({ product, onBack }) => {
       </button>
 
       {/* אזור התוכן המרכזי */}
-      <div className="bg-[#0b1121] border border-slate-800 rounded-[3rem] p-8 md:p-16 shadow-[0_0_50px_rgba(0,0,0,0.5)] overflow-hidden relative">
+      <div className="bg-[#0b1121] border border-slate-800 rounded-[3rem] p-6 md:p-10 shadow-[0_0_50px_rgba(0,0,0,0.5)] overflow-hidden relative">
         <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-amber-600 via-amber-400 to-amber-600 opacity-50"></div>
         
-        <div className="flex flex-col gap-10 items-start">
+        <div className="flex flex-col gap-8 items-start">
           
           {/* פרטי הסקריפט */}
-          <div className="w-full space-y-10 text-right">
+          <div className="w-full space-y-8 text-right">
             <div>
               <div className="inline-block px-4 py-1.5 mb-6 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-500 text-xs font-black uppercase tracking-widest">
                 מידע על המוצר
               </div>
-              <h1 className="text-4xl md:text-6xl font-black text-white leading-tight mb-6">
+              <h1 className="text-3xl md:text-5xl font-black text-white leading-tight mb-5">
                 {product.name}
               </h1>
-              <p className="text-lg md:text-xl text-slate-400 leading-relaxed font-medium">
+              <p className="text-base md:text-lg text-slate-400 leading-relaxed font-medium">
                 {product.description}
               </p>
             </div>
             
             <div className="pt-8 border-t border-slate-800">
               <div className="text-sm text-slate-500 font-bold mb-2">מחיר רכישה:</div>
-              <div className="text-5xl font-black text-amber-500 drop-shadow-[0_0_15px_rgba(245,158,11,0.3)]">
+              <div className="text-4xl md:text-5xl font-black text-amber-500 drop-shadow-[0_0_15px_rgba(245,158,11,0.3)]">
                 {product.price}
               </div>
             </div>
@@ -76,7 +76,7 @@ const ProductDetail: React.FC<ScriptDetailProps> = ({ product, onBack }) => {
               <button 
                 onClick={() => setIsPurchaseModalOpen(true)}
                 disabled={!isPurchaseAvailable}
-                className={`w-full md:w-auto flex items-center justify-center gap-4 px-12 py-6 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-slate-950 text-xl font-black rounded-2xl shadow-[0_15px_40px_rgba(245,158,11,0.3)] transition-all border border-amber-400/50 ${isPurchaseAvailable ? 'hover:scale-105 active:scale-95' : 'opacity-50 cursor-not-allowed'}`}
+                className={`w-full md:w-auto flex items-center justify-center gap-4 px-10 py-5 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-slate-950 text-lg md:text-xl font-black rounded-2xl shadow-[0_15px_40px_rgba(245,158,11,0.3)] transition-all border border-amber-400/50 ${isPurchaseAvailable ? 'hover:scale-105 active:scale-95' : 'opacity-50 cursor-not-allowed'}`}
               >
                 לרכישה והורדה מיידית
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
@@ -99,7 +99,7 @@ const ProductDetail: React.FC<ScriptDetailProps> = ({ product, onBack }) => {
 
       {/* אזור וידאו מודגש כמו בדף המוצרים הנוספים */}
       {embedUrl && (
-        <div className="mt-6 bg-gradient-to-r from-[#020617] via-[#0b1121] to-black border border-red-600/40 rounded-[2.5rem] p-6 md:p-10 shadow-[0_0_60px_rgba(0,0,0,0.7)]">
+        <div className="mt-6 bg-gradient-to-r from-[#020617] via-[#0b1121] to-black border border-red-600/40 rounded-[2.5rem] p-6 md:p-8 shadow-[0_0_60px_rgba(0,0,0,0.7)]">
           <div className="flex flex-col lg:flex-row-reverse items-center gap-10">
             <div className="flex-1 text-right space-y-4">
               <h2 className="text-2xl md:text-3xl font-black text-white">סרטון הדרכה מלא</h2>
@@ -129,7 +129,7 @@ const ProductDetail: React.FC<ScriptDetailProps> = ({ product, onBack }) => {
 
       {/* תיבות Features / יכולות מרכזיות */}
       {hasFeatures && (
-        <section className="mt-12">
+        <section className="mt-10">
           <div className="flex flex-col md:flex-row-reverse md:items-center md:justify-between gap-4 mb-6">
             <div className="text-right">
               <h2 className="text-2xl md:text-3xl font-black text-white mb-2">יכולות מרכזיות / מה הסקריפט יודע לעשות</h2>

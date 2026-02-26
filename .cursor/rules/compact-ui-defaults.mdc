@@ -1,0 +1,16 @@
+---
+description: Keep client UI compact by default
+alwaysApply: true
+---
+
+# Compact UI Defaults
+
+- Prefer compact desktop sizing for new pages.
+- Avoid oversized hero styles unless explicitly requested:
+  - Avoid `text-7xl` / `text-8xl` headings by default.
+  - Keep main CTA buttons around `text-lg`-`text-xl` with moderate padding.
+- Keep page wrappers compact:
+  - Use `max-w-6xl` (or smaller) for default page containers.
+  - Prefer moderate vertical spacing (`mb-10` to `mb-16`) over very large gaps.
+- For catalog grids with a single item, center the card to avoid unbalanced layouts.
+- When adjusting existing pages, preserve visual style while reducing scale.

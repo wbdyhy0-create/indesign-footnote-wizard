@@ -106,7 +106,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage, sc
     <button
       key={page}
       onClick={() => setActivePage(page)}
-      className={`transition-all duration-300 flex items-center gap-2 px-3 md:px-4 lg:px-5 py-2.5 rounded-2xl text-sm md:text-base lg:text-lg font-black tracking-tight whitespace-nowrap ${
+      className={`transition-all duration-300 flex items-center gap-2 px-3 md:px-4 lg:px-5 py-2.5 rounded-2xl text-sm md:text-sm lg:text-base font-black tracking-tight whitespace-nowrap ${
         activeNavPage === page 
         ? 'text-white bg-amber-600 shadow-[0_0_15px_rgba(245,158,11,0.2)] border-2 border-amber-400' 
         : 'text-slate-300 hover:text-white hover:bg-slate-800/80 border-2 border-transparent'
@@ -121,7 +121,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage, sc
 
       {/* סרגל ניווט עליון - גובה עודכן ל-h-28 למניעת דחיסה */}
       <header className="sticky top-0 z-50 relative bg-slate-900/95 backdrop-blur-md border-b border-slate-800 shadow-xl">
-      <div className="max-w-7xl mx-auto px-6 h-28 flex items-center justify-between gap-4">
+      <div className="max-w-6xl mx-auto px-5 md:px-6 h-24 flex items-center justify-between gap-4">
 
 
           {/* כפתורי פעולה קבועים - בצד ימין */}
@@ -193,12 +193,13 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage, sc
           </div>
 
         </div>
+        
 
       </header>
 
       {/* אזור התוכן המרכזי */}
       <div className="flex-1 flex flex-col relative overflow-hidden">
-        <main className="flex-1 w-full max-w-7xl mx-auto p-6 md:p-12 overflow-y-auto custom-scrollbar">
+        <main className="flex-1 w-full max-w-6xl mx-auto p-5 md:p-8 overflow-y-auto custom-scrollbar">
           {children}
         </main>
 
