@@ -226,6 +226,10 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
                   <p className="text-[11px] font-bold text-slate-300 leading-tight bg-slate-800/30 p-4 rounded-2xl border border-slate-700/50">
                     אחרי התשלום בביט, אשר את ההזמנה דרך אדמין. אנחנו בודקים אוטומטית כל כמה שניות.
                   </p>
+                  <p className="text-[11px] text-slate-300 leading-tight bg-slate-900/40 p-3 rounded-xl border border-slate-800">
+                    אם עדיין לא מופיע אישור תשלום, השאר את הדף פתוח והמתן מעט. ברגע שהאישור יתקבל,
+                    ההורדה תהיה זמינה ותופיע האפשרות להוריד עכשיו.
+                  </p>
                   {isAutoChecking && (
                     <p className="text-[11px] text-indigo-300 font-bold">בודק אוטומטית אישור תשלום...</p>
                   )}
