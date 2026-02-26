@@ -40,6 +40,7 @@ const normalizePath = (pathname: string) => {
 const getPageFromPath = (pathname: string) => {
   const path = normalizePath(pathname);
   if (staticPathToPage[path]) return staticPathToPage[path];
+  if (path.startsWith('/admin/')) return 'admin';
 
   if (path.startsWith('/scripts/')) {
     return decodeURIComponent(path.slice('/scripts/'.length));

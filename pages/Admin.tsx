@@ -1,6 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { SCRIPTS as initialScripts, OTHER_PRODUCTS as initialProducts, TORAH_COVER_DESIGNS as initialCovers } from '../constants';
 
+const ADMIN_VIEWS = ['scripts', 'products', 'covers', 'leads', 'json'] as const;
+type AdminViewMode = (typeof ADMIN_VIEWS)[number];
+
+const isAdminViewMode = (value: string): value is AdminViewMode =>
+  (ADMIN_VIEWS as readonly string[]).includes(value);
+
+const normalizePath = (pathname: string) => {
+  if (!pathname || pathname === '/') return '/';
+  return pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
+};
+
+const getAdminViewFromPath = (pathname: string): AdminViewMode => {
+  const path = normalizePath(pathname);
+  if (path === '/admin') return 'scripts';
+  if (!path.startsWith('/admin/')) return 'scripts';
+
+  const next = decodeURIComponent(path.slice('/admin/'.length));
+  return isAdminViewMode(next) ? next : 'scripts';
+};
+
 const AdminPortal: React.FC = () => {
   // טעינת סקריפטים מהזיכרון המקומי
   const [scripts, setScripts] = useState<any[]>(() => {
@@ -30,7 +50,7 @@ const AdminPortal: React.FC = () => {
   const [editingScript, setEditingScript] = useState<any>(null);
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [editingProductKind, setEditingProductKind] = useState<'products' | 'covers'>('products');
-  const [viewMode, setViewMode] = useState<'scripts' | 'products' | 'covers' | 'leads' | 'json'>('scripts');
+  const [viewMode, setViewMode] = useState<AdminViewMode>('scripts');
   const [isPublishingLive, setIsPublishingLive] = useState(false);
   const [publishStatus, setPublishStatus] = useState<string | null>(null);
   const [isUploadingCoverImage, setIsUploadingCoverImage] = useState(false);
@@ -175,6 +195,28 @@ const AdminPortal: React.FC = () => {
 
     loadCloudData();
   }, []);
+
+  // סנכרון URL -> לשונית אדמין (כולל Back/Forward)
+  useEffect(() => {
+    const syncViewFromUrl = () => {
+      if (typeof window === 'undefined') return;
+      setViewMode(getAdminViewFromPath(window.location.pathname));
+    };
+
+    syncViewFromUrl();
+    window.addEventListener('popstate', syncViewFromUrl);
+    return () => window.removeEventListener('popstate', syncViewFromUrl);
+  }, []);
+
+  // סנכרון לשונית אדמין -> URL
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const targetPath = viewMode === 'scripts' ? '/admin' : `/admin/${viewMode}`;
+    const currentPath = normalizePath(window.location.pathname);
+    if (currentPath !== targetPath) {
+      window.history.pushState(null, '', targetPath);
+    }
+  }, [viewMode]);
 
   // שמירה אוטומטית לזיכרון המקומי בכל פעם שיש שינוי
   useEffect(() => {
