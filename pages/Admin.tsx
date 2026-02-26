@@ -80,7 +80,8 @@ const AdminPortal: React.FC = () => {
 
   const handleLogout = () => {
     if (typeof window !== 'undefined') {
-      window.location.reload();
+      // Force navigation out of the admin route.
+      window.location.replace('/');
     }
   };
 
