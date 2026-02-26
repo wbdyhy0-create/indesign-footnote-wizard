@@ -125,7 +125,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage, sc
 
 
           {/* כפתורי פעולה קבועים - בצד ימין */}
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="relative flex items-center gap-2 shrink-0">
             <button
               type="button"
               aria-label={isMenuOpen ? 'סגור תפריט' : 'פתח תפריט'}
@@ -145,6 +145,29 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage, sc
             >
               דף הבית
             </button>
+
+            {isMenuOpen && (
+              <div className="absolute top-[calc(100%+0.75rem)] right-0 z-[100] w-[min(22rem,90vw)] bg-slate-950 border border-slate-700 rounded-2xl shadow-2xl p-3">
+                <nav className="w-full flex flex-col gap-2">
+                  {navItems.map((item) => (
+                    <button
+                      key={item.page}
+                      onClick={() => {
+                        setActivePage(item.page);
+                        setIsMenuOpen(false);
+                      }}
+                      className={`w-full text-right transition-all duration-300 px-5 py-3 rounded-2xl text-base font-black tracking-tight ${
+                        activeNavPage === item.page
+                          ? 'text-white bg-amber-600 shadow-[0_0_15px_rgba(245,158,11,0.2)] border-2 border-amber-400'
+                          : 'text-slate-300 bg-slate-900/70 hover:text-white hover:bg-slate-800 border-2 border-slate-700/60'
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </nav>
+              </div>
+            )}
           </div>
 
           {/* ניווט בדסקטופ - במרכז */}
@@ -171,28 +194,6 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage, sc
 
         </div>
 
-        {isMenuOpen && (
-          <div className="absolute top-full right-6 mt-3 z-[100] w-[min(22rem,90vw)] bg-slate-950 border border-slate-700 rounded-2xl shadow-2xl p-3">
-            <nav className="w-full flex flex-col gap-2">
-              {navItems.map((item) => (
-                <button
-                  key={item.page}
-                  onClick={() => {
-                    setActivePage(item.page);
-                    setIsMenuOpen(false);
-                  }}
-                  className={`w-full text-right transition-all duration-300 px-5 py-3 rounded-2xl text-base font-black tracking-tight ${
-                    activeNavPage === item.page
-                      ? 'text-white bg-amber-600 shadow-[0_0_15px_rgba(245,158,11,0.2)] border-2 border-amber-400'
-                      : 'text-slate-300 bg-slate-900/70 hover:text-white hover:bg-slate-800 border-2 border-slate-700/60'
-                  }`}
-                >
-                  {item.label}
-                </button>
-              ))}
-            </nav>
-          </div>
-        )}
       </header>
 
       {/* אזור התוכן המרכזי */}
