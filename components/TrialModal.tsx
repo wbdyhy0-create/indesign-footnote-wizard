@@ -31,9 +31,6 @@ const TrialModal: React.FC<TrialModalProps> = ({ script, isOpen, onClose }) => {
     setStep('processing');
 
     try {
-      const savedLeads = localStorage.getItem('yosef_leads');
-      const leads: Lead[] = savedLeads ? JSON.parse(savedLeads) : [];
-      
       const newLead: Lead = {
         id: `lead-${Date.now()}`,
         name: formData.name,
@@ -41,7 +38,25 @@ const TrialModal: React.FC<TrialModalProps> = ({ script, isOpen, onClose }) => {
         scriptName: script.name,
         timestamp: new Date().toISOString()
       };
-      
+
+      const saveLeadResponse = await fetch('/api/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newLead.name,
+          email: newLead.email,
+          scriptName: newLead.scriptName,
+          timestamp: newLead.timestamp,
+        }),
+      });
+      const saveLeadResult = await saveLeadResponse.json().catch(() => ({}));
+      if (!saveLeadResponse.ok || saveLeadResult?.success === false) {
+        throw new Error(saveLeadResult?.error || 'שמירת הליד נכשלה');
+      }
+
+      // Backup fallback for the current browser only.
+      const savedLeads = localStorage.getItem('yosef_leads');
+      const leads: Lead[] = savedLeads ? JSON.parse(savedLeads) : [];
       leads.unshift(newLead);
       localStorage.setItem('yosef_leads', JSON.stringify(leads));
 
@@ -51,8 +66,8 @@ const TrialModal: React.FC<TrialModalProps> = ({ script, isOpen, onClose }) => {
       if (script.trialDownloadUrl) {
         window.open(script.trialDownloadUrl, '_blank');
       }
-    } catch (err) {
-      setError('חלה שגיאה בעיבוד הבקשה. אנא נסה שוב.');
+    } catch (err: any) {
+      setError(err?.message || 'חלה שגיאה בעיבוד הבקשה. אנא נסה שוב.');
       setStep('form');
     }
   };

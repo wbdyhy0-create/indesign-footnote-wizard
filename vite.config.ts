@@ -51,6 +51,7 @@ export default defineConfig(({ mode }) => {
               products: null,
               covers: null,
             };
+            let localLeads: any[] = [];
 
             // local route for admin cloud sync
             server.middlewares.use('/api/update-scripts', (req, res, next) => {
@@ -92,6 +93,62 @@ export default defineConfig(({ mode }) => {
                     res.statusCode = 500;
                     res.setHeader('Content-Type', 'application/json; charset=utf-8');
                     res.end(JSON.stringify({ success: false, error: 'שגיאה בשמירה מקומית' }));
+                  }
+                });
+                return;
+              }
+
+              res.statusCode = 405;
+              res.setHeader('Content-Type', 'application/json; charset=utf-8');
+              res.end(JSON.stringify({ success: false, error: 'שיטה לא מורשית' }));
+            });
+
+            // local route for leads collection (dev only)
+            server.middlewares.use('/api/leads', (req, res) => {
+              if (req.method === 'GET') {
+                const sortedLeads = [...localLeads].sort(
+                  (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+                );
+                res.statusCode = 200;
+                res.setHeader('Content-Type', 'application/json; charset=utf-8');
+                res.end(JSON.stringify({ success: true, leads: sortedLeads }));
+                return;
+              }
+
+              if (req.method === 'POST') {
+                let rawBody = '';
+                req.on('data', (chunk) => {
+                  rawBody += chunk;
+                });
+                req.on('end', () => {
+                  try {
+                    const body = rawBody ? JSON.parse(rawBody) : {};
+                    const name = typeof body?.name === 'string' ? body.name.trim() : '';
+                    const email = typeof body?.email === 'string' ? body.email.trim() : '';
+                    const scriptName = typeof body?.scriptName === 'string' ? body.scriptName.trim() : '';
+                    if (!name || !email || !scriptName) {
+                      res.statusCode = 400;
+                      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+                      res.end(JSON.stringify({ success: false, error: 'חסרים פרטי ליד' }));
+                      return;
+                    }
+
+                    const nextLead = {
+                      id: `lead-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+                      name,
+                      email,
+                      scriptName,
+                      timestamp: typeof body?.timestamp === 'string' ? body.timestamp : new Date().toISOString(),
+                    };
+                    localLeads = [nextLead, ...localLeads];
+
+                    res.statusCode = 200;
+                    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+                    res.end(JSON.stringify({ success: true, lead: nextLead }));
+                  } catch {
+                    res.statusCode = 500;
+                    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+                    res.end(JSON.stringify({ success: false, error: 'שגיאה בשמירת ליד מקומי' }));
                   }
                 });
                 return;

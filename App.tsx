@@ -54,6 +54,27 @@ const getPageFromPath = (pathname: string) => {
   return 'home';
 };
 
+const getPageFromLocation = (pathname: string, hash: string) => {
+  const pageFromPath = getPageFromPath(pathname);
+  if (pageFromPath !== 'home') return pageFromPath;
+
+  const rawHash = (hash || '').trim();
+  if (!rawHash) return pageFromPath;
+
+  const normalizedHash = decodeURIComponent(rawHash.replace(/^#\/?/, ''));
+  if (!normalizedHash) return pageFromPath;
+
+  if (normalizedHash === 'admin' || normalizedHash.startsWith('admin/')) {
+    return 'admin';
+  }
+
+  if (ROOT_PAGES.has(normalizedHash)) {
+    return normalizedHash;
+  }
+
+  return pageFromPath;
+};
+
 const App: React.FC = () => {
   const [activePage, setActivePage] = useState('home');
   const [scripts, setScripts] = useState<ScriptData[]>(DEFAULT_SCRIPTS);
@@ -89,7 +110,7 @@ const App: React.FC = () => {
   useEffect(() => {
     const readPageFromLocation = () => {
       if (typeof window === 'undefined') return;
-      const pageFromPath = getPageFromPath(window.location.pathname);
+      const pageFromPath = getPageFromLocation(window.location.pathname, window.location.hash);
       setActivePage(pageFromPath);
     };
 

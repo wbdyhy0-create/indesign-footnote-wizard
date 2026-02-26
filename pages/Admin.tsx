@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { SCRIPTS as initialScripts, OTHER_PRODUCTS as initialProducts, TORAH_COVER_DESIGNS as initialCovers } from '../constants';
+import { Lead } from '../types';
 
 const ADMIN_VIEWS = ['scripts', 'products', 'covers', 'leads', 'json'] as const;
 type AdminViewMode = (typeof ADMIN_VIEWS)[number];
@@ -55,6 +56,27 @@ const AdminPortal: React.FC = () => {
   const [publishStatus, setPublishStatus] = useState<string | null>(null);
   const [isUploadingCoverImage, setIsUploadingCoverImage] = useState(false);
   const [coverUploadError, setCoverUploadError] = useState<string | null>(null);
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [isLeadsLoading, setIsLeadsLoading] = useState(false);
+  const [leadsError, setLeadsError] = useState<string | null>(null);
+
+  const loadLeads = async () => {
+    try {
+      setIsLeadsLoading(true);
+      setLeadsError(null);
+      const response = await fetch('/api/leads');
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data?.success === false) {
+        throw new Error(data?.error || 'שגיאה בטעינת הלידים');
+      }
+      setLeads(Array.isArray(data?.leads) ? data.leads : []);
+    } catch (error: any) {
+      setLeadsError(error?.message || 'שגיאה בטעינת הלידים');
+      setLeads([]);
+    } finally {
+      setIsLeadsLoading(false);
+    }
+  };
 
   const handleLogout = () => {
     if (typeof window !== 'undefined') {
@@ -194,7 +216,14 @@ const AdminPortal: React.FC = () => {
     };
 
     loadCloudData();
+    loadLeads();
   }, []);
+
+  useEffect(() => {
+    if (viewMode === 'leads') {
+      loadLeads();
+    }
+  }, [viewMode]);
 
   // סנכרון URL -> לשונית אדמין (כולל Back/Forward)
   useEffect(() => {
@@ -226,12 +255,6 @@ const AdminPortal: React.FC = () => {
     setPublishStatus(null);
   }, [scripts, products, covers]);
 
-  // נתונים וירטואליים ללידים
-  const [leads] = useState([
-    { id: 1, email: 'user1@example.com', date: '2026-02-23', script: 'אשף הערות שוליים' },
-    { id: 2, email: 'user2@gmail.com', date: '2026-02-22', script: 'מעבד העימוד 2026' },
-  ]);
-
   // מנגנון התיקון האוטומטי ליוטיוב
   const formatYouTubeUrl = (url: string) => {
     if (!url) return '';
@@ -241,8 +264,19 @@ const AdminPortal: React.FC = () => {
   };
 
   const downloadLeadsCSV = () => {
-    const headers = "ID,Email,Date,Script\n";
-    const rows = leads.map(l => `${l.id},${l.email},${l.date},${l.script}`).join("\n");
+    const escapeCsv = (value: string) => `"${String(value || '').replace(/"/g, '""')}"`;
+    const headers = 'ID,Name,Email,Date,Script\n';
+    const rows = leads
+      .map((lead) =>
+        [
+          escapeCsv(lead.id),
+          escapeCsv(lead.name),
+          escapeCsv(lead.email),
+          escapeCsv(new Date(lead.timestamp).toISOString().slice(0, 10)),
+          escapeCsv(lead.scriptName),
+        ].join(','),
+      )
+      .join('\n');
     const blob = new Blob([headers + rows], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
@@ -675,17 +709,40 @@ const AdminPortal: React.FC = () => {
               <table className="w-full text-right border-collapse">
                 <thead>
                   <tr className="text-slate-500 border-b border-slate-800 text-lg">
+                    <th className="pb-4 px-4 font-bold">שם</th>
                     <th className="pb-4 px-4 font-bold">אימייל</th>
                     <th className="pb-4 px-4 font-bold">תאריך הרשמה</th>
                     <th className="pb-4 px-4 font-bold">התעניינות במוצר</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {leads.map(l => (
+                  {isLeadsLoading && (
+                    <tr>
+                      <td colSpan={4} className="py-10 px-4 text-center text-slate-400 font-bold">
+                        טוען לידים...
+                      </td>
+                    </tr>
+                  )}
+                  {!isLeadsLoading && leadsError && (
+                    <tr>
+                      <td colSpan={4} className="py-10 px-4 text-center text-red-400 font-bold">
+                        {leadsError}
+                      </td>
+                    </tr>
+                  )}
+                  {!isLeadsLoading && !leadsError && leads.length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="py-10 px-4 text-center text-slate-500 font-bold">
+                        עדיין לא התקבלו לידים מהאתר.
+                      </td>
+                    </tr>
+                  )}
+                  {!isLeadsLoading && !leadsError && leads.map((l) => (
                     <tr key={l.id} className="border-b border-slate-800/50 hover:bg-slate-800/20 transition">
+                      <td className="py-6 px-4 text-slate-200 font-bold">{l.name}</td>
                       <td className="py-6 px-4 font-mono text-indigo-400 font-bold">{l.email}</td>
-                      <td className="py-6 px-4 text-slate-300">{l.date}</td>
-                      <td className="py-6 px-4 text-slate-300 font-bold">{l.script}</td>
+                      <td className="py-6 px-4 text-slate-300">{new Date(l.timestamp).toLocaleDateString('he-IL')}</td>
+                      <td className="py-6 px-4 text-slate-300 font-bold">{l.scriptName}</td>
                     </tr>
                   ))}
                 </tbody>
