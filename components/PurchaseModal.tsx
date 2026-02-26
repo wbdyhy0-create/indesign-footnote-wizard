@@ -25,8 +25,8 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
   const [error, setError] = useState<string | null>(null);
   const [isCreatingOrder, setIsCreatingOrder] = useState(false);
   const [isCheckingPayment, setIsCheckingPayment] = useState(false);
-  const [showDownloadConfirmation, setShowDownloadConfirmation] = useState(false);
   const [isAutoChecking, setIsAutoChecking] = useState(false);
+  const [readyDownloadUrl, setReadyDownloadUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -36,8 +36,8 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
       setError(null);
       setIsCreatingOrder(false);
       setIsCheckingPayment(false);
-      setShowDownloadConfirmation(false);
       setIsAutoChecking(false);
+      setReadyDownloadUrl(null);
     }
   }, [isOpen]);
 
@@ -119,9 +119,9 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
       }
 
       if (result?.order?.status === 'paid' && result?.downloadUrl) {
-        setShowDownloadConfirmation(true);
-        window.open(String(result.downloadUrl), '_blank');
-        setStep('success');
+        const nextDownloadUrl = String(result.downloadUrl);
+        setReadyDownloadUrl(nextDownloadUrl);
+        setStatusMessage('אישור התשלום התקבל. הכפתור הירוק התחלף ל"הורד עכשיו".');
         return;
       }
 
@@ -142,18 +142,23 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
   };
 
   const handleCheckPayment = async () => {
+    if (readyDownloadUrl) {
+      window.open(readyDownloadUrl, '_blank');
+      onClose();
+      return;
+    }
     await checkPaymentStatus(true);
   };
 
   useEffect(() => {
-    if (!isOpen || step !== 'payment' || !orderInfo?.id) return;
+    if (!isOpen || step !== 'payment' || !orderInfo?.id || readyDownloadUrl) return;
 
     const timer = window.setInterval(() => {
       checkPaymentStatus(false);
     }, 7000);
 
     return () => window.clearInterval(timer);
-  }, [isOpen, step, orderInfo?.id, customerInfo.email]);
+  }, [isOpen, step, orderInfo?.id, customerInfo.email, readyDownloadUrl]);
 
   if (!isOpen) return null;
 
@@ -206,9 +211,7 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
               <div className="mb-8">
                 <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-xl text-blue-500 font-black italic text-2xl border-2 border-slate-200">bit</div>
                 <h3 className="text-3xl font-black text-white mb-1">{orderInfo?.priceLabel || script.price}</h3>
-                <p className="text-slate-400 text-sm font-bold text-right pr-2">
-                  תשלום ל-{orderInfo?.bitRecipientName || 'יוסף עובדיה'} | טלפון: {orderInfo?.bitPhone || '0522284432'}
-                </p>
+                <p className="text-slate-300 text-sm font-bold text-center">בצע תשלום בביט</p>
                 <p className="text-amber-400 text-xs font-black mt-3 text-right">קוד הזמנה: {orderInfo?.orderCode || '-'}</p>
               </div>
 
@@ -223,11 +226,14 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
 
                 <div className="py-6 border-t border-slate-800 mt-6 text-right space-y-3">
                   <p className="text-[11px] font-bold text-slate-300 leading-tight bg-slate-800/30 p-4 rounded-2xl border border-slate-700/50">
-                    אחרי התשלום בביט, אשר את ההזמנה דרך אדמין. אנחנו בודקים אוטומטית כל כמה שניות.
+                    לאחר ביצוע התשלום, לחץ על הכפתור "שלח אישור תשלום בוואטספ".
                   </p>
                   <p className="text-[11px] text-slate-300 leading-tight bg-slate-900/40 p-3 rounded-xl border border-slate-800">
-                    אם עדיין לא מופיע אישור תשלום, השאר את הדף פתוח והמתן מעט. ברגע שהאישור יתקבל,
-                    ההורדה תהיה זמינה ותופיע האפשרות להוריד עכשיו.
+                    לאחר אישור ההזמנה על ידי המנהל, הכפתור הירוק יתחלף ל"הורד עכשיו".
+                    נא להמתין מעט בסבלנות, ולא לסגור חלון זה.
+                  </p>
+                  <p className="text-[11px] text-slate-300 leading-tight bg-slate-900/40 p-3 rounded-xl border border-slate-800">
+                    אם נתקלת בבעיה, נא לשלוח הודעה לוואטספ.
                   </p>
                   {isAutoChecking && (
                     <p className="text-[11px] text-indigo-300 font-bold">בודק אוטומטית אישור תשלום...</p>
@@ -245,7 +251,7 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
                     }`}
                     disabled={isCheckingPayment}
                   >
-                    {isCheckingPayment ? 'בודק סטטוס...' : 'בדוק אישור תשלום והורד'}
+                    {isCheckingPayment ? 'בודק סטטוס...' : readyDownloadUrl ? 'הורד עכשיו' : 'בדוק אישור תשלום והורד'}
                   </button>
                 </div>
                 <button onClick={() => setStep('form')} className="text-xs text-slate-500 underline">חזור לעדכון פרטים</button>
@@ -254,27 +260,6 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
           )}
         </div>
       </div>
-
-      {showDownloadConfirmation && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/80">
-          <div className="bg-[#0f172a] border border-slate-700 w-full max-w-sm rounded-2xl shadow-2xl p-6 text-center">
-            <h3 className="text-xl font-black text-white mb-4">תודה על הרכישה!</h3>
-            <p className="text-slate-300 mb-6">התשלום אומת וההורדה שלך שוחררה.</p>
-            <button
-              onClick={() => {
-                if (script.downloadUrl) {
-                  window.open(script.downloadUrl, '_blank');
-                }
-                setShowDownloadConfirmation(false);
-                onClose();
-              }}
-              className="w-full py-3 bg-amber-600 text-white font-black rounded-xl active:scale-95 transition-all"
-            >
-              פתח קישור הורדה
-            </button>
-          </div>
-        </div>
-      )}
     </>
   );
 };
