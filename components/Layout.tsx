@@ -8,9 +8,11 @@ interface LayoutProps {
   activePage: string;
   setActivePage: (page: string) => void;
   scripts: ScriptData[];
+  products: any[];
+  covers: any[];
 }
 
-const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage, scripts }) => {
+const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage, scripts, products, covers }) => {
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([
@@ -89,13 +91,23 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage, sc
     { page: 'contact', label: 'צור קשר' },
   ];
 
+  const getActiveNavPage = () => {
+    if (navItems.some((item) => item.page === activePage)) return activePage;
+    if (scripts.some((s) => s.id === activePage)) return 'scripts-catalog';
+    if (products.some((p: any) => p.id === activePage)) return 'other-products';
+    if (covers.some((c: any) => c.id === activePage)) return 'torah-covers';
+    return activePage;
+  };
+
+  const activeNavPage = getActiveNavPage();
+
   // פונקציית כפתור ניווט ללא Scale שגורם לגלילה
   const navButton = (page: string, label: string) => (
     <button
       key={page}
       onClick={() => setActivePage(page)}
       className={`transition-all duration-300 flex items-center gap-2 px-3 md:px-4 lg:px-5 py-2.5 rounded-2xl text-sm md:text-base lg:text-lg font-black tracking-tight whitespace-nowrap ${
-        activePage === page 
+        activeNavPage === page 
         ? 'text-white bg-amber-600 shadow-[0_0_15px_rgba(245,158,11,0.2)] border-2 border-amber-400' 
         : 'text-slate-300 hover:text-white hover:bg-slate-800/80 border-2 border-transparent'
       }`}
@@ -170,7 +182,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage, sc
                     setIsMenuOpen(false);
                   }}
                   className={`w-full text-right transition-all duration-300 px-5 py-3 rounded-2xl text-base font-black tracking-tight ${
-                    activePage === item.page
+                    activeNavPage === item.page
                       ? 'text-white bg-amber-600 shadow-[0_0_15px_rgba(245,158,11,0.2)] border-2 border-amber-400'
                       : 'text-slate-300 bg-slate-900/70 hover:text-white hover:bg-slate-800 border-2 border-slate-700/60'
                   }`}
