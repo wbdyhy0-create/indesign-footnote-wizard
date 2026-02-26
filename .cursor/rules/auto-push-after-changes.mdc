@@ -1,0 +1,12 @@
+---
+description: Auto commit and push after requested code changes
+alwaysApply: true
+---
+
+# Auto Push Workflow
+
+- When implementing user-requested code changes, run validation quickly (build/lint when relevant), then commit and push automatically.
+- Do not ask for extra confirmation before push unless the user explicitly asks to review first.
+- Keep commit messages concise and meaningful, following the repository style.
+- If push fails, report the error and continue troubleshooting until resolved.
+- If the user says not to push for a specific task, follow that request.
