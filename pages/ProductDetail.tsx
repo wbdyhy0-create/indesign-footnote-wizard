@@ -159,12 +159,17 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack }) => {
             </p>
           </div>
           <div className="bg-[#0b1121] border border-slate-700 rounded-[2rem] overflow-hidden shadow-2xl">
-            <div className="h-[75vh] min-h-[420px] w-full">
+          <div className="h-[75vh] min-h-[420px] w-full relative">
               <iframe
                 title="דוגמת מוצר PDF"
                 src={pdfPreviewUrl}
                 className="w-full h-full min-h-[420px] border-0"
                 allow="autoplay"
+              />
+              {/* כיסוי על כפתור הפתיחה מחוץ לאתר בתוך ה־iframe */}
+              <div
+                aria-hidden="true"
+                className="absolute top-2 right-2 w-10 h-8 rounded-lg bg-[#0b1121] shadow-lg shadow-black/40 z-10"
               />
             </div>
           </div>
