@@ -169,7 +169,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack }) => {
               {/* כיסוי גדול על כפתור הפתיחה מחוץ לאתר בתוך ה־iframe */}
               <div
                 aria-hidden="true"
-                className="absolute -top-2 -right-2 w-24 h-16 rounded-2xl bg-[#0b1121] shadow-lg shadow-black/40 z-10"
+                className="absolute -top-2 -right-2 w-24 h-20 rounded-2xl bg-[#0b1121] shadow-lg shadow-black/40 z-10"
               />
             </div>
           </div>
