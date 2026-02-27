@@ -17,6 +17,43 @@ type ClientOrderInfo = {
   bitPhone: string;
 };
 
+const BIT_PHONE = '0522284432';
+const BIT_RECIPIENT_NAME = 'יוסף עובדיה';
+
+const parseAmountFromPrice = (priceLabel: string): number | null => {
+  const matched = priceLabel.replace(',', '.').match(/(\d+(?:\.\d+)?)/);
+  if (!matched) return null;
+  const amount = Number(matched[1]);
+  if (!Number.isFinite(amount) || amount <= 0) return null;
+  return amount;
+};
+
+const buildBitPayUrl = (phone: string, amountNis: number, text: string) => {
+  const encodedText = encodeURIComponent(text);
+  const normalizedAmount = Number.isInteger(amountNis) ? String(amountNis) : amountNis.toFixed(2);
+  return `https://www.bitpay.co.il/app/pay-request/?phone=${phone}&amount=${normalizedAmount}&text=${encodedText}`;
+};
+
+const buildClientFallbackOrder = (script: ScriptData): ClientOrderInfo => {
+  const amountNis = parseAmountFromPrice(script.price);
+  if (!amountNis) {
+    throw new Error('מחיר לא תקין להזמנה');
+  }
+
+  const orderCode = `LOCAL-${Date.now().toString().slice(-6)}`;
+  const payText = `רכישת ${script.name} | הזמנה ${orderCode}`;
+
+  return {
+    id: `local-${Date.now()}`,
+    orderCode,
+    bitPayUrl: buildBitPayUrl(BIT_PHONE, amountNis, payText),
+    amountNis,
+    priceLabel: script.price,
+    bitRecipientName: BIT_RECIPIENT_NAME,
+    bitPhone: BIT_PHONE,
+  };
+};
+
 const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }) => {
   const [step, setStep] = useState<'form' | 'payment' | 'success'>('form');
   const [customerInfo, setCustomerInfo] = useState({ name: '', email: '' });
@@ -51,8 +88,9 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
       return;
     }
 
+    setIsCreatingOrder(true);
+
     try {
-      setIsCreatingOrder(true);
       const response = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -68,7 +106,7 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok || result?.success === false || !result?.order?.id) {
-        throw new Error(result?.error || 'יצירת ההזמנה נכשלה');
+        throw new Error(result?.error || '');
       }
 
       setOrderInfo({
@@ -82,7 +120,19 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
       });
       setStep('payment');
     } catch (err: any) {
-      setError(err?.message || 'שגיאה ביצירת ההזמנה');
+      // אם השרת נכשל (למשל בעיית KV), ננסה לעבור למסלול תשלום ישיר בביט ללא שמירת הזמנה בשרת
+      // כדי שהלקוח עדיין יוכל לשלם ולקבל קובץ.
+      console.error('Order creation via /api/orders failed, falling back to direct Bit link:', err);
+      try {
+        const fallbackOrder = buildClientFallbackOrder(script);
+        setOrderInfo(fallbackOrder);
+        setStep('payment');
+        setStatusMessage(
+          'לא הצלחנו להתחבר לשרת ההזמנות, ממשיכים לתשלום ישיר בביט. לאחר התשלום, שלח אישור בוואטסאפ לקבלת הקובץ.'
+        );
+      } catch (fallbackError: any) {
+        setError(fallbackError?.message || 'יצירת ההזמנה נכשלה');
+      }
     } finally {
       setIsCreatingOrder(false);
     }
