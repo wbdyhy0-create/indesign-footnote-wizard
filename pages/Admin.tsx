@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { SCRIPTS as initialScripts, OTHER_PRODUCTS as initialProducts, TORAH_COVER_DESIGNS as initialCovers } from '../constants';
-import { Lead, PurchaseOrder } from '../types';
+import { Lead } from '../types';
 
-const ADMIN_VIEWS = ['scripts', 'products', 'covers', 'orders', 'leads', 'json'] as const;
+const ADMIN_VIEWS = ['scripts', 'products', 'covers', 'leads', 'json'] as const;
 type AdminViewMode = (typeof ADMIN_VIEWS)[number];
 
 const isAdminViewMode = (value: string): value is AdminViewMode =>
@@ -22,9 +22,12 @@ const getAdminViewFromPath = (pathname: string): AdminViewMode => {
   return isAdminViewMode(next) ? next : 'scripts';
 };
 
-const ADMIN_CODE = '1967';
+const ADMIN_PASSWORD = '1967';
 
 const AdminPortal: React.FC = () => {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [password, setPassword] = useState('');
+  const [authError, setAuthError] = useState<string | null>(null);
 
   // טעינת סקריפטים מהזיכרון המקומי
   const [scripts, setScripts] = useState<any[]>(() => {
@@ -62,11 +65,6 @@ const AdminPortal: React.FC = () => {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [isLeadsLoading, setIsLeadsLoading] = useState(false);
   const [leadsError, setLeadsError] = useState<string | null>(null);
-  const [orders, setOrders] = useState<PurchaseOrder[]>([]);
-  const [isOrdersLoading, setIsOrdersLoading] = useState(false);
-  const [ordersError, setOrdersError] = useState<string | null>(null);
-  const [isMarkingOrderPaid, setIsMarkingOrderPaid] = useState<string | null>(null);
-  const [orderCodeFilter, setOrderCodeFilter] = useState('');
 
   const loadLeads = async () => {
     try {
@@ -86,52 +84,28 @@ const AdminPortal: React.FC = () => {
     }
   };
 
-  const loadOrders = async () => {
-    try {
-      setIsOrdersLoading(true);
-      setOrdersError(null);
-      const response = await fetch(`/api/orders?adminCode=${encodeURIComponent(ADMIN_CODE)}`);
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok || data?.success === false) {
-        throw new Error(data?.error || 'שגיאה בטעינת ההזמנות');
+  const handleLogin = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (password.trim() === ADMIN_PASSWORD) {
+      setIsAuthenticated(true);
+      setAuthError(null);
+      setPassword('');
+      if (typeof window !== 'undefined') {
+        window.history.replaceState(null, '', '/admin');
       }
-      setOrders(Array.isArray(data?.orders) ? data.orders : []);
-    } catch (error: any) {
-      setOrdersError(error?.message || 'שגיאה בטעינת ההזמנות');
-      setOrders([]);
-    } finally {
-      setIsOrdersLoading(false);
+      return;
     }
+    setAuthError('קוד מנהל שגוי');
   };
 
-  const markOrderAsPaid = async (orderId: string) => {
-    try {
-      setIsMarkingOrderPaid(orderId);
-      setOrdersError(null);
-      const response = await fetch('/api/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'mark-paid',
-          orderId,
-          adminCode: ADMIN_CODE,
-        }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok || data?.success === false) {
-        throw new Error(data?.error || 'לא הצלחנו לאשר את התשלום');
-      }
-      await loadOrders();
-    } catch (error: any) {
-      setOrdersError(error?.message || 'לא הצלחנו לאשר את התשלום');
-    } finally {
-      setIsMarkingOrderPaid(null);
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    setAuthError(null);
+    setPassword('');
+    setViewMode('scripts');
+    if (typeof window !== 'undefined') {
+      window.history.replaceState(null, '', '/admin');
     }
-  };
-
-  const goToClientHome = () => {
-    if (typeof window === 'undefined') return;
-    window.location.href = '/';
   };
 
   const fileToDataUrl = (selectedFile: File) =>
@@ -273,9 +247,6 @@ const AdminPortal: React.FC = () => {
     if (viewMode === 'leads') {
       loadLeads();
     }
-    if (viewMode === 'orders') {
-      loadOrders();
-    }
   }, [viewMode]);
 
   // סנכרון URL -> לשונית אדמין (כולל Back/Forward)
@@ -283,8 +254,6 @@ const AdminPortal: React.FC = () => {
     const syncViewFromUrl = () => {
       if (typeof window === 'undefined') return;
       setViewMode(getAdminViewFromPath(window.location.pathname));
-      const filterFromUrl = new URLSearchParams(window.location.search).get('orderCode') || '';
-      setOrderCodeFilter(filterFromUrl.trim());
     };
 
     syncViewFromUrl();
@@ -297,21 +266,10 @@ const AdminPortal: React.FC = () => {
     if (typeof window === 'undefined') return;
     const targetPath = viewMode === 'scripts' ? '/admin' : `/admin/${viewMode}`;
     const currentPath = normalizePath(window.location.pathname);
-    const targetSearch =
-      viewMode === 'orders' && orderCodeFilter.trim()
-        ? `?orderCode=${encodeURIComponent(orderCodeFilter.trim())}`
-        : '';
-    const currentSearch = window.location.search || '';
-    if (currentPath !== targetPath || currentSearch !== targetSearch) {
-      window.history.pushState(null, '', `${targetPath}${targetSearch}`);
+    if (currentPath !== targetPath) {
+      window.history.pushState(null, '', targetPath);
     }
-  }, [viewMode, orderCodeFilter]);
-
-  const filteredOrders = orders.filter((order) =>
-    orderCodeFilter.trim()
-      ? order.orderCode.toLowerCase().includes(orderCodeFilter.trim().toLowerCase())
-      : true,
-  );
+  }, [viewMode]);
 
   // שמירה אוטומטית לזיכרון המקומי בכל פעם שיש שינוי
   useEffect(() => {
@@ -372,6 +330,38 @@ const AdminPortal: React.FC = () => {
     alert("✅ הקוד הועתק בהצלחה!\n(קישורי יוטיוב תוקנו. תמונות Base64 הוחלפו בריק כדי למנוע JSON ענק. מומלץ להשתמש בהעלאה לענן או בקישור https.)");
   };
 
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-[#060b14] flex items-center justify-center p-6 text-right text-white font-sans" dir="rtl">
+        <div className="w-full max-w-md bg-[#0b1121] border border-slate-800 rounded-3xl p-8 shadow-xl">
+          <h1 className="text-3xl font-black text-[#f59e0b] mb-2 text-center">כניסת מנהל</h1>
+          <p className="text-slate-400 text-sm text-center mb-6">הזן קוד מנהל כדי להיכנס למערכת הניהול.</p>
+          <form onSubmit={handleLogin} className="space-y-4">
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                if (authError) setAuthError(null);
+              }}
+              placeholder="הזן קוד מנהל"
+              className="w-full bg-[#060b14] border border-slate-700 rounded-2xl px-4 py-3 text-white outline-none focus:border-[#f59e0b] text-center"
+            />
+            {authError && (
+              <p className="text-red-400 text-xs font-bold text-center">{authError}</p>
+            )}
+            <button
+              type="submit"
+              className="w-full py-3 bg-[#f59e0b] hover:bg-[#d97706] text-slate-950 font-black rounded-2xl transition"
+            >
+              כניסה למערכת
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#060b14] p-6 md:p-12 text-right text-white font-sans" dir="rtl">
       <div className="max-w-6xl mx-auto">
@@ -385,20 +375,10 @@ const AdminPortal: React.FC = () => {
 
           <div className="flex flex-wrap justify-center gap-3 items-center">
             <button
-              onClick={goToClientHome}
+              onClick={handleLogout}
               className="bg-slate-800/50 text-slate-400 px-5 py-2.5 rounded-xl font-bold border border-slate-700/50 text-sm hover:bg-slate-800 transition"
             >
-              מעבר לאתר
-            </button>
-            <button
-              onClick={() => { setEditingScript(null); setEditingProduct(null); setOrderCodeFilter(''); setViewMode('orders'); }}
-              className={`px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 transition ${
-                viewMode === 'orders'
-                  ? 'bg-indigo-700 text-white'
-                  : 'bg-indigo-700/30 text-indigo-300 hover:bg-indigo-700/50 border border-indigo-400/20'
-              }`}
-            >
-              💳 הזמנות ({orders.length})
+              התנתק
             </button>
             <button onClick={() => { setEditingScript(null); setEditingProduct(null); setViewMode('leads'); }} className={`px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 transition ${viewMode === 'leads' ? 'bg-[#064e3b] text-white' : 'bg-[#064e3b]/30 text-[#10b981] hover:bg-[#064e3b]/50 border border-[#10b981]/20'}`}>👤 לידים ({leads.length})</button>
             
@@ -771,109 +751,6 @@ const AdminPortal: React.FC = () => {
               >
                 {editingProductKind === 'covers' ? 'שמור כריכה במערכת' : 'שמור מוצר במערכת'}
               </button>
-            </div>
-          </div>
-
-        ) : viewMode === 'orders' ? (
-
-          <div className="bg-[#0b1121] border border-slate-800 rounded-[2.5rem] p-8 md:p-12 shadow-xl animate-in fade-in duration-300">
-            <div className="flex justify-between items-center mb-8 border-b border-slate-800 pb-4">
-              <h2 className="text-3xl font-black text-indigo-400">הזמנות ותשלומים</h2>
-              <div className="flex items-center gap-3">
-                <input
-                  value={orderCodeFilter}
-                  onChange={(e) => setOrderCodeFilter(e.target.value)}
-                  placeholder="סינון לפי קוד הזמנה"
-                  className="bg-[#060b14] border border-slate-700 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-indigo-400"
-                />
-                {orderCodeFilter && (
-                  <button
-                    onClick={() => setOrderCodeFilter('')}
-                    className="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-2 rounded-xl text-xs font-bold transition"
-                  >
-                    נקה סינון
-                  </button>
-                )}
-                <button
-                  onClick={loadOrders}
-                  className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-3 rounded-xl font-bold transition shadow-lg flex items-center gap-2"
-                >
-                  רענן הזמנות
-                </button>
-              </div>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-right border-collapse">
-                <thead>
-                  <tr className="text-slate-500 border-b border-slate-800 text-sm">
-                    <th className="pb-4 px-4 font-bold">קוד הזמנה</th>
-                    <th className="pb-4 px-4 font-bold">לקוח</th>
-                    <th className="pb-4 px-4 font-bold">מוצר</th>
-                    <th className="pb-4 px-4 font-bold">סכום</th>
-                    <th className="pb-4 px-4 font-bold">סטטוס</th>
-                    <th className="pb-4 px-4 font-bold">פעולה</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {isOrdersLoading && (
-                    <tr>
-                      <td colSpan={6} className="py-10 px-4 text-center text-slate-400 font-bold">
-                        טוען הזמנות...
-                      </td>
-                    </tr>
-                  )}
-                  {!isOrdersLoading && ordersError && (
-                    <tr>
-                      <td colSpan={6} className="py-10 px-4 text-center text-red-400 font-bold">
-                        {ordersError}
-                      </td>
-                    </tr>
-                  )}
-                  {!isOrdersLoading && !ordersError && filteredOrders.length === 0 && (
-                    <tr>
-                      <td colSpan={6} className="py-10 px-4 text-center text-slate-500 font-bold">
-                        {orders.length === 0 ? 'עדיין לא התקבלו הזמנות רכישה.' : 'לא נמצאו הזמנות עבור קוד זה.'}
-                      </td>
-                    </tr>
-                  )}
-                  {!isOrdersLoading && !ordersError && filteredOrders.map((order) => (
-                    <tr key={order.id} className="border-b border-slate-800/50 hover:bg-slate-800/20 transition">
-                      <td className="py-5 px-4 text-indigo-300 font-mono font-bold text-xs">{order.orderCode}</td>
-                      <td className="py-5 px-4 text-slate-200">
-                        <div className="font-bold">{order.customerName}</div>
-                        <div className="text-xs text-slate-400">{order.customerEmail}</div>
-                      </td>
-                      <td className="py-5 px-4 text-slate-300 font-bold">{order.productName}</td>
-                      <td className="py-5 px-4 text-amber-400 font-bold">{order.priceLabel}</td>
-                      <td className="py-5 px-4">
-                        <span className={`px-3 py-1 rounded-full text-xs font-black ${order.status === 'paid' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-300'}`}>
-                          {order.status === 'paid' ? 'שולם' : 'ממתין לאישור'}
-                        </span>
-                      </td>
-                      <td className="py-5 px-4">
-                        {order.status === 'paid' ? (
-                          <span className="text-emerald-400 text-xs font-bold">
-                            אושר {order.paidAt ? new Date(order.paidAt).toLocaleDateString('he-IL') : ''}
-                          </span>
-                        ) : (
-                          <button
-                            onClick={() => markOrderAsPaid(order.id)}
-                            disabled={isMarkingOrderPaid === order.id}
-                            className={`px-4 py-2 rounded-lg text-xs font-black transition ${
-                              isMarkingOrderPaid === order.id
-                                ? 'bg-emerald-900 text-emerald-200 cursor-not-allowed'
-                                : 'bg-emerald-600 hover:bg-emerald-500 text-white'
-                            }`}
-                          >
-                            {isMarkingOrderPaid === order.id ? 'מאשר...' : 'אשר תשלום'}
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
             </div>
           </div>
 
