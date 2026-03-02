@@ -55,7 +55,10 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage, sc
     setChatHistory(prev => [...prev, newUserMessage]);
     setIsAiTyping(true);
 
-    const context = scripts.map(s => `${s.name}: ${s.shortDesc}`).join(', ');
+    const scriptsContext = scripts.map(s => `סקריפט: ${s.name}. ${s.shortDesc}`).join('\n');
+    const productsContext = products.map((p: any) => `מוצר: ${p.name}. ${p.description || p.fullDesc || ''}`).join('\n');
+    const coversContext = covers.map((c: any) => `כריכה תורנית: ${c.name}. ${c.description || c.fullDesc || ''}`).join('\n');
+    const context = `אתה עוזר לאתר Footnote Wizard. הנה כל המוצרים והשירותים באתר:\n\nסקריפטים לאינדיזיין:\n${scriptsContext}\n\nמוצרים נוספים:\n${productsContext}\n\nעיצוב כריכות תורניות:\n${coversContext}`;
 
     try {
       const aiResponseText = await askAssistant(userMessageText, context, chatHistory);
