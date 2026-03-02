@@ -60,6 +60,10 @@
 - [ ] Hard refresh (`Ctrl+F5`) and validate compact layout on key client pages at 100% zoom.
 - [ ] Submit a lead from the trial modal in UI and confirm it appears in Admin Leads tab.
 
+## AI Assistant (Gemini)
+- The AI assistant calls `/api/ask-assistant` (serverless function) which uses `GEMINI_API_KEY` or `VITE_GEMINI_API_KEY` from Vercel env.
+- The API key must be set in Vercel for production. Local dev uses `.env` (VITE_GEMINI_API_KEY or GEMINI_API_KEY).
+
 ## Notes for Next Agent
 - Read this file first before making changes.
 - Keep commit messages concise and consistent with repository style.

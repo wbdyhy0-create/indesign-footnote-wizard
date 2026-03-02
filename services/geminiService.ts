@@ -1,37 +1,31 @@
-import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { ChatMessage } from "@/types";
-
-const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
 
 export async function askAssistant(
   userMessage: string,
   context: string,
   chatHistory: ChatMessage[]
 ): Promise<string> {
-  const history = chatHistory.map(msg => ({
-    role: msg.role === 'user' ? 'user' : 'model',
-    parts: [{ text: msg.text }],
-  }));
-
   try {
-    const result = await ai.models.generateContent({
-      model:"gemini-1.5-flash",
-      contents: [
-        { role: 'user', parts: [{ text: `Context: ${context}` }] },
-        ...history,
-        { role: 'user', parts: [{ text: userMessage }] },
-      ],
+    const res = await fetch('/api/ask-assistant', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userMessage,
+        context,
+        chatHistory: chatHistory.map((m) => ({ role: m.role === 'user' ? 'user' : 'model', text: m.text })),
+      }),
     });
 
-    console.log("Gemini API raw result:", result);
-    if (result && result.text) {
-      return result.text;
-    } else {
-      console.error("Gemini API returned an empty or invalid response:", result);
-      return "אני מצטער, קיבלתי תגובה לא תקינה מה-AI.";
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      const msg = data?.error || `שגיאה ${res.status}`;
+      return `אני מצטער, אירעה שגיאה: ${msg}. אנא נסה שוב מאוחר יותר.`;
     }
+
+    return data?.text || "מצטער, לא התקבלה תשובה.";
   } catch (error) {
-    console.error("Error calling Gemini API:", error);
+    console.error("Error calling AI assistant:", error);
     return "אני מצטער, אירעה שגיאה בעת התקשורת עם ה-AI. אנא נסה שוב מאוחר יותר.";
   }
 }

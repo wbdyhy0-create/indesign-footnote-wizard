@@ -186,11 +186,11 @@ export default defineConfig(({ mode }) => {
                 return;
               }
 
-              const apiKey = env.GEMINI_API_KEY;
+              const apiKey = env.GEMINI_API_KEY || env.VITE_GEMINI_API_KEY;
               if (!apiKey) {
                 res.statusCode = 500;
                 res.setHeader('Content-Type', 'application/json; charset=utf-8');
-                res.end(JSON.stringify({ error: 'Missing GEMINI_API_KEY in .env' }));
+                res.end(JSON.stringify({ error: 'Missing GEMINI_API_KEY or VITE_GEMINI_API_KEY in .env' }));
                 return;
               }
 
