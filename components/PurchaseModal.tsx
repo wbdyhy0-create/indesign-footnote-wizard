@@ -171,7 +171,7 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
       if (result?.order?.status === 'paid' && result?.downloadUrl) {
         const nextDownloadUrl = String(result.downloadUrl);
         setReadyDownloadUrl(nextDownloadUrl);
-        setStatusMessage('אישור התשלום התקבל. הכפתור הירוק התחלף ל"הורד עכשיו".');
+        setStatusMessage('אישור התשלום התקבל! קישור ההורדה נשלח גם למייל שלך (בדוק בספאם אם לא מופיע).');
         return;
       }
 

@@ -126,6 +126,11 @@ const sendDownloadEmail = async (order: OrderRecord): Promise<{ sent: boolean; e
             אם הכפתור לא עובד, העתק את הקישור הבא לדפדפן:<br/>
             <a href="${order.downloadUrl}" style="color:#818cf8;word-break:break-all;">${order.downloadUrl}</a>
           </p>
+          <div style="background:#1e293b;border-radius:8px;padding:12px 16px;margin:20px 0;">
+            <p style="font-size:13px;color:#fbbf24;margin:0;font-weight:bold;">
+              לא מוצא את המייל? בדוק בתיקיית הספאם / דואר זבל ולחץ "זה לא ספאם".
+            </p>
+          </div>
           <hr style="border:none;border-top:1px solid #1e293b;margin:24px 0;"/>
           <p style="font-size:12px;color:#334155;text-align:center;">
             Footnote Wizard – פתרונות אוטומציה למעמדים &nbsp;|&nbsp; יוסף עובדיה
