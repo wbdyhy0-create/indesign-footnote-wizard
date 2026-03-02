@@ -213,15 +213,9 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
   if (!isOpen) return null;
 
   const handleWhatsAppSupport = () => {
-    const orderCode = orderInfo?.orderCode || 'ללא קוד הזמנה';
-    const adminOrdersUrl = `${window.location.origin}/admin/orders?orderCode=${encodeURIComponent(orderCode)}`;
+    const orderCode = orderInfo?.orderCode || '';
     const message = encodeURIComponent(
-      `שלום יוסף, ביצעתי תשלום בביט עבור "${script.name}".
-קוד הזמנה: ${orderCode}
-שם לקוח: ${customerInfo.name}
-אימייל: ${customerInfo.email}
-סכום: ${orderInfo?.priceLabel || script.price}
-לאישור מהיר: ${adminOrdersUrl}`
+      `שלום, נתקלתי בבעיה ואשמח לעזרה.${orderCode ? `\nקוד הזמנה: ${orderCode}` : ''}`
     );
     window.open(`https://wa.me/972522284432?text=${message}`, '_blank');
   };
@@ -304,7 +298,7 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
                     {isCheckingPayment ? 'בודק סטטוס...' : readyDownloadUrl ? 'הורד עכשיו' : 'בדוק אישור תשלום והורד'}
                   </button>
                   <p className="text-[11px] text-slate-300 leading-tight text-center">
-                    הסתבכתם? כתבו הודעה ונחזור אליכם בהקדם.
+                    לכל שאלה או בעיה, כתבו לנו ונחזור אליכם בהקדם.
                   </p>
                   <button
                     onClick={handleWhatsAppSupport}
