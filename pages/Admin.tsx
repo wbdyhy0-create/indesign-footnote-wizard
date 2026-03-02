@@ -121,6 +121,14 @@ const AdminPortal: React.FC = () => {
       if (!response.ok || data?.success === false) {
         throw new Error(data?.error || 'לא הצלחנו לאשר את התשלום');
       }
+
+      if (data?.emailSent) {
+        alert('התשלום אושר וקישור ההורדה נשלח ללקוח במייל!');
+      } else {
+        const reason = data?.emailError || 'סיבה לא ידועה';
+        alert(`התשלום אושר, אך שליחת המייל נכשלה: ${reason}\nהלקוח עדיין יכול להוריד מהאתר.`);
+      }
+
       await loadOrders();
     } catch (error: any) {
       setOrdersError(error?.message || 'לא הצלחנו לאשר את התשלום');

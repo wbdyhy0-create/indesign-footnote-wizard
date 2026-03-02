@@ -1,4 +1,5 @@
 import { kv } from '@vercel/kv';
+import { Resend } from 'resend';
 
 type OrderStatus = 'pending' | 'paid';
 
@@ -94,6 +95,49 @@ const getBitUrl = (phone: string, amountNis: number, text: string) => {
   const encodedText = encodeURIComponent(text);
   const normalizedAmount = Number.isInteger(amountNis) ? String(amountNis) : amountNis.toFixed(2);
   return `https://www.bitpay.co.il/app/pay-request/?phone=${phone}&amount=${normalizedAmount}&text=${encodedText}`;
+};
+
+const sendDownloadEmail = async (order: OrderRecord): Promise<{ sent: boolean; error?: string }> => {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return { sent: false, error: 'RESEND_API_KEY not configured' };
+
+  try {
+    const resend = new Resend(apiKey);
+    await resend.emails.send({
+      from: 'Footnote Wizard <onboarding@resend.dev>',
+      to: order.customerEmail,
+      subject: `הקובץ שלך מוכן להורדה – ${order.productName}`,
+      html: `
+        <div dir="rtl" style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:32px;background:#0f172a;color:#e2e8f0;border-radius:16px;">
+          <h1 style="color:#f59e0b;font-size:24px;margin-bottom:8px;">תודה על הרכישה!</h1>
+          <p style="font-size:16px;line-height:1.7;color:#94a3b8;">
+            שלום ${order.customerName},<br/>
+            התשלום עבור <strong style="color:#e2e8f0;">${order.productName}</strong> אושר בהצלחה.
+          </p>
+          <p style="font-size:14px;color:#64748b;margin-bottom:24px;">
+            קוד הזמנה: <strong style="color:#818cf8;">${order.orderCode}</strong> &nbsp;|&nbsp; סכום: <strong style="color:#fbbf24;">${order.priceLabel}</strong>
+          </p>
+          <div style="text-align:center;margin:32px 0;">
+            <a href="${order.downloadUrl}" style="display:inline-block;padding:16px 48px;background:#f59e0b;color:#0f172a;font-weight:900;font-size:18px;border-radius:12px;text-decoration:none;">
+              הורד את הקובץ
+            </a>
+          </div>
+          <p style="font-size:13px;color:#475569;line-height:1.6;">
+            אם הכפתור לא עובד, העתק את הקישור הבא לדפדפן:<br/>
+            <a href="${order.downloadUrl}" style="color:#818cf8;word-break:break-all;">${order.downloadUrl}</a>
+          </p>
+          <hr style="border:none;border-top:1px solid #1e293b;margin:24px 0;"/>
+          <p style="font-size:12px;color:#334155;text-align:center;">
+            Footnote Wizard – פתרונות אוטומציה למעמדים &nbsp;|&nbsp; יוסף עובדיה
+          </p>
+        </div>
+      `,
+    });
+    return { sent: true };
+  } catch (e: any) {
+    console.error('Email send failed:', e);
+    return { sent: false, error: e?.message || 'Unknown email error' };
+  }
 };
 
 export default async function handler(req: any, res: any) {
@@ -223,7 +267,14 @@ export default async function handler(req: any, res: any) {
       next[index] = updated;
       await saveOrders(next);
 
-      return res.status(200).json({ success: true, order: updated });
+      const emailResult = await sendDownloadEmail(updated);
+
+      return res.status(200).json({
+        success: true,
+        order: updated,
+        emailSent: emailResult.sent,
+        emailError: emailResult.error || null,
+      });
     }
 
     return res.status(400).json({ success: false, error: 'פעולה לא נתמכת' });
