@@ -221,7 +221,7 @@ export default defineConfig(({ mode }) => {
                     }));
 
                   const ai = new GoogleGenAI({ apiKey });
-                  const model = env.GEMINI_MODEL || 'gemini-2.5-flash';
+                  const model = env.GEMINI_MODEL || 'gemini-2.0-flash';
                   const result = await ai.models.generateContent({
                     model,
                     contents: [
