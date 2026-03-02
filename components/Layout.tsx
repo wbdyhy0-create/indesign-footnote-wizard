@@ -214,7 +214,16 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage, sc
                       <div className="w-8 h-8 bg-amber-500 rounded-full flex items-center justify-center text-lg">✒️</div>
                       <span className="font-bold text-white text-sm">תמיכת ה-AI</span>
                     </div>
-                    <button onClick={() => setIsHelpOpen(false)} className="text-slate-400 hover:text-white">✕</button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setChatHistory([{ id: 'initial-ai', role: MessageRole.MODEL, text: 'שלום! איך אוכל לעזור לך היום בשימוש בסקריפטים שלנו?', timestamp: new Date() }])}
+                        className="text-slate-400 hover:text-amber-400 text-xs font-bold flex items-center gap-1"
+                        title="נקה היסטוריה"
+                      >
+                        🗑️ נקה
+                      </button>
+                      <button onClick={() => setIsHelpOpen(false)} className="text-slate-400 hover:text-white">✕</button>
+                    </div>
                   </div>
                   <div className="h-80 overflow-y-auto p-5 space-y-4 bg-slate-950/50 flex flex-col">
                     {chatHistory.map((msg) => (
