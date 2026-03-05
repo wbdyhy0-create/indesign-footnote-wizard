@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ScriptData, Lead } from '../types';
 
 interface TrialModalProps {
@@ -72,10 +73,9 @@ const TrialModal: React.FC<TrialModalProps> = ({ script, isOpen, onClose }) => {
     }
   };
 
-  return (
+  const modalContent = (
     <div className="fixed inset-0 z-[110] overflow-y-auto bg-black/95 backdrop-blur-md animate-fadeIn">
-      {/* כאן השינוי! items-start במקום items-center, ו-pt-16 לריווח מלמעלה */}
-      <div className="flex min-h-full items-start justify-center p-4 pt-16 md:pt-24">
+      <div className="flex min-h-full items-center justify-center p-4">
         <div className="bg-[#0f172a] border border-slate-700 w-full max-w-md rounded-[2.5rem] shadow-2xl relative overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-amber-500 to-transparent"></div>
           
@@ -150,6 +150,8 @@ const TrialModal: React.FC<TrialModalProps> = ({ script, isOpen, onClose }) => {
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
 };
 
 export default TrialModal;

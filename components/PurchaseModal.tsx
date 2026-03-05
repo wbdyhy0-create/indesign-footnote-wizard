@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { ScriptData } from '../types';
 
 interface PurchaseModalProps {
@@ -220,7 +221,7 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
     window.open(`https://wa.me/972522284432?text=${message}`, '_blank');
   };
 
-  return (
+  const modalContent = (
     <>
       <div className="fixed inset-0 z-[999] flex min-h-screen items-center justify-center bg-black/75 p-4 overflow-y-auto">
         <div className="relative z-[1001] bg-[#0f172a] border border-slate-700 w-full max-w-md rounded-[2.5rem] shadow-2xl p-8 md:p-10 text-center">
@@ -315,6 +316,8 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
       </div>
     </>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
 };
 
 export default PurchaseModal;
