@@ -34,6 +34,7 @@
 - Major pages were compacted (Home, Other Products, Torah Covers, Script Detail, Product Detail).
 
 ## Recent Important Commits
+- `ba21a2f` fix modal positioning - use Portal so modals render in viewport
 - `3f39b1f` compact layout across current and future pages
 - `1d89106` compact and centered other-products page
 - `917c181` compact homepage hero sizing
