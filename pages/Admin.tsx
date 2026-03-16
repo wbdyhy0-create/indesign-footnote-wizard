@@ -861,8 +861,15 @@ const AdminPortal: React.FC = () => {
                       </td>
                       <td className="py-5 px-4">
                         {order.status === 'paid' ? (
-                          <span className="text-emerald-400 text-xs font-bold">
-                            אושר {order.paidAt ? new Date(order.paidAt).toLocaleDateString('he-IL') : ''}
+                          <span className="text-emerald-400 text-xs font-bold block">
+                            {order.paidAt ? (
+                              <>
+                                אושר {new Date(order.paidAt).toLocaleDateString('he-IL')}
+                                <span className="block text-slate-400 font-normal mt-0.5">
+                                  {new Date(order.paidAt).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              </>
+                            ) : 'אושר'}
                           </span>
                         ) : (
                           <button
