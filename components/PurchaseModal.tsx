@@ -141,14 +141,17 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
     }
   };
 
-  const isLikelyMobile = () => {
+  const isLikelyDesktop = () => {
     if (typeof navigator === 'undefined') return false;
-    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const ua = navigator.userAgent;
+    const hasMobileHint = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobi|Silk/i.test(ua);
+    const hasDesktopOS = /Windows NT|Macintosh|Linux|X11|CrOS/i.test(ua);
+    return hasDesktopOS && !hasMobileHint;
   };
 
   const handleBitPayment = () => {
     if (!orderInfo?.bitPayUrl) return;
-    if (!isLikelyMobile()) {
+    if (isLikelyDesktop()) {
       alert('תשלום בביט מתבצע מהאפליקציה בנייד.\nפתח את אפליקציית Bit בסלולר כדי להשלים את התשלום.');
     }
     window.open(orderInfo.bitPayUrl, '_blank');
