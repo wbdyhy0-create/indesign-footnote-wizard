@@ -141,8 +141,16 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
     }
   };
 
+  const isLikelyMobile = () => {
+    if (typeof navigator === 'undefined') return false;
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  };
+
   const handleBitPayment = () => {
     if (!orderInfo?.bitPayUrl) return;
+    if (!isLikelyMobile()) {
+      alert('תשלום בביט מתבצע מהאפליקציה בנייד.\nפתח את אפליקציית Bit בסלולר כדי להשלים את התשלום.');
+    }
     window.open(orderInfo.bitPayUrl, '_blank');
   };
 
@@ -305,6 +313,9 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
                 <button onClick={handleBitPayment} className="w-full py-5 bg-white text-slate-900 font-black rounded-2xl shadow-xl flex items-center justify-center gap-3 border-2 border-slate-200 active:scale-95 transition-all">
                   לחץ לתשלום בביט
                 </button>
+                <p className="text-[11px] text-slate-400 text-center -mt-1">
+                  במחשב? פתח את אפליקציית Bit בנייד כדי להשלים את התשלום.
+                </p>
 
                 <button onClick={handleWhatsAppApproval} className="w-full py-3 bg-emerald-900/20 text-emerald-400 text-sm font-bold rounded-xl border border-emerald-800/50 flex items-center justify-center gap-2 hover:bg-emerald-900/30 transition-all">
                   <span>💬</span> שלח אישור תשלום בוואטסאפ
