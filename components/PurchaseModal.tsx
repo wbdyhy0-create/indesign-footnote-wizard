@@ -194,6 +194,7 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
 
   const handleCheckPayment = async () => {
     if (readyDownloadUrl) {
+      window.open(readyDownloadUrl, '_blank');
       alert('הקובץ נשלח לכתובת המייל שהזנת.\nחפש בתיקיית הספאם / דואר זבל.');
       onClose();
       return;
@@ -229,6 +230,12 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
 
     const message = encodeURIComponent(messageLines.join('\n'));
     window.open(`https://wa.me/972522284432?text=${message}`, '_blank');
+
+    // מיד אחרי שליחת וואטסאפ – פתיחת הורדה ללא המתנה לאישור מנהל (הפרוצדורה למראית עין)
+    if (script.downloadUrl) {
+      setReadyDownloadUrl(script.downloadUrl);
+      setStatusMessage('ניתן להוריד עכשיו.');
+    }
   };
 
   const handleWhatsAppSupport = () => {
@@ -292,8 +299,7 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
                     לאחר ביצוע התשלום, לחץ על הכפתור "שלח אישור תשלום בוואטספ".
                   </p>
                   <p className="text-[11px] text-slate-300 leading-tight bg-slate-900/40 p-3 rounded-xl border border-slate-800">
-                    לאחר אישור ההזמנה על ידי המנהל, הכפתור הירוק יתחלף ל"הורד עכשיו".
-                    נא להמתין מעט בסבלנות, ולא לסגור חלון זה.
+                    לאחר שתשלח את האישור בוואטספ, הכפתור הירוק יתחלף ל"הורד עכשיו" ותוכל להוריד מיד.
                   </p>
                   <p className="text-[11px] text-slate-300 leading-tight bg-slate-900/40 p-3 rounded-xl border border-slate-800">
                     אם נתקלת בבעיה, נא לשלוח הודעה לוואטספ.
