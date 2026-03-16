@@ -16,6 +16,7 @@ type ClientOrderInfo = {
   priceLabel: string;
   bitRecipientName: string;
   bitPhone: string;
+  customerToken?: string;
 };
 
 const BIT_PHONE = '0522284432';
@@ -118,6 +119,7 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
         priceLabel: String(result.order.priceLabel),
         bitRecipientName: String(result.order.bitRecipientName),
         bitPhone: String(result.order.bitPhone),
+        customerToken: result.order.customerToken ? String(result.order.customerToken) : undefined,
       });
       setStep('payment');
     } catch (err: any) {
@@ -214,7 +216,7 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
 
   if (!isOpen) return null;
 
-  const handleWhatsAppApproval = () => {
+  const handleWhatsAppApproval = async () => {
     const orderCode = orderInfo?.orderCode || '';
     const productName = script.name;
     const priceLabel = orderInfo?.priceLabel || script.price;
@@ -231,10 +233,24 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
     const message = encodeURIComponent(messageLines.join('\n'));
     window.open(`https://wa.me/972522284432?text=${message}`, '_blank');
 
-    // מיד אחרי שליחת וואטסאפ – פתיחת הורדה ללא המתנה לאישור מנהל (הפרוצדורה למראית עין)
+    // מיד אחרי שליחת וואטסאפ – סימון ההזמנה כ"שולמה" בשרת + שליחת מייל, והכפתור להורדה
     if (script.downloadUrl) {
       setReadyDownloadUrl(script.downloadUrl);
       setStatusMessage('ניתן להוריד עכשיו.');
+    }
+    if (orderInfo?.id && orderInfo?.customerToken && customerInfo.email) {
+      try {
+        await fetch('/api/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'mark-paid-customer',
+            orderId: orderInfo.id,
+            customerEmail: customerInfo.email,
+            customerToken: orderInfo.customerToken,
+          }),
+        });
+      } catch (_) {}
     }
   };
 

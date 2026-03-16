@@ -16,6 +16,7 @@ type OrderRecord = {
   createdAt: string;
   paidAt: string | null;
   downloadUrl: string;
+  customerToken?: string;
 };
 
 const ORDERS_KEY = 'orders_data';
@@ -78,6 +79,7 @@ const normalizeOrderRecord = (value: any): OrderRecord | null => {
     createdAt: String(value.createdAt),
     paidAt: value.paidAt ? String(value.paidAt) : null,
     downloadUrl: String(value.downloadUrl),
+    customerToken: value.customerToken ? String(value.customerToken) : undefined,
   };
 };
 
@@ -182,6 +184,7 @@ export default async function handler(req: any, res: any) {
       }
 
       const now = new Date().toISOString();
+      const customerToken = Math.random().toString(36).slice(2) + Date.now().toString(36);
       const nextOrder: OrderRecord = {
         id: `order-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         orderCode: createOrderCode(),
@@ -195,6 +198,7 @@ export default async function handler(req: any, res: any) {
         createdAt: now,
         paidAt: null,
         downloadUrl,
+        customerToken,
       };
 
       const existing = await loadOrders();
@@ -213,7 +217,51 @@ export default async function handler(req: any, res: any) {
           bitPhone: BIT_PHONE,
           bitPayUrl: getBitUrl(BIT_PHONE, nextOrder.amountNis, payText),
           createdAt: nextOrder.createdAt,
+          customerToken: nextOrder.customerToken,
         },
+      });
+    }
+
+    if (action === 'mark-paid-customer') {
+      const orderId = typeof body.orderId === 'string' ? body.orderId.trim() : '';
+      const customerEmail = normalizeEmail(body.customerEmail);
+      const customerToken = typeof body.customerToken === 'string' ? body.customerToken.trim() : '';
+      if (!orderId || !customerEmail || !customerToken) {
+        return res.status(400).json({ success: false, error: 'חסרים פרטי אישור' });
+      }
+
+      const orders = await loadOrders();
+      const index = orders.findIndex(
+        (item) =>
+          item.id === orderId &&
+          item.customerEmail === customerEmail &&
+          item.customerToken === customerToken
+      );
+      if (index === -1) {
+        return res.status(404).json({ success: false, error: 'הזמנה לא נמצאה או טוקן לא תואם' });
+      }
+
+      const current = orders[index];
+      if (current.status === 'paid') {
+        return res.status(200).json({ success: true, order: current, alreadyPaid: true });
+      }
+
+      const updated: OrderRecord = {
+        ...current,
+        status: 'paid',
+        paidAt: current.paidAt || new Date().toISOString(),
+      };
+      const next = [...orders];
+      next[index] = updated;
+      await saveOrders(next);
+
+      const emailResult = await sendDownloadEmail(updated);
+
+      return res.status(200).json({
+        success: true,
+        order: updated,
+        emailSent: emailResult.sent,
+        emailError: emailResult.error || null,
       });
     }
 
