@@ -34,7 +34,7 @@ export const SCRIPTS = [
     price: "₪550",
     originalPrice: "₪750",
     color: "emerald",
-    downloadUrl: "https://drive.google.com/file/d/1nlp4MOy8K8uyGXl4goRtIZwFio1g-Vbv/view?usp=drive_link",
+    downloadUrl: "https://drive.google.com/uc?export=download&id=1nlp4MOy8K8uyGXl4goRtIZwFio1g-Vbv",
     trialDownloadUrl: "https://drive.google.com/file/d/1SFJgFBjeRrECh_cyHlYpFwmpS49rwXI7/view?usp=drive_link",
     isDownloadable: true,
     isTrialDownloadable: true,
