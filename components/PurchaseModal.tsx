@@ -194,8 +194,7 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
 
   const handleCheckPayment = async () => {
     if (readyDownloadUrl) {
-      // הקובץ כבר מוכן, והקישור נשלח במייל דרך השרת.
-      // לא נפתח כאן את קישור הגוגל דרייב כדי לא לחשוף את כל הדרייב ללקוח.
+      alert('הקובץ נשלח לכתובת המייל שהזנת.\nחפש בתיקיית הספאם / דואר זבל.');
       onClose();
       return;
     }
