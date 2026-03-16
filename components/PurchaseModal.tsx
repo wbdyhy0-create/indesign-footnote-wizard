@@ -213,6 +213,24 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
 
   if (!isOpen) return null;
 
+  const handleWhatsAppApproval = () => {
+    const orderCode = orderInfo?.orderCode || '';
+    const productName = script.name;
+    const priceLabel = orderInfo?.priceLabel || script.price;
+    const email = customerInfo.email;
+
+    const messageLines = [
+      'שלום יוסף,',
+      `ביצעתי עכשיו תשלום בביט עבור "${productName}" בסכום ${priceLabel}.`,
+      orderCode ? `קוד הזמנה: ${orderCode}` : '',
+      email ? `האימייל להזמנה: ${email}` : '',
+      'אשמח שתאשר את ההזמנה ותאפשר לי להוריד את הקובץ. תודה!'
+    ].filter(Boolean);
+
+    const message = encodeURIComponent(messageLines.join('\n'));
+    window.open(`https://wa.me/972522284432?text=${message}`, '_blank');
+  };
+
   const handleWhatsAppSupport = () => {
     const orderCode = orderInfo?.orderCode || '';
     const message = encodeURIComponent(
@@ -265,7 +283,7 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
                   לחץ לתשלום בביט
                 </button>
 
-                <button onClick={handleWhatsAppSupport} className="w-full py-3 bg-emerald-900/20 text-emerald-400 text-sm font-bold rounded-xl border border-emerald-800/50 flex items-center justify-center gap-2 hover:bg-emerald-900/30 transition-all">
+                <button onClick={handleWhatsAppApproval} className="w-full py-3 bg-emerald-900/20 text-emerald-400 text-sm font-bold rounded-xl border border-emerald-800/50 flex items-center justify-center gap-2 hover:bg-emerald-900/30 transition-all">
                   <span>💬</span> שלח אישור תשלום בוואטסאפ
                 </button>
 
