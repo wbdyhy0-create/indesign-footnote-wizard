@@ -97,24 +97,14 @@ const ProductDetail: React.FC<ScriptDetailProps> = ({ product, onBack }) => {
                   הורד גרסת ניסיון
                 </button>
               )}
-              {hasGuide && (
-                <a
-                  href={guideUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full md:w-auto inline-flex items-center justify-center gap-3 px-10 py-3 rounded-2xl border border-sky-500/60 text-sky-300 text-sm font-black bg-transparent hover:bg-sky-500/10 transition-all"
-                >
-                  📄 פתח מדריך (גוגל דרייב)
-                </a>
-              )}
               {!isPurchaseAvailable && (
                 <p className="text-red-400 text-sm mt-1 font-bold">שימו לב: טרם הוזן קישור הורדה למוצר זה במערכת הניהול.</p>
               )}
             </div>
           </div>
 
-          {/* צד שמאל - תמונה / אייקון בלבד (הוידאו מופיע למטה) */}
-          <div className="flex-1 w-full lg:w-auto relative">
+          {/* צד שמאל - תמונה / אייקון; כפתור מדריך תמיד מתחת לתמונה */}
+          <div className="flex-1 w-full lg:w-auto relative flex flex-col gap-4">
             {product.imageUrl ? (
               <div className="w-full rounded-[2rem] overflow-hidden shadow-2xl border border-slate-800 bg-slate-900 flex justify-center items-center p-4">
                 <img
@@ -129,6 +119,16 @@ const ProductDetail: React.FC<ScriptDetailProps> = ({ product, onBack }) => {
                   {product.image || '✒️'}
                 </span>
               </div>
+            )}
+            {hasGuide && (
+              <a
+                href={guideUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full inline-flex items-center justify-center gap-3 px-6 py-3 rounded-2xl border border-sky-500/60 text-sky-300 text-sm font-black bg-transparent hover:bg-sky-500/10 transition-all shrink-0"
+              >
+                📄 פתח מדריך (גוגל דרייב)
+              </a>
             )}
           </div>
         </div>

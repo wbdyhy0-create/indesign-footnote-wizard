@@ -33,7 +33,7 @@
 
 ## Script guide links
 - Each script may include optional `guideUrl` (e.g. Google Drive link to a PDF guide).
-- Admin script editor has field **"קישור מדריך (גוגל דרייב / PDF)"**; when set, the script detail page shows **"פתח מדריך (גוגל דרייב)"**.
+- Admin script editor has field **"קישור מדריך (גוגל דרייב / PDF)"**; when set, the script detail page shows **"פתח מדריך (גוגל דרייב)"** directly **under the hero image** (left column).
 
 ## UI Sizing Policy
 - Compact UI is the default.
