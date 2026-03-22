@@ -143,17 +143,21 @@ const ProductDetail: React.FC<ScriptDetailProps> = ({ product, onBack }) => {
               <p className="text-slate-300 text-sm md:text-base leading-relaxed text-justify">
                 צפה בסרטון שמציג בפירוט את כל היכולות של {product.name} וכיצד להפיק ממנו את המקסימום.
               </p>
-              <button
-                onClick={() => {
-                  const iframe = document.getElementById('script-video-section');
-                  if (iframe && 'scrollIntoView' in iframe) {
-                    (iframe as HTMLElement).scrollIntoView({ behavior: 'smooth', block: 'center' });
-                  }
-                }}
-                className="inline-flex items-center justify-center px-10 py-3 rounded-2xl bg-red-600 hover:bg-red-500 text-white font-black text-sm md:text-base shadow-lg shadow-red-700/40 transition-transform hover:scale-105 active:scale-95"
-              >
-                ▶️ צפה עכשיו בסרטון
-              </button>
+              <p className="inline-flex items-center gap-2 rounded-2xl bg-red-600 px-6 py-3 text-white font-black text-sm md:text-base shadow-lg shadow-red-700/40 pointer-events-none select-none cursor-default">
+                <svg
+                  className="h-5 w-5 shrink-0 opacity-95 rotate-90 lg:rotate-0 transition-transform"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M9 5l7 7-7 7" />
+                </svg>
+                <span>צפה בסרטון הדרכה</span>
+              </p>
             </div>
             <div className="flex-1 w-full" id="script-video-section">
               <div className="aspect-video w-full rounded-2xl overflow-hidden border border-red-500/40 bg-black shadow-2xl">
