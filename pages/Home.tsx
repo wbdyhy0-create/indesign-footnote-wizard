@@ -1,13 +1,73 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 
 interface HomeProps {
   onNavigateToCatalog: () => void;
 }
 
+/** מונע כפילות מונה בזמן React Strict Mode (פיתוח) ובמרווח קצר בין ריצות אפקט */
+let lastHomeVisitBumpAt = 0;
+const HOME_VISIT_DEBOUNCE_MS = 2500;
+
 const Home: React.FC<HomeProps> = ({ onNavigateToCatalog }) => {
+  const [visitCount, setVisitCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const run = async () => {
+      const now = Date.now();
+      const shouldBump = now - lastHomeVisitBumpAt >= HOME_VISIT_DEBOUNCE_MS;
+      if (shouldBump) lastHomeVisitBumpAt = now;
+
+      try {
+        if (shouldBump) {
+          const res = await fetch('/api/visits', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ hit: true }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!cancelled && data?.success === true && typeof data.count === 'number') {
+            setVisitCount(Math.max(0, Math.floor(data.count)));
+            return;
+          }
+        }
+        const res = await fetch('/api/visits');
+        const data = await res.json().catch(() => ({}));
+        if (!cancelled && data?.success === true && typeof data.count === 'number') {
+          setVisitCount(Math.max(0, Math.floor(data.count)));
+        }
+      } catch {
+        if (!cancelled) setVisitCount(null);
+      }
+    };
+
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <div className="animate-fadeIn pb-16">
       <header className="text-center mb-12 pt-6">
+        {visitCount !== null && (
+          <div
+            className="mb-5 flex justify-center px-4"
+            dir="rtl"
+            role="status"
+            aria-live="polite"
+            aria-label={`נרשמו ${visitCount.toLocaleString('he-IL')} כניסות לאתר`}
+          >
+            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-950/40 px-4 py-2 text-emerald-200 text-xs md:text-sm font-black shadow-[0_0_24px_rgba(16,185,129,0.12)]">
+              <span className="tabular-nums text-emerald-300" aria-hidden="true">
+                {visitCount.toLocaleString('he-IL')}
+              </span>
+              <span className="text-slate-500 font-bold">·</span>
+              <span className="text-slate-300 font-bold">כניסות נרשמו לאתר</span>
+            </div>
+          </div>
+        )}
         <div className="inline-block px-5 py-2 mb-6 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-500 text-[10px] font-black uppercase tracking-[0.35em] animate-pulse">
           Premium Indesign Automation
         </div>

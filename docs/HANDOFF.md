@@ -13,6 +13,11 @@
 - Successful login opens the admin management interface.
 - "Logout" returns to the admin home/login screen (`/admin`).
 
+## Site visit counter
+- `GET/POST /api/visits` stores a running total in Vercel KV key `site_visits_total`.
+- Home page (`/`) POSTs once per visit (with a short debounce for React Strict Mode); shows **"כניסות נרשמו לאתר"** at the top when the count loads.
+- Local `npm run dev` uses in-memory counter via `vite.config.ts` middleware (resets on server restart).
+
 ## Leads System Status
 - Leads are saved through `/api/leads` and stored in Vercel KV.
 - Admin leads tab loads real leads from `/api/leads`.

@@ -52,6 +52,7 @@ export default defineConfig(({ mode }) => {
               covers: null,
             };
             let localLeads: any[] = [];
+            let localSiteVisits = 0;
 
             // local route for admin cloud sync
             server.middlewares.use('/api/update-scripts', (req, res, next) => {
@@ -100,6 +101,27 @@ export default defineConfig(({ mode }) => {
 
               res.statusCode = 405;
               res.setHeader('Content-Type', 'application/json; charset=utf-8');
+              res.end(JSON.stringify({ success: false, error: 'שיטה לא מורשית' }));
+            });
+
+            // local route: site visit counter (dev only; production uses /api/visits.ts + KV)
+            server.middlewares.use('/api/visits', (req, res) => {
+              if (req.method === 'GET') {
+                res.statusCode = 200;
+                res.setHeader('Content-Type', 'application/json; charset=utf-8');
+                res.end(JSON.stringify({ success: true, count: localSiteVisits }));
+                return;
+              }
+              if (req.method === 'POST') {
+                localSiteVisits += 1;
+                res.statusCode = 200;
+                res.setHeader('Content-Type', 'application/json; charset=utf-8');
+                res.end(JSON.stringify({ success: true, count: localSiteVisits }));
+                return;
+              }
+              res.statusCode = 405;
+              res.setHeader('Content-Type', 'application/json; charset=utf-8');
+              res.setHeader('Allow', 'GET, POST');
               res.end(JSON.stringify({ success: false, error: 'שיטה לא מורשית' }));
             });
 
