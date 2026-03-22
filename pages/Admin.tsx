@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { SCRIPTS as initialScripts, OTHER_PRODUCTS as initialProducts, TORAH_COVER_DESIGNS as initialCovers } from '../constants';
 import { Lead, PurchaseOrder } from '../types';
+import { setOwnerSkipVisitBump, shouldSkipVisitBump } from '../utils/visitTracking';
 
 const ADMIN_VIEWS = ['scripts', 'products', 'covers', 'orders', 'leads', 'json'] as const;
 type AdminViewMode = (typeof ADMIN_VIEWS)[number];
@@ -67,6 +68,11 @@ const AdminPortal: React.FC = () => {
   const [ordersError, setOrdersError] = useState<string | null>(null);
   const [isMarkingOrderPaid, setIsMarkingOrderPaid] = useState<string | null>(null);
   const [orderCodeFilter, setOrderCodeFilter] = useState('');
+  const [skipVisitCountOnThisDevice, setSkipVisitCountOnThisDevice] = useState(false);
+
+  useEffect(() => {
+    setSkipVisitCountOnThisDevice(shouldSkipVisitBump());
+  }, []);
 
   const loadLeads = async () => {
     try {
@@ -397,6 +403,24 @@ const AdminPortal: React.FC = () => {
               className="bg-slate-800/50 text-slate-400 px-5 py-2.5 rounded-xl font-bold border border-slate-700/50 text-sm hover:bg-slate-800 transition"
             >
               מעבר לאתר
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const next = !skipVisitCountOnThisDevice;
+                setOwnerSkipVisitBump(next);
+                setSkipVisitCountOnThisDevice(next);
+              }}
+              className={`px-5 py-2.5 rounded-xl font-bold border text-sm transition max-w-[min(100%,280px)] text-center leading-tight ${
+                skipVisitCountOnThisDevice
+                  ? 'bg-emerald-900/50 text-emerald-200 border-emerald-500/40'
+                  : 'bg-slate-800/50 text-slate-400 border-slate-700/50 hover:bg-slate-800 hover:text-slate-200'
+              }`}
+              title="נשמר בדפדפן הזה בלבד. גולשים אחרים עדיין נספרים במונה."
+            >
+              {skipVisitCountOnThisDevice
+                ? '✓ מכשיר בעלים — כניסות לא נספרות'
+                : 'סמן מכשיר זה: אל תספור את הכניסות שלי'}
             </button>
             <button
               onClick={() => { setEditingScript(null); setEditingProduct(null); setOrderCodeFilter(''); setViewMode('orders'); }}

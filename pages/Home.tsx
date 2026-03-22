@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { shouldSkipVisitBump } from '../utils/visitTracking';
 
 interface HomeProps {
   onNavigateToCatalog: () => void;
@@ -15,12 +16,13 @@ const Home: React.FC<HomeProps> = ({ onNavigateToCatalog }) => {
     let cancelled = false;
 
     const run = async () => {
+      const ownerSkip = shouldSkipVisitBump();
       const now = Date.now();
-      const shouldBump = now - lastHomeVisitBumpAt >= HOME_VISIT_DEBOUNCE_MS;
-      if (shouldBump) lastHomeVisitBumpAt = now;
+      const debounceOk = now - lastHomeVisitBumpAt >= HOME_VISIT_DEBOUNCE_MS;
 
       try {
-        if (shouldBump) {
+        if (!ownerSkip && debounceOk) {
+          lastHomeVisitBumpAt = now;
           const res = await fetch('/api/visits', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
