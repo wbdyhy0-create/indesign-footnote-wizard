@@ -25,6 +25,8 @@ const ProductDetail: React.FC<ScriptDetailProps> = ({ product, onBack }) => {
   // בדיקה אם קיים קישור הורדה / גרסת ניסיון
   const isPurchaseAvailable = !!product.downloadUrl;
   const hasTrial = !!product.trialDownloadUrl;
+  const guideUrl = typeof product.guideUrl === 'string' ? product.guideUrl.trim() : '';
+  const hasGuide = guideUrl.length > 0;
 
   const longDescription = product.fullDesc || product.description || product.shortDesc;
   const features = Array.isArray(product.features) ? product.features : [];
@@ -88,6 +90,16 @@ const ProductDetail: React.FC<ScriptDetailProps> = ({ product, onBack }) => {
                 >
                   הורד גרסת ניסיון
                 </button>
+              )}
+              {hasGuide && (
+                <a
+                  href={guideUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full md:w-auto inline-flex items-center justify-center gap-3 px-10 py-3 rounded-2xl border border-sky-500/60 text-sky-300 text-sm font-black bg-transparent hover:bg-sky-500/10 transition-all"
+                >
+                  📄 פתח מדריך (גוגל דרייב)
+                </a>
               )}
               {!isPurchaseAvailable && (
                 <p className="text-red-400 text-sm mt-1 font-bold">שימו לב: טרם הוזן קישור הורדה למוצר זה במערכת הניהול.</p>

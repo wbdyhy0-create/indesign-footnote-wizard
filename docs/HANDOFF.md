@@ -28,6 +28,10 @@
 - Admin now has an "Orders" tab (`/admin/orders`) to review and approve pending payments.
 - Download unlock is server-gated (no more checkbox-based unlock).
 
+## Script guide links
+- Each script may include optional `guideUrl` (e.g. Google Drive link to a PDF guide).
+- Admin script editor has field **"קישור מדריך (גוגל דרייב / PDF)"**; when set, the script detail page shows **"פתח מדריך (גוגל דרייב)"**.
+
 ## UI Sizing Policy
 - Compact UI is the default.
 - Shared layout was tightened (`max-w-6xl`, reduced paddings/header height).

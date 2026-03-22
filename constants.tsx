@@ -36,6 +36,7 @@ export const SCRIPTS = [
     color: "emerald",
     downloadUrl: "https://drive.google.com/uc?export=download&id=1e0z8ZfgzzrLe3FaPAGIJV1sD6gAeeTjL",
     trialDownloadUrl: "https://drive.google.com/file/d/1SFJgFBjeRrECh_cyHlYpFwmpS49rwXI7/view?usp=drive_link",
+    guideUrl: "",
     isDownloadable: true,
     isTrialDownloadable: true,
     isPublished: true
@@ -72,6 +73,7 @@ export const SCRIPTS = [
     color: "blue",
     downloadUrl: "https://drive.google.com/file/d/12VPYGOXiFByZn0AXUT0intyv0v8hc7hb/view?usp=sharing",
     trialDownloadUrl: "https://drive.google.com/file/d/1qcC_y2AoY4X_p5lLVrxJsgJ_Grs-vSTs/view?usp=sharing",
+    guideUrl: "",
     isDownloadable: true,
     isTrialDownloadable: true,
     isPublished: true
@@ -99,6 +101,7 @@ export const SCRIPTS = [
     color: "blue",
     downloadUrl: "https://drive.google.com/file/d/1bGRj8Uyz7PEAAFqJyD2GbB_w3yGshjXp/view?usp=drive_link",
     trialDownloadUrl: "https://drive.google.com/file/d/1j5_sm22QU6-FUHGiMI7i0e69SSxeI05A/view?usp=drive_link",
+    guideUrl: "",
     isDownloadable: true,
     isTrialDownloadable: true,
     isPublished: true
@@ -125,6 +128,7 @@ export const SCRIPTS = [
     color: "blue",
     downloadUrl: "https://drive.google.com/file/d/12PIrg1KiDpBp0XTzQf2c90tsxz_Nx9ed/view?usp=sharing",
     trialDownloadUrl: "https://drive.google.com/file/d/1inIragw7eaHvluhTRGLXxri2wjCzY7wo/view?usp=sharing",
+    guideUrl: "",
     isDownloadable: true,
     isTrialDownloadable: true,
     isPublished: true
@@ -143,6 +147,7 @@ export const SCRIPTS = [
     color: "blue",
     downloadUrl: "https://drive.google.com/file/d/1B4zXGDsbaapCn0HJSorLJBoe88a3mlan/view?usp=sharing",
     trialDownloadUrl: "",
+    guideUrl: "",
     isDownloadable: true,
     isTrialDownloadable: false,
     isPublished: true
@@ -155,6 +160,7 @@ export const SCRIPTS = [
     videoUrl: "",
     downloadUrl: "https://drive.google.com/file/d/1IJbB83Tox4qavG4QhrHM0HoKoun_Ok6L/view?usp=sharing",
     trialDownloadUrl: "https://drive.google.com/file/d/15MbcdumgKB33EDnR2C_Hfr4bQW_8U8WZ/view?usp=sharing",
+    guideUrl: "",
     description: "נמאס לכם לעבור דף-דף ולסדר ידנית את ה-Vertical Justification? הכירו את ה-Footnote Wizard Layout Fix.\nהסקריפט פותח במיוחד עבור מעמדי ספרי קודש וספרות עיונית, שבהם הדיוק האסתטי ביישור העמודים הוא קריטי. הסקריפט מבצע \"ניתוח כירורגי\" של זרימת הטקסט במסמך ומחיל עליו חוקי עימוד קשוחים שמונעים שורות בודדות בתחילת או בסוף פסקה, תוך שהוא מוודא שתיבות הטקסט יישארו מתוחות ומיושרות לקו התחתון של העמוד.\n\nמה הופך את גרסה 3 לכל כך חזקה?\n\nעבודה דרך Stories: הסקריפט יודע לרוץ על כל שרשראות הטקסט במסמך בבת אחת, בלי שתצטרכו לבחור דבר.\n\nטיפול כירורגי בבחירה: ניתן להחיל את התיקון רק על תיבות ספציפיות או על קטע טקסט נבחר.\n",
     shortDesc: "הדור הבא של הדיוק באינדיזיין. סרגל כלים עוצמתי לטיפול אוטומטי ביתומים ואלמנות (Keep Lines) בשילוב מתיחה אנכית חכמה. כלי חובה לכל מעמד שרוצה דפים מיושרים וטקסט רציף בלחיצת כפתור.",
     color: "blue",

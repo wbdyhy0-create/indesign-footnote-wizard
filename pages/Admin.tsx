@@ -419,7 +419,7 @@ const AdminPortal: React.FC = () => {
 
             {/* כפתור הוספה מתחלף בהתאם ללשונית */}
             {viewMode === 'scripts' && (
-              <button onClick={() => { setEditingScript({ id: Date.now().toString(), name: '', price: '₪250', originalPrice: '₪450', videoUrl: '', downloadUrl: '', trialDownloadUrl: '', description: '', shortDesc: '', color: 'blue', imageUrl: '', isPublished: true }); }} className="bg-[#f59e0b] hover:bg-[#d97706] text-slate-950 px-6 py-2.5 rounded-xl font-black shadow-lg transition">+ הוסף סקריפט</button>
+              <button onClick={() => { setEditingScript({ id: Date.now().toString(), name: '', price: '₪250', originalPrice: '₪450', videoUrl: '', downloadUrl: '', trialDownloadUrl: '', guideUrl: '', description: '', shortDesc: '', color: 'blue', imageUrl: '', isPublished: true }); }} className="bg-[#f59e0b] hover:bg-[#d97706] text-slate-950 px-6 py-2.5 rounded-xl font-black shadow-lg transition">+ הוסף סקריפט</button>
             )}
             {viewMode === 'products' && (
               <button
@@ -542,6 +542,17 @@ const AdminPortal: React.FC = () => {
                   <label className="block text-slate-500 text-sm font-bold mb-2">תיאור קצר (בקטלוג)</label>
                   <textarea value={editingScript.shortDesc} onChange={(e) => setEditingScript({...editingScript, shortDesc: e.target.value})} className="w-full bg-[#060b14] border border-slate-800 p-4 rounded-2xl text-white text-sm h-[6.5rem] outline-none focus:border-[#f59e0b]" />
                 </div>
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-sky-400 text-sm font-bold mb-2">קישור מדריך (גוגל דרייב / PDF)</label>
+                <input
+                  placeholder="https://drive.google.com/file/d/... או קישור צפייה בדרייב"
+                  value={editingScript.guideUrl ?? ''}
+                  onChange={(e) => setEditingScript({ ...editingScript, guideUrl: e.target.value })}
+                  className="w-full bg-[#060b14] border border-slate-800 p-4 rounded-2xl text-slate-300 font-mono text-sm text-left outline-none focus:border-sky-500"
+                />
+                <p className="text-[11px] text-slate-500 mt-1.5">יוצג באתר ככפתור &quot;מדריך&quot; ליד הרכישה כשהשדה מלא.</p>
               </div>
               
               <div className="md:col-span-2">

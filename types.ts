@@ -30,6 +30,8 @@ export interface ScriptData {
   color: string;
   downloadUrl?: string;
   trialDownloadUrl?: string;
+  /** קישור לקובץ מדריך (למשל גוגל דרייב) */
+  guideUrl?: string;
   isDownloadable?: boolean;
   isTrialDownloadable?: boolean;
   isPublished?: boolean;
