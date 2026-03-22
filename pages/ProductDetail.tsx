@@ -128,15 +128,20 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack }) => {
       {/* אזור וידאו מודגש כמו בדף המוצרים הנוספים */}
       {embedUrl && (
         <div className="mt-10 bg-gradient-to-r from-[#020617] via-[#0b1121] to-black border border-red-600/40 rounded-[2.5rem] p-6 md:p-8 shadow-[0_0_60px_rgba(0,0,0,0.7)]">
-          <div className="flex flex-col lg:flex-row-reverse items-center gap-10">
-            <div className="flex-1 text-right space-y-4">
+          <div className="flex flex-col lg:flex-row-reverse items-stretch gap-10">
+            <div className="flex-1 text-right space-y-4 min-w-0">
               <h2 className="text-2xl md:text-3xl font-black text-white">סרטון הדגמה מלא</h2>
               <p className="text-slate-300 text-sm md:text-base leading-relaxed text-justify">
                 צפה בסרטון שמציג כיצד להשתמש ב-{product.name} שלב-אחר-שלב, עם כל הטיפים החשובים לעבודה חלקה.
               </p>
-              <p className="inline-flex items-center gap-2 rounded-2xl bg-red-600 px-6 py-3 text-white font-black text-sm md:text-base shadow-lg shadow-red-700/40 pointer-events-none select-none cursor-default">
+              <div
+                className="inline-flex items-center gap-2 rounded-2xl bg-red-600 px-6 py-3 text-white font-black text-sm md:text-base shadow-lg shadow-red-700/40 select-none cursor-default outline-none [&_*]:pointer-events-none"
+                style={{ pointerEvents: 'none' }}
+                tabIndex={-1}
+                aria-hidden="true"
+              >
                 <svg
-                  className="h-5 w-5 shrink-0 opacity-95 rotate-90 lg:rotate-0 transition-transform"
+                  className="h-5 w-5 shrink-0 opacity-95 rotate-90 lg:rotate-0"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
@@ -144,15 +149,22 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack }) => {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   aria-hidden="true"
+                  focusable="false"
                 >
                   <path d="M9 5l7 7-7 7" />
                 </svg>
-                <span>צפה בסרטון הדרכה</span>
-              </p>
+                <span className="pointer-events-none">צפה בסרטון הדרכה</span>
+              </div>
             </div>
-            <div className="flex-1 w-full" id="product-video-section">
-              <div className="aspect-video w-full rounded-2xl overflow-hidden border border-red-500/40 bg-black shadow-2xl">
-                <iframe src={embedUrl} className="w-full h-full" allowFullScreen></iframe>
+            <div className="flex-1 w-full min-w-0 flex flex-col" id="product-video-section">
+              <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-red-500/40 bg-black shadow-2xl">
+                <iframe
+                  src={embedUrl}
+                  title={`סרטון הדגמה — ${product.name}`}
+                  className="absolute inset-0 h-full w-full border-0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                />
               </div>
             </div>
           </div>
