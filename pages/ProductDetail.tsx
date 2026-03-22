@@ -156,15 +156,19 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack }) => {
                 <span className="pointer-events-none">צפה בסרטון הדרכה</span>
               </div>
             </div>
-            <div className="flex-1 w-full min-w-0 flex flex-col" id="product-video-section">
-              <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-red-500/40 bg-black shadow-2xl">
-                <iframe
-                  src={embedUrl}
-                  title={`סרטון הדגמה — ${product.name}`}
-                  className="absolute inset-0 h-full w-full border-0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  allowFullScreen
-                />
+            <div className="flex-1 w-full min-w-0 flex flex-col self-stretch" id="product-video-section">
+              <div className="overflow-hidden rounded-2xl border border-red-500/40 bg-black shadow-2xl leading-none">
+                <div className="relative h-0 w-full pb-[56.25%]">
+                  <div className="absolute inset-0 overflow-hidden">
+                    <iframe
+                      src={embedUrl}
+                      title={`סרטון הדגמה — ${product.name}`}
+                      className="absolute left-1/2 top-1/2 block h-full w-full max-w-none -translate-x-1/2 -translate-y-1/2 origin-center scale-[1.1] border-0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      allowFullScreen
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           </div>
