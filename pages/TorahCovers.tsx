@@ -53,7 +53,7 @@ const TorahCovers: React.FC<TorahCoversProps> = ({ onNavigate, covers }) => {
               <h3 className="text-lg md:text-xl font-black text-white mb-2 group-hover:text-amber-400 transition-colors">
                 {cover.name}
               </h3>
-              <p className="text-slate-400 text-sm mb-6 flex-grow">{cover.description}</p>
+              <p className="text-slate-400 text-sm mb-6 flex-grow text-justify whitespace-pre-line">{cover.description}</p>
 
               <div className="flex items-center justify-between mt-auto pt-5 border-t border-slate-800/50">
                 <span className="text-lg md:text-xl font-black text-amber-500">{cover.price}</span>

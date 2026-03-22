@@ -33,6 +33,10 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack }) => {
   })();
 
   const longDescription = product.fullDesc || product.description || product.shortDesc;
+  const introBody =
+    (typeof product.description === 'string' && product.description.trim()) ||
+    (typeof product.shortDesc === 'string' && product.shortDesc.trim()) ||
+    '';
   const features = Array.isArray(product.features) ? product.features : [];
   const hasFeatures = features.length > 0;
 
@@ -65,9 +69,11 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack }) => {
               <h1 className="text-3xl md:text-5xl font-black text-white leading-tight mb-5">
                 {product.name}
               </h1>
-              <p className="text-base md:text-lg text-slate-400 leading-relaxed font-medium">
-                {product.description}
-              </p>
+              {introBody && (
+                <p className="text-base md:text-lg text-slate-400 leading-relaxed font-medium text-justify whitespace-pre-line">
+                  {introBody}
+                </p>
+              )}
             </div>
             
             <div className="pt-8 border-t border-slate-800">
@@ -125,7 +131,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack }) => {
           <div className="flex flex-col lg:flex-row-reverse items-center gap-10">
             <div className="flex-1 text-right space-y-4">
               <h2 className="text-2xl md:text-3xl font-black text-white">סרטון הדגמה מלא</h2>
-              <p className="text-slate-300 text-sm md:text-base leading-relaxed">
+              <p className="text-slate-300 text-sm md:text-base leading-relaxed text-justify">
                 צפה בסרטון שמציג כיצד להשתמש ב-{product.name} שלב-אחר-שלב, עם כל הטיפים החשובים לעבודה חלקה.
               </p>
               <button
@@ -154,7 +160,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack }) => {
         <section className="mt-10">
           <div className="mb-6 text-right">
             <h2 className="text-2xl md:text-3xl font-black text-white mb-2">דוגמת מוצר – צפייה מקדימה</h2>
-            <p className="text-slate-400 text-sm md:text-base">
+            <p className="text-slate-400 text-sm md:text-base text-justify">
               גלול למטה לעיון בדוגמת המוצר (תצוגת PDF).
             </p>
           </div>
@@ -183,7 +189,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack }) => {
             <div className="text-right">
               <h2 className="text-2xl md:text-3xl font-black text-white mb-2">יכולות מרכזיות / מה תקבל בפנים</h2>
               {longDescription && (
-                <p className="text-sm md:text-base text-slate-400 leading-relaxed max-w-2xl">
+                <p className="text-sm md:text-base text-slate-400 leading-relaxed max-w-2xl text-justify whitespace-pre-line">
                   {longDescription}
                 </p>
               )}
@@ -218,7 +224,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack }) => {
                     </span>
                   </div>
                   {description && (
-                    <p className="text-sm text-slate-300 leading-relaxed text-right">
+                    <p className="text-sm text-slate-300 leading-relaxed text-justify whitespace-pre-line">
                       {description}
                     </p>
                   )}

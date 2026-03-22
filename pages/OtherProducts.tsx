@@ -40,7 +40,7 @@ const OtherProducts: React.FC<OtherProductsProps> = ({ onNavigate, products }) =
               <h3 className="text-lg md:text-xl font-black text-white mb-2 group-hover:text-amber-400 transition-colors">
                 {product.name}
               </h3>
-              <p className="text-slate-400 text-sm mb-6 flex-grow">
+              <p className="text-slate-400 text-sm mb-6 flex-grow text-justify whitespace-pre-line">
                 {product.description}
               </p>
               

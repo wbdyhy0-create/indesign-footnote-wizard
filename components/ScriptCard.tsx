@@ -74,7 +74,7 @@ const ScriptCard: React.FC<ScriptCardProps> = ({ script, onSelect }) => {
 
       <h3 className="text-xl font-bold mb-3 transition-colors">{script.name}</h3>
 
-      <p className="text-slate-400 text-sm leading-relaxed line-clamp-3">
+      <p className="text-slate-400 text-sm leading-relaxed line-clamp-3 text-justify">
 
         {script.shortDesc}
 

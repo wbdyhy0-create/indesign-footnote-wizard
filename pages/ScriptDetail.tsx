@@ -29,6 +29,10 @@ const ProductDetail: React.FC<ScriptDetailProps> = ({ product, onBack }) => {
   const hasGuide = guideUrl.length > 0;
 
   const longDescription = product.fullDesc || product.description || product.shortDesc;
+  const introBody =
+    (typeof product.description === 'string' && product.description.trim()) ||
+    (typeof product.shortDesc === 'string' && product.shortDesc.trim()) ||
+    '';
   const features = Array.isArray(product.features) ? product.features : [];
   const hasFeatures = features.length > 0;
 
@@ -61,9 +65,11 @@ const ProductDetail: React.FC<ScriptDetailProps> = ({ product, onBack }) => {
               <h1 className="text-3xl md:text-5xl font-black text-white leading-tight mb-5">
                 {product.name}
               </h1>
-              <p className="text-base md:text-lg text-slate-400 leading-relaxed font-medium">
-                {product.description}
-              </p>
+              {introBody && (
+                <p className="text-base md:text-lg text-slate-400 leading-relaxed font-medium text-justify whitespace-pre-line">
+                  {introBody}
+                </p>
+              )}
             </div>
             
             <div className="pt-8 border-t border-slate-800">
@@ -134,7 +140,7 @@ const ProductDetail: React.FC<ScriptDetailProps> = ({ product, onBack }) => {
           <div className="flex flex-col lg:flex-row-reverse items-center gap-10">
             <div className="flex-1 text-right space-y-4">
               <h2 className="text-2xl md:text-3xl font-black text-white">סרטון הדרכה מלא</h2>
-              <p className="text-slate-300 text-sm md:text-base leading-relaxed">
+              <p className="text-slate-300 text-sm md:text-base leading-relaxed text-justify">
                 צפה בסרטון שמציג בפירוט את כל היכולות של {product.name} וכיצד להפיק ממנו את המקסימום.
               </p>
               <button
@@ -165,7 +171,7 @@ const ProductDetail: React.FC<ScriptDetailProps> = ({ product, onBack }) => {
             <div className="text-right">
               <h2 className="text-2xl md:text-3xl font-black text-white mb-2">יכולות מרכזיות / מה הסקריפט יודע לעשות</h2>
               {longDescription && (
-                <p className="text-sm md:text-base text-slate-400 leading-relaxed max-w-2xl">
+                <p className="text-sm md:text-base text-slate-400 leading-relaxed max-w-2xl text-justify whitespace-pre-line">
                   {longDescription}
                 </p>
               )}
@@ -200,7 +206,7 @@ const ProductDetail: React.FC<ScriptDetailProps> = ({ product, onBack }) => {
                     </span>
                   </div>
                   {description && (
-                    <p className="text-sm text-slate-300 leading-relaxed text-right">
+                    <p className="text-sm text-slate-300 leading-relaxed text-justify whitespace-pre-line">
                       {description}
                     </p>
                   )}
