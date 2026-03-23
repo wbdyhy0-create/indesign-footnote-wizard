@@ -70,7 +70,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack }) => {
                 {product.name}
               </h1>
               {introBody && (
-                <p className="text-base md:text-lg text-slate-400 leading-relaxed font-medium text-justify whitespace-pre-line">
+                <p className="text-base md:text-lg text-slate-100 leading-relaxed font-medium text-justify whitespace-pre-line">
                   {introBody}
                 </p>
               )}
@@ -131,7 +131,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack }) => {
           <div className="flex flex-col lg:flex-row-reverse items-stretch gap-10">
             <div className="flex-1 text-right space-y-4 min-w-0">
               <h2 className="text-2xl md:text-3xl font-black text-white">סרטון הדגמה מלא</h2>
-              <p className="text-slate-300 text-sm md:text-base leading-relaxed text-justify">
+              <p className="text-slate-100 text-sm md:text-base leading-relaxed text-justify">
                 צפה בסרטון שמציג כיצד להשתמש ב-{product.name} שלב-אחר-שלב, עם כל הטיפים החשובים לעבודה חלקה.
               </p>
               <div
@@ -180,7 +180,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack }) => {
         <section className="mt-10">
           <div className="mb-6 text-right">
             <h2 className="text-2xl md:text-3xl font-black text-white mb-2">דוגמת מוצר – צפייה מקדימה</h2>
-            <p className="text-slate-400 text-sm md:text-base text-justify">
+            <p className="text-slate-100 text-sm md:text-base text-justify">
               גלול למטה לעיון בדוגמת המוצר (תצוגת PDF).
             </p>
           </div>
@@ -209,7 +209,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack }) => {
             <div className="text-right">
               <h2 className="text-2xl md:text-3xl font-black text-white mb-2">יכולות מרכזיות / מה תקבל בפנים</h2>
               {longDescription && (
-                <p className="text-sm md:text-base text-slate-400 leading-relaxed max-w-2xl text-justify whitespace-pre-line">
+                <p className="text-sm md:text-base text-slate-100 leading-relaxed max-w-2xl text-justify whitespace-pre-line">
                   {longDescription}
                 </p>
               )}
@@ -244,7 +244,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack }) => {
                     </span>
                   </div>
                   {description && (
-                    <p className="text-sm text-slate-300 leading-relaxed text-justify whitespace-pre-line">
+                    <p className="text-sm text-slate-100 leading-relaxed text-justify whitespace-pre-line">
                       {description}
                     </p>
                   )}

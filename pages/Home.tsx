@@ -80,7 +80,7 @@ const Home: React.FC<HomeProps> = ({ onNavigateToCatalog }) => {
           הדור הבא של העימוד המקצועי
         </div>
         
-        <p className="text-slate-400 text-sm md:text-base max-w-3xl mx-auto leading-relaxed mb-8 font-medium">
+        <p className="text-slate-100 text-sm md:text-base max-w-3xl mx-auto leading-relaxed mb-8 font-medium">
           אנחנו לא רק בונים סקריפטים, אנחנו מגדירים מחדש את גבולות האפשר באינדיזיין. 
           דיוק מושלם, מהירות חסרת תקדים ונוחות עבודה שתגרום לך להתאהב במקצוע מחדש.
         </p>
@@ -136,7 +136,7 @@ const Home: React.FC<HomeProps> = ({ onNavigateToCatalog }) => {
           <div key={i} className="p-7 bg-slate-900/40 rounded-[2rem] border border-slate-800 text-center hover:bg-slate-800/60 transition-all hover:-translate-y-2 group shadow-xl">
             <div className="text-4xl mb-4 group-hover:scale-110 transition-transform duration-500">{feat.icon}</div>
             <h3 className="text-lg font-black mb-2 text-white">{feat.title}</h3>
-            <p className="text-sm text-slate-500 font-bold leading-relaxed">{feat.desc}</p>
+            <p className="text-sm text-slate-100 font-bold leading-relaxed">{feat.desc}</p>
           </div>
         ))}
       </div>
