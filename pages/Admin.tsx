@@ -859,12 +859,25 @@ const AdminPortal: React.FC = () => {
                       <input
                         type="file"
                         accept="image/*"
-                        onChange={handleScriptImageUpload}
+                        onChange={handlePromotionImageUpload}
                         disabled={isUploadingCoverImage}
                         className="hidden"
                       />
                     </label>
                   </div>
+                  {coverUploadError && (
+                    <p className="text-xs text-red-400 font-bold">{coverUploadError}</p>
+                  )}
+                  {editingPromotion.imageUrl && (
+                    <div className="mt-2">
+                      <p className="text-xs text-slate-500 mb-1">תצוגה מקדימה:</p>
+                      <img
+                        src={editingPromotion.imageUrl}
+                        alt=""
+                        className="w-24 h-24 rounded-xl object-cover border border-slate-700"
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
