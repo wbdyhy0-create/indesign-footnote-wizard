@@ -321,9 +321,12 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
                   בנייד: הדפדפן יעבור לביט עם סכום ופירוט הבקשה. אחרי התשלום חזור לדף זה (כפתור חזור) כדי לבדוק אישור ולהוריד.
                 </p>
                 <p className="text-[11px] text-slate-400 text-center leading-relaxed px-1">
-                  נתקלתם בבעיית תשלום? צרו קשר בטלפון{' '}
-                  <a href={`tel:${BIT_PHONE}`} className="text-amber-400 font-bold underline underline-offset-2 hover:text-amber-300">
-                    052-228-4432
+                  אם בביט לא נפתחת בקשת תשלום עם הסכום — העתיקו את מספר הטלפון שלי, הדביקו בביט בשדה הנמען, והזינו את סכום הרכישה ידנית:{' '}
+                  <a
+                    href={`tel:${BIT_PHONE}`}
+                    className="text-amber-400 font-black tabular-nums select-all underline underline-offset-2 hover:text-amber-300"
+                  >
+                    {BIT_PHONE}
                   </a>
                 </p>
 
