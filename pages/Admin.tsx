@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { SCRIPTS as initialScripts, OTHER_PRODUCTS as initialProducts, TORAH_COVER_DESIGNS as initialCovers } from '../constants';
-import { Lead, PurchaseOrder } from '../types';
+import { Lead, PromotionBundleData, PurchaseOrder, SiteSettings } from '../types';
 import { setOwnerSkipVisitBump, shouldSkipVisitBump } from '../utils/visitTracking';
 
-const ADMIN_VIEWS = ['scripts', 'products', 'covers', 'orders', 'leads', 'json'] as const;
+const ADMIN_VIEWS = ['scripts', 'promotions', 'products', 'covers', 'orders', 'leads', 'json'] as const;
 type AdminViewMode = (typeof ADMIN_VIEWS)[number];
 
 const isAdminViewMode = (value: string): value is AdminViewMode =>
@@ -35,6 +35,20 @@ const AdminPortal: React.FC = () => {
     }
     return initialScripts;
   });
+  const [promotions, setPromotions] = useState<PromotionBundleData[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('yosef_admin_promotions_backup');
+      if (saved) return JSON.parse(saved);
+    }
+    return [];
+  });
+  const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('yosef_admin_site_settings_backup');
+      if (saved) return JSON.parse(saved);
+    }
+    return { promotionsPageVisible: true };
+  });
 
   // --- תוספת חדשה: טעינת מוצרים מהזיכרון ---
   const [products, setProducts] = useState<any[]>(() => {
@@ -53,6 +67,7 @@ const AdminPortal: React.FC = () => {
   });
   
   const [editingScript, setEditingScript] = useState<any>(null);
+  const [editingPromotion, setEditingPromotion] = useState<PromotionBundleData | null>(null);
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [editingProductKind, setEditingProductKind] = useState<'products' | 'covers'>('products');
   const [viewMode, setViewMode] = useState<AdminViewMode>('scripts');
@@ -217,6 +232,25 @@ const AdminPortal: React.FC = () => {
     }
   };
 
+  const handlePromotionImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setCoverUploadError(null);
+      setIsUploadingCoverImage(true);
+      const imageUrl = await uploadImageFileToCloud(file);
+      setEditingPromotion((prev: any) => (prev ? { ...prev, imageUrl } : prev));
+    } catch (error: any) {
+      const message = error?.message || 'שגיאה בהעלאת תמונת המבצע';
+      setCoverUploadError(message);
+      alert(`❌ ${message}`);
+    } finally {
+      setIsUploadingCoverImage(false);
+      event.target.value = '';
+    }
+  };
+
   const mapFeaturesToText = (features: any): string => {
     if (!features) return '';
     if (Array.isArray(features)) {
@@ -238,12 +272,19 @@ const AdminPortal: React.FC = () => {
       setIsPublishingLive(true);
       setPublishStatus(null);
       const payloadScripts = scripts.map((s: any) => ({ ...s, imageUrl: stripDataUrl(s.imageUrl) }));
+      const payloadPromotions = promotions.map((s: any) => ({ ...s, imageUrl: stripDataUrl(s.imageUrl) }));
       const payloadProducts = products.map((p: any) => ({ ...p, imageUrl: stripDataUrl(p.imageUrl) }));
       const payloadCovers = covers.map((c: any) => ({ ...c, imageUrl: stripDataUrl(c.imageUrl) }));
       const response = await fetch('/api/update-scripts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scripts: payloadScripts, products: payloadProducts, covers: payloadCovers }),
+        body: JSON.stringify({
+          scripts: payloadScripts,
+          promotions: payloadPromotions,
+          products: payloadProducts,
+          covers: payloadCovers,
+          siteSettings,
+        }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok || data?.success === false) {
@@ -268,11 +309,19 @@ const AdminPortal: React.FC = () => {
         if (Array.isArray(data?.scripts)) {
           setScripts(data.scripts);
         }
+        if (Array.isArray(data?.promotions)) {
+          setPromotions(data.promotions);
+        }
         if (Array.isArray(data?.products)) {
           setProducts(data.products);
         }
         if (Array.isArray(data?.covers)) {
           setCovers(data.covers);
+        }
+        if (data?.siteSettings && typeof data.siteSettings === 'object') {
+          setSiteSettings({
+            promotionsPageVisible: data.siteSettings.promotionsPageVisible !== false,
+          });
         }
       } catch (error) {
         console.warn('Cloud sync load failed, using local data:', error);
@@ -330,10 +379,12 @@ const AdminPortal: React.FC = () => {
   // שמירה אוטומטית לזיכרון המקומי בכל פעם שיש שינוי
   useEffect(() => {
     localStorage.setItem('yosef_admin_backup', JSON.stringify(scripts));
+    localStorage.setItem('yosef_admin_promotions_backup', JSON.stringify(promotions));
     localStorage.setItem('yosef_admin_products_backup', JSON.stringify(products));
     localStorage.setItem('yosef_admin_covers_backup', JSON.stringify(covers));
+    localStorage.setItem('yosef_admin_site_settings_backup', JSON.stringify(siteSettings));
     setPublishStatus(null);
-  }, [scripts, products, covers]);
+  }, [scripts, promotions, products, covers, siteSettings]);
 
   // מנגנון התיקון האוטומטי ליוטיוב
   const formatYouTubeUrl = (url: string) => {
@@ -372,6 +423,11 @@ const AdminPortal: React.FC = () => {
       videoUrl: formatYouTubeUrl(s.videoUrl),
       imageUrl: stripDataUrl(s.imageUrl),
     }));
+    const preparedPromotions = promotions.map((p: any) => ({
+      ...p,
+      videoUrl: formatYouTubeUrl(p.videoUrl),
+      imageUrl: stripDataUrl(p.imageUrl),
+    }));
     // מוצרים: מחליפים תמונות Base64 במחרוזת ריקה כדי שה-JSON לא יתנפח (מיליוני תווים)
     const preparedProducts = products.map((p: any) => {
       const imageUrl = stripDataUrl(p.imageUrl);
@@ -381,7 +437,13 @@ const AdminPortal: React.FC = () => {
       const imageUrl = stripDataUrl(c.imageUrl);
       return { ...c, imageUrl };
     });
-    const fullData = { SCRIPTS: preparedScripts, OTHER_PRODUCTS: preparedProducts, TORAH_COVER_DESIGNS: preparedCovers };
+    const fullData = {
+      SCRIPTS: preparedScripts,
+      PROMOTIONS: preparedPromotions,
+      OTHER_PRODUCTS: preparedProducts,
+      TORAH_COVER_DESIGNS: preparedCovers,
+      SITE_SETTINGS: siteSettings,
+    };
     navigator.clipboard.writeText(JSON.stringify(fullData, null, 2));
     alert("✅ הקוד הועתק בהצלחה!\n(קישורי יוטיוב תוקנו. תמונות Base64 הוחלפו בריק כדי למנוע JSON ענק. מומלץ להשתמש בהעלאה לענן או בקישור https.)");
   };
@@ -423,7 +485,7 @@ const AdminPortal: React.FC = () => {
                 : 'סמן מכשיר זה: אל תספור את הכניסות שלי'}
             </button>
             <button
-              onClick={() => { setEditingScript(null); setEditingProduct(null); setOrderCodeFilter(''); setViewMode('orders'); }}
+              onClick={() => { setEditingScript(null); setEditingPromotion(null); setEditingProduct(null); setOrderCodeFilter(''); setViewMode('orders'); }}
               className={`px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 transition ${
                 viewMode === 'orders'
                   ? 'bg-indigo-700 text-white'
@@ -432,18 +494,44 @@ const AdminPortal: React.FC = () => {
             >
               💳 הזמנות ({orders.length})
             </button>
-            <button onClick={() => { setEditingScript(null); setEditingProduct(null); setViewMode('leads'); }} className={`px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 transition ${viewMode === 'leads' ? 'bg-[#064e3b] text-white' : 'bg-[#064e3b]/30 text-[#10b981] hover:bg-[#064e3b]/50 border border-[#10b981]/20'}`}>👤 לידים ({leads.length})</button>
+            <button onClick={() => { setEditingScript(null); setEditingPromotion(null); setEditingProduct(null); setViewMode('leads'); }} className={`px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 transition ${viewMode === 'leads' ? 'bg-[#064e3b] text-white' : 'bg-[#064e3b]/30 text-[#10b981] hover:bg-[#064e3b]/50 border border-[#10b981]/20'}`}>👤 לידים ({leads.length})</button>
             
             {/* --- לשוניות ניווט --- */}
             <div className="flex bg-slate-800/50 p-1 rounded-xl mx-2 border border-slate-700/50">
-              <button onClick={() => { setEditingScript(null); setEditingProduct(null); setViewMode('scripts'); }} className={`px-4 py-1.5 rounded-lg text-sm font-bold transition ${viewMode === 'scripts' ? 'bg-[#f59e0b] text-slate-950' : 'text-slate-400 hover:text-white'}`}>סקריפטים</button>
-              <button onClick={() => { setEditingScript(null); setEditingProduct(null); setViewMode('products'); }} className={`px-4 py-1.5 rounded-lg text-sm font-bold transition ${viewMode === 'products' ? 'bg-[#5c5cfc] text-white' : 'text-slate-400 hover:text-white'}`}>מוצרים</button>
-              <button onClick={() => { setEditingScript(null); setEditingProduct(null); setViewMode('covers'); }} className={`px-4 py-1.5 rounded-lg text-sm font-bold transition ${viewMode === 'covers' ? 'bg-[#14b8a6] text-white' : 'text-slate-400 hover:text-white'}`}>כריכות</button>
+              <button onClick={() => { setEditingScript(null); setEditingPromotion(null); setEditingProduct(null); setViewMode('scripts'); }} className={`px-4 py-1.5 rounded-lg text-sm font-bold transition ${viewMode === 'scripts' ? 'bg-[#f59e0b] text-slate-950' : 'text-slate-400 hover:text-white'}`}>סקריפטים</button>
+              <button onClick={() => { setEditingScript(null); setEditingPromotion(null); setEditingProduct(null); setViewMode('promotions'); }} className={`px-4 py-1.5 rounded-lg text-sm font-bold transition ${viewMode === 'promotions' ? 'bg-[#f97316] text-white' : 'text-slate-400 hover:text-white'}`}>מבצעים</button>
+              <button onClick={() => { setEditingScript(null); setEditingPromotion(null); setEditingProduct(null); setViewMode('products'); }} className={`px-4 py-1.5 rounded-lg text-sm font-bold transition ${viewMode === 'products' ? 'bg-[#5c5cfc] text-white' : 'text-slate-400 hover:text-white'}`}>מוצרים</button>
+              <button onClick={() => { setEditingScript(null); setEditingPromotion(null); setEditingProduct(null); setViewMode('covers'); }} className={`px-4 py-1.5 rounded-lg text-sm font-bold transition ${viewMode === 'covers' ? 'bg-[#14b8a6] text-white' : 'text-slate-400 hover:text-white'}`}>כריכות</button>
             </div>
 
             {/* כפתור הוספה מתחלף בהתאם ללשונית */}
             {viewMode === 'scripts' && (
               <button onClick={() => { setEditingScript({ id: Date.now().toString(), name: '', price: '₪250', originalPrice: '₪450', videoUrl: '', downloadUrl: '', trialDownloadUrl: '', guideUrl: '', description: '', shortDesc: '', color: 'blue', imageUrl: '', isPublished: true }); }} className="bg-[#f59e0b] hover:bg-[#d97706] text-slate-950 px-6 py-2.5 rounded-xl font-black shadow-lg transition">+ הוסף סקריפט</button>
+            )}
+            {viewMode === 'promotions' && (
+              <button
+                onClick={() => {
+                  setEditingPromotion({
+                    id: `promo-${Date.now()}`,
+                    name: '',
+                    price: '₪450',
+                    originalPrice: '₪900',
+                    videoUrl: '',
+                    downloadUrl: '',
+                    trialDownloadUrl: '',
+                    guideUrl: '',
+                    description: '',
+                    shortDesc: '',
+                    color: 'blue',
+                    imageUrl: '',
+                    isPublished: true,
+                    bundleScriptLinks: [],
+                  });
+                }}
+                className="bg-[#f97316] hover:bg-[#ea580c] text-white px-6 py-2.5 rounded-xl font-black shadow-lg transition"
+              >
+                + הוסף מבצע
+              </button>
             )}
             {viewMode === 'products' && (
               <button
@@ -502,7 +590,7 @@ const AdminPortal: React.FC = () => {
               {isPublishingLive ? 'מפרסם...' : '🚀 פרסם לאתר החי'}
             </button>
             <button onClick={handleCopyCode} className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2.5 rounded-xl font-black shadow-lg transition flex items-center gap-2">📋 העתק קוד לעדכון קבוע</button>
-            <button onClick={() => { setEditingScript(null); setEditingProduct(null); setViewMode('json'); }} className="bg-slate-800/50 text-slate-300 px-5 py-2.5 rounded-xl font-bold border border-slate-700 text-sm hover:bg-slate-700 transition">תצוגת JSON</button>
+            <button onClick={() => { setEditingScript(null); setEditingPromotion(null); setEditingProduct(null); setViewMode('json'); }} className="bg-slate-800/50 text-slate-300 px-5 py-2.5 rounded-xl font-bold border border-slate-700 text-sm hover:bg-slate-700 transition">תצוגת JSON</button>
           </div>
         </div>
         {publishStatus && (
@@ -598,7 +686,7 @@ const AdminPortal: React.FC = () => {
                       <input
                         type="file"
                         accept="image/*"
-                        onChange={handleScriptImageUpload}
+                        onChange={handlePromotionImageUpload}
                         disabled={isUploadingCoverImage}
                         className="hidden"
                       />
@@ -639,6 +727,147 @@ const AdminPortal: React.FC = () => {
               </button>
             </div>
 
+          </div>
+
+        ) : editingPromotion ? (
+
+          <div className="bg-[#0b1121] border border-[#f97316] rounded-[2.5rem] p-8 md:p-12 shadow-2xl relative animate-in fade-in zoom-in-95 duration-300">
+            <div className="flex justify-between items-center mb-10 pb-6 border-b border-slate-800">
+              <div className="flex gap-4">
+                <button onClick={() => setPromotions(promotions.filter(i => i.id !== editingPromotion.id))} className="w-12 h-12 flex items-center justify-center border border-red-500/30 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition">🗑️</button>
+                <button onClick={() => setEditingPromotion(null)} className="bg-[#f97316] text-white px-8 py-2 rounded-xl font-black hover:bg-[#ea580c] transition">סגור עריכה</button>
+              </div>
+              <h2 className="text-3xl font-black text-white">{editingPromotion.name || 'מבצע חדש'}</h2>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8 max-h-[50vh] overflow-y-auto px-2 custom-scrollbar">
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-slate-500 text-sm font-bold mb-2">שם החבילה</label>
+                  <input value={editingPromotion.name || ''} onChange={(e) => setEditingPromotion({ ...editingPromotion, name: e.target.value })} className="w-full bg-[#060b14] border border-slate-800 p-4 rounded-2xl text-white font-black outline-none focus:border-[#f97316] transition" />
+                </div>
+                <div className="grid grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-[#f97316] text-sm font-bold mb-2">מחיר מבצע</label>
+                    <input value={editingPromotion.price || ''} onChange={(e) => setEditingPromotion({ ...editingPromotion, price: e.target.value })} className="w-full bg-[#060b14] border border-slate-800 p-4 rounded-2xl text-white font-black text-left outline-none focus:border-[#f97316]" />
+                  </div>
+                  <div>
+                    <label className="block text-slate-500 text-sm font-bold mb-2">מחיר מקורי</label>
+                    <input value={editingPromotion.originalPrice || ''} onChange={(e) => setEditingPromotion({ ...editingPromotion, originalPrice: e.target.value })} className="w-full bg-[#060b14] border border-slate-800 p-4 rounded-2xl text-slate-300 text-left outline-none focus:border-[#f97316]" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[#5c5cfc] text-sm font-bold mb-2">לינק הורדה מרכזי (אופציונלי)</label>
+                  <input value={editingPromotion.downloadUrl || ''} onChange={(e) => setEditingPromotion({ ...editingPromotion, downloadUrl: e.target.value })} className="w-full bg-[#060b14] border border-slate-800 p-4 rounded-2xl text-slate-300 font-mono text-sm text-left outline-none focus:border-[#5c5cfc]" />
+                </div>
+                <div>
+                  <label className="block text-[#5c5cfc] text-sm font-bold mb-2">לינק ניסיון (אופציונלי)</label>
+                  <input value={editingPromotion.trialDownloadUrl || ''} onChange={(e) => setEditingPromotion({ ...editingPromotion, trialDownloadUrl: e.target.value })} className="w-full bg-[#060b14] border border-slate-800 p-4 rounded-2xl text-slate-300 font-mono text-sm text-left outline-none focus:border-[#5c5cfc]" />
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-slate-500 text-sm font-bold mb-2">YouTube Video URL</label>
+                  <input value={editingPromotion.videoUrl || ''} onChange={(e) => setEditingPromotion({ ...editingPromotion, videoUrl: e.target.value })} className="w-full bg-[#060b14] border border-slate-800 p-4 rounded-2xl text-slate-300 font-mono text-sm text-left outline-none focus:border-red-500" />
+                </div>
+                <div>
+                  <label className="block text-slate-500 text-sm font-bold mb-2">צבע ערכת נושא (blue / emerald / purple)</label>
+                  <input value={editingPromotion.color || 'blue'} onChange={(e) => setEditingPromotion({ ...editingPromotion, color: e.target.value })} className="w-full bg-[#060b14] border border-slate-800 p-4 rounded-2xl text-white font-bold text-center outline-none focus:border-[#f97316]" />
+                </div>
+                <div>
+                  <label className="block text-slate-500 text-sm font-bold mb-2">תיאור קצר (בקטלוג מבצעים)</label>
+                  <textarea value={editingPromotion.shortDesc || ''} onChange={(e) => setEditingPromotion({ ...editingPromotion, shortDesc: e.target.value })} className="w-full bg-[#060b14] border border-slate-800 p-4 rounded-2xl text-white text-sm h-[6.5rem] outline-none focus:border-[#f97316]" />
+                </div>
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-sky-400 text-sm font-bold mb-2">קישור מדריך (גוגל דרייב / PDF)</label>
+                <input
+                  placeholder="https://drive.google.com/file/d/... או קישור צפייה בדרייב"
+                  value={editingPromotion.guideUrl || ''}
+                  onChange={(e) => setEditingPromotion({ ...editingPromotion, guideUrl: e.target.value })}
+                  className="w-full bg-[#060b14] border border-slate-800 p-4 rounded-2xl text-slate-300 font-mono text-sm text-left outline-none focus:border-sky-500"
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-slate-500 text-sm font-bold mb-2">תיאור מלא של המבצע</label>
+                <textarea value={editingPromotion.description || ''} onChange={(e) => setEditingPromotion({ ...editingPromotion, description: e.target.value })} className="w-full bg-[#060b14] border border-slate-800 p-4 rounded-2xl text-white text-sm h-32 outline-none focus:border-[#f97316]" />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-amber-400 text-sm font-bold mb-2">קישורי סקריפטים בחבילה (כל שורה קישור)</label>
+                <textarea
+                  value={(editingPromotion.bundleScriptLinks || []).join('\n')}
+                  onChange={(e) => setEditingPromotion({
+                    ...editingPromotion,
+                    bundleScriptLinks: e.target.value.split('\n').map((line) => line.trim()).filter(Boolean),
+                  })}
+                  className="w-full bg-[#060b14] border border-slate-800 p-4 rounded-2xl text-white text-sm h-32 outline-none focus:border-amber-500"
+                  placeholder="https://...\nhttps://..."
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-[#10b981] text-sm font-bold mb-2">תמונת המבצע (קישור או העלאה לענן)</label>
+                <div className="space-y-3">
+                  <input
+                    placeholder="הדבק כאן קישור לתמונה .jpg או .png"
+                    value={editingPromotion.imageUrl || ''}
+                    onChange={(e) => setEditingPromotion({ ...editingPromotion, imageUrl: e.target.value })}
+                    className="w-full bg-[#060b14] border border-slate-800 p-4 rounded-2xl text-white text-left outline-none focus:border-[#10b981]"
+                  />
+                  <div className="flex items-center gap-3">
+                    <label className="inline-flex items-center px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold cursor-pointer">
+                      {isUploadingCoverImage ? 'מעלה לענן...' : 'בחר תמונה'}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleScriptImageUpload}
+                        disabled={isUploadingCoverImage}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 rounded-xl border border-slate-700 bg-slate-900/40 p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+              <div className="text-sm font-bold text-slate-100">עמוד מבצעים באתר החי</div>
+              <button
+                type="button"
+                onClick={() =>
+                  setSiteSettings((prev) => ({
+                    ...prev,
+                    promotionsPageVisible: prev.promotionsPageVisible === false ? true : false,
+                  }))
+                }
+                className={`px-4 py-2 rounded-xl text-sm font-black transition ${
+                  siteSettings.promotionsPageVisible === false
+                    ? 'bg-red-900/40 text-red-300 border border-red-500/40'
+                    : 'bg-emerald-900/40 text-emerald-300 border border-emerald-500/40'
+                }`}
+              >
+                {siteSettings.promotionsPageVisible === false ? 'העמוד מוסתר באתר (לחץ להצגה)' : 'העמוד מוצג באתר (לחץ להסתרה)'}
+              </button>
+            </div>
+
+            <div className="mt-8 pt-6 border-t border-slate-800">
+              <button
+                onClick={() => {
+                  const exists = promotions.find(i => i.id === editingPromotion.id);
+                  if (exists) {
+                    setPromotions(promotions.map(i => i.id === editingPromotion.id ? editingPromotion : i));
+                  } else {
+                    setPromotions([...promotions, editingPromotion]);
+                  }
+                  setEditingPromotion(null);
+                }}
+                className="w-full py-5 bg-[#f97316] text-white font-black rounded-2xl text-xl shadow-xl hover:bg-[#ea580c] transition-all"
+              >
+                שמור מבצע במערכת
+              </button>
+            </div>
           </div>
 
         ) : editingProduct ? (
@@ -984,7 +1213,7 @@ const AdminPortal: React.FC = () => {
           <div className="bg-[#0b1121] border border-slate-800 rounded-[2.5rem] p-8 shadow-xl animate-in fade-in duration-300">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-black text-indigo-400">קוד המערכת המלא (JSON)</h2>
-              <button onClick={() => { localStorage.removeItem('yosef_admin_backup'); localStorage.removeItem('yosef_admin_products_backup'); localStorage.removeItem('yosef_admin_covers_backup'); alert('הזיכרון אופס בהצלחה!'); }} className="text-sm text-red-500 hover:underline">אפס זיכרון דפדפן</button>
+              <button onClick={() => { localStorage.removeItem('yosef_admin_backup'); localStorage.removeItem('yosef_admin_promotions_backup'); localStorage.removeItem('yosef_admin_products_backup'); localStorage.removeItem('yosef_admin_covers_backup'); localStorage.removeItem('yosef_admin_site_settings_backup'); alert('הזיכרון אופס בהצלחה!'); }} className="text-sm text-red-500 hover:underline">אפס זיכרון דפדפן</button>
             </div>
             <pre className="bg-[#060b14] border border-slate-800 p-6 rounded-2xl overflow-x-auto text-left font-mono text-xs text-emerald-400 h-[60vh] scrollbar-thin">
               {JSON.stringify(
@@ -993,6 +1222,10 @@ const AdminPortal: React.FC = () => {
                     ...s,
                     imageUrl: stripDataUrl(s.imageUrl)
                   })),
+                  PROMOTIONS: promotions.map((p: any) => ({
+                    ...p,
+                    imageUrl: p.imageUrl && String(p.imageUrl).startsWith('data:') ? '[תמונה Base64 – הוסרה לתצוגה]' : (p.imageUrl || '')
+                  })),
                   OTHER_PRODUCTS: products.map((p: any) => ({
                     ...p,
                     imageUrl: p.imageUrl && String(p.imageUrl).startsWith('data:') ? '[תמונה Base64 – הוסרה לתצוגה]' : (p.imageUrl || '')
@@ -1000,12 +1233,50 @@ const AdminPortal: React.FC = () => {
                   TORAH_COVER_DESIGNS: covers.map((c: any) => ({
                     ...c,
                     imageUrl: c.imageUrl && String(c.imageUrl).startsWith('data:') ? '[תמונה Base64 – הוסרה לתצוגה]' : (c.imageUrl || '')
-                  }))
+                  })),
+                  SITE_SETTINGS: siteSettings
                 },
                 null,
                 2
               )}
             </pre>
+          </div>
+
+        ) : viewMode === 'promotions' ? (
+
+          <div className="grid gap-6 animate-in fade-in duration-300">
+            <div className="rounded-2xl border border-slate-700 bg-slate-900/40 p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+              <div className="text-sm font-bold text-slate-100">עמוד מבצעים באתר החי</div>
+              <button
+                type="button"
+                onClick={() =>
+                  setSiteSettings((prev) => ({
+                    ...prev,
+                    promotionsPageVisible: prev.promotionsPageVisible === false ? true : false,
+                  }))
+                }
+                className={`px-4 py-2 rounded-xl text-sm font-black transition ${
+                  siteSettings.promotionsPageVisible === false
+                    ? 'bg-red-900/40 text-red-300 border border-red-500/40'
+                    : 'bg-emerald-900/40 text-emerald-300 border border-emerald-500/40'
+                }`}
+              >
+                {siteSettings.promotionsPageVisible === false ? 'העמוד מוסתר באתר (לחץ להצגה)' : 'העמוד מוצג באתר (לחץ להסתרה)'}
+              </button>
+            </div>
+
+            {promotions.map((p) => (
+              <div key={p.id} className="bg-[#0b1121] border border-slate-800 p-8 rounded-[2.5rem] flex flex-col md:flex-row justify-between items-center shadow-lg hover:border-slate-700 transition">
+                <div className="flex items-center gap-6 mb-4 md:mb-0">
+                  <button onClick={() => setPromotions(promotions.filter(i => i.id !== p.id))} className="text-red-500 hover:scale-110 transition-transform bg-red-500/10 p-3 rounded-xl">🗑️</button>
+                  <div>
+                    <h3 className="text-2xl font-black text-white">{p.name}</h3>
+                    <p className="text-slate-400 text-sm">{p.price}</p>
+                  </div>
+                </div>
+                <button onClick={() => setEditingPromotion(p)} className="bg-slate-800 hover:bg-[#f97316] hover:text-white px-10 py-3 rounded-2xl font-black text-[#f97316] transition-all border border-slate-700 w-full md:w-auto">ערוך מבצע</button>
+              </div>
+            ))}
           </div>
 
         ) : viewMode === 'products' ? (

@@ -37,6 +37,15 @@ export interface ScriptData {
   isPublished?: boolean;
 }
 
+export interface PromotionBundleData extends ScriptData {
+  /** רשימת קישורי סקריפטים הכלולים בחבילה */
+  bundleScriptLinks?: string[];
+}
+
+export interface SiteSettings {
+  promotionsPageVisible?: boolean;
+}
+
 export interface FAQItem {
   question: string;
   answer: string;

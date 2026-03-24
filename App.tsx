@@ -8,13 +8,15 @@ import Contact from './pages/Contact';
 import Admin from './pages/Admin';
 import OtherProducts from './pages/OtherProducts';
 import TorahCovers from './pages/TorahCovers';
+import Promotions from './pages/Promotions';
 import ProductDetail from './pages/ProductDetail'; // ייבוא של דף הפירוט החדש
 import { SCRIPTS as DEFAULT_SCRIPTS, OTHER_PRODUCTS as DEFAULT_PRODUCTS, TORAH_COVER_DESIGNS as DEFAULT_COVERS } from './constants';
-import { ScriptData } from './types';
+import { PromotionBundleData, ScriptData, SiteSettings } from './types';
 
 const ROOT_PAGES = new Set([
   'home',
   'scripts-catalog',
+  'promotions',
   'other-products',
   'torah-covers',
   'about',
@@ -25,6 +27,7 @@ const ROOT_PAGES = new Set([
 const staticPathToPage: Record<string, string> = {
   '/': 'home',
   '/scripts-catalog': 'scripts-catalog',
+  '/promotions': 'promotions',
   '/other-products': 'other-products',
   '/torah-covers': 'torah-covers',
   '/about': 'about',
@@ -44,6 +47,9 @@ const getPageFromPath = (pathname: string) => {
 
   if (path.startsWith('/scripts/')) {
     return decodeURIComponent(path.slice('/scripts/'.length));
+  }
+  if (path.startsWith('/promotions/')) {
+    return decodeURIComponent(path.slice('/promotions/'.length));
   }
   if (path.startsWith('/products/')) {
     return decodeURIComponent(path.slice('/products/'.length));
@@ -80,12 +86,15 @@ const App: React.FC = () => {
   const [scripts, setScripts] = useState<ScriptData[]>(DEFAULT_SCRIPTS);
   const [products, setProducts] = useState<any[]>(DEFAULT_PRODUCTS);
   const [covers, setCovers] = useState<any[]>(DEFAULT_COVERS);
+  const [promotions, setPromotions] = useState<PromotionBundleData[]>([]);
+  const [siteSettings, setSiteSettings] = useState<SiteSettings>({ promotionsPageVisible: true });
 
   const getPathFromPage = (page: string) => {
     if (page === 'home') return '/';
     if (ROOT_PAGES.has(page)) return `/${page}`;
 
     if (scripts.some((s) => s.id === page)) return `/scripts/${encodeURIComponent(page)}`;
+    if (promotions.some((p) => p.id === page)) return `/promotions/${encodeURIComponent(page)}`;
     if (products.some((p: any) => p.id === page)) return `/products/${encodeURIComponent(page)}`;
     if (covers.some((c: any) => c.id === page)) return `/torah-covers/${encodeURIComponent(page)}`;
 
@@ -114,6 +123,13 @@ const App: React.FC = () => {
       if (pageFromPath === 'admin' && !normalizePath(window.location.pathname).startsWith('/admin')) {
         window.history.replaceState(null, '', '/admin');
       }
+      if (!siteSettings.promotionsPageVisible && (pageFromPath === 'promotions' || promotions.some((p) => p.id === pageFromPath))) {
+        setActivePage('home');
+        if (typeof window !== 'undefined') {
+          window.history.replaceState(null, '', '/');
+        }
+        return;
+      }
       setActivePage(pageFromPath);
     };
 
@@ -124,7 +140,7 @@ const App: React.FC = () => {
       window.removeEventListener('popstate', readPageFromLocation);
       window.removeEventListener('hashchange', readPageFromLocation);
     };
-  }, []);
+  }, [siteSettings.promotionsPageVisible, promotions]);
 
   // טעינת תוכן מהענן לאתר החי (fallback לקבועים במקרה כשל)
   useEffect(() => {
@@ -151,11 +167,27 @@ const App: React.FC = () => {
         } else {
           setCovers(DEFAULT_COVERS);
         }
+
+        if (Array.isArray(data?.promotions)) {
+          setPromotions(data.promotions);
+        } else {
+          setPromotions([]);
+        }
+
+        if (data?.siteSettings && typeof data.siteSettings === 'object') {
+          setSiteSettings({
+            promotionsPageVisible: data.siteSettings.promotionsPageVisible !== false,
+          });
+        } else {
+          setSiteSettings({ promotionsPageVisible: true });
+        }
       } catch (e) {
         console.warn('Cloud data unavailable, using constants fallback:', e);
         setScripts(DEFAULT_SCRIPTS);
         setProducts(DEFAULT_PRODUCTS);
         setCovers(DEFAULT_COVERS);
+        setPromotions([]);
+        setSiteSettings({ promotionsPageVisible: true });
       }
     };
 
@@ -167,6 +199,13 @@ const App: React.FC = () => {
     const script = scripts.find(s => s.id === activePage);
     if (script) {
       return <ScriptDetail product={script} onBack={() => navigateToPage('scripts-catalog')} />;
+    }
+
+    if (siteSettings.promotionsPageVisible) {
+      const promotion = promotions.find((p) => p.id === activePage);
+      if (promotion) {
+        return <ScriptDetail product={promotion} onBack={() => navigateToPage('promotions')} />;
+      }
     }
 
     // 2. בדיקה אם הגולש לוחץ על מוצר
@@ -192,6 +231,10 @@ const App: React.FC = () => {
         return <ScriptsCatalog scripts={scripts} onSelectScript={(id) => navigateToPage(id)} />;
       case 'other-products': 
         return <OtherProducts products={products} onNavigate={(page) => navigateToPage(page)} />;
+      case 'promotions':
+        return siteSettings.promotionsPageVisible
+          ? <Promotions promotions={promotions} onSelectPromotion={(id) => navigateToPage(id)} />
+          : <Home onNavigateToCatalog={() => navigateToPage('scripts-catalog')} onNavigateToProducts={() => navigateToPage('other-products')} />;
       case 'torah-covers':
         return <TorahCovers covers={covers} onNavigate={(page) => navigateToPage(page)} />;
       case 'about':
@@ -213,7 +256,15 @@ const App: React.FC = () => {
   }
 
   return (
-    <Layout activePage={activePage} setActivePage={navigateToPage} scripts={scripts} products={products} covers={covers}>
+    <Layout
+      activePage={activePage}
+      setActivePage={navigateToPage}
+      scripts={scripts}
+      promotions={promotions}
+      products={products}
+      covers={covers}
+      siteSettings={siteSettings}
+    >
       {renderContent()}
     </Layout>
   );

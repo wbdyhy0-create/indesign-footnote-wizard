@@ -35,6 +35,12 @@ const ProductDetail: React.FC<ScriptDetailProps> = ({ product, onBack }) => {
     '';
   const features = Array.isArray(product.features) ? product.features : [];
   const hasFeatures = features.length > 0;
+  const bundleLinks = Array.isArray(product.bundleScriptLinks)
+    ? product.bundleScriptLinks
+        .map((item: any) => (typeof item === 'string' ? item.trim() : ''))
+        .filter(Boolean)
+    : [];
+  const hasBundleLinks = bundleLinks.length > 0;
 
   return (
     <div className="animate-fadeIn pb-16 max-w-6xl mx-auto px-4 md:px-6 mt-8">
@@ -234,6 +240,27 @@ const ProductDetail: React.FC<ScriptDetailProps> = ({ product, onBack }) => {
                 </div>
               );
             })}
+          </div>
+        </section>
+      )}
+
+      {hasBundleLinks && (
+        <section className="mt-10 bg-[#0b1121] border border-amber-500/30 rounded-[2rem] p-6 md:p-8">
+          <h2 className="text-2xl md:text-3xl font-black text-white mb-3">קישורי הסקריפטים בחבילה</h2>
+          <p className="text-slate-100 text-sm md:text-base mb-6">כל הלינקים של הסקריפטים הכלולים במבצע:</p>
+          <div className="grid gap-3">
+            {bundleLinks.map((link: string, index: number) => (
+              <a
+                key={`${link}-${index}`}
+                href={link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-3 rounded-xl border border-slate-700 bg-slate-900/50 px-4 py-3 text-slate-100 hover:border-amber-500/50 hover:bg-slate-800 transition-colors break-all"
+              >
+                <span className="text-amber-400 font-black">#{index + 1}</span>
+                <span className="text-sm">{link}</span>
+              </a>
+            ))}
           </div>
         </section>
       )}

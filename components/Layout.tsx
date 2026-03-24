@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ScriptData, ChatMessage, MessageRole } from '../types'; 
+import { ScriptData, ChatMessage, MessageRole, SiteSettings, PromotionBundleData } from '../types'; 
 import { askAssistant } from '../services/geminiService'; 
 import ChatMessageComponent from './ChatMessage'; 
 
@@ -8,11 +8,13 @@ interface LayoutProps {
   activePage: string;
   setActivePage: (page: string) => void;
   scripts: ScriptData[];
+  promotions: PromotionBundleData[];
   products: any[];
   covers: any[];
+  siteSettings: SiteSettings;
 }
 
-const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage, scripts, products, covers }) => {
+const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage, scripts, promotions, products, covers, siteSettings }) => {
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([
@@ -58,7 +60,8 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage, sc
     const scriptsContext = scripts.map(s => `סקריפט: ${s.name}. ${s.shortDesc}`).join('\n');
     const productsContext = products.map((p: any) => `מוצר: ${p.name}. ${p.description || p.fullDesc || ''}`).join('\n');
     const coversContext = covers.map((c: any) => `כריכה תורנית: ${c.name}. ${c.description || c.fullDesc || ''}`).join('\n');
-    const context = `אתה עוזר לאתר Footnote Wizard. הנה כל המוצרים והשירותים באתר:\n\nסקריפטים לאינדיזיין:\n${scriptsContext}\n\nמוצרים נוספים:\n${productsContext}\n\nעיצוב כריכות תורניות:\n${coversContext}`;
+    const promotionsContext = promotions.map((p: any) => `מבצע: ${p.name}. ${p.shortDesc || p.description || ''}`).join('\n');
+    const context = `אתה עוזר לאתר Footnote Wizard. הנה כל המוצרים והשירותים באתר:\n\nסקריפטים לאינדיזיין:\n${scriptsContext}\n\nמבצעים:\n${promotionsContext}\n\nמוצרים נוספים:\n${productsContext}\n\nעיצוב כריכות תורניות:\n${coversContext}`;
 
     try {
       const aiResponseText = await askAssistant(userMessageText, context, chatHistory);
@@ -88,6 +91,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage, sc
   const navItems = [
     { page: 'home', label: 'דף הבית' },
     { page: 'scripts-catalog', label: 'הסקריפטים שלנו' },
+    ...(siteSettings.promotionsPageVisible ? [{ page: 'promotions', label: 'מבצעים' }] : []),
     { page: 'other-products', label: 'מוצרים נוספים' },
     { page: 'torah-covers', label: 'עיצוב כריכות תורניים' },
     { page: 'about', label: 'אודות' },
@@ -97,6 +101,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage, sc
   const getActiveNavPage = () => {
     if (navItems.some((item) => item.page === activePage)) return activePage;
     if (scripts.some((s) => s.id === activePage)) return 'scripts-catalog';
+    if (promotions.some((p) => p.id === activePage)) return 'promotions';
     if (products.some((p: any) => p.id === activePage)) return 'other-products';
     if (covers.some((c: any) => c.id === activePage)) return 'torah-covers';
     return activePage;
