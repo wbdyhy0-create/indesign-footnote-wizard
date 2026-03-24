@@ -320,6 +320,12 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
                 <p className="text-[11px] text-slate-500 text-center leading-relaxed px-1">
                   בנייד: הדפדפן יעבור לביט עם סכום ופירוט הבקשה. אחרי התשלום חזור לדף זה (כפתור חזור) כדי לבדוק אישור ולהוריד.
                 </p>
+                <p className="text-[11px] text-slate-400 text-center leading-relaxed px-1">
+                  נתקלתם בבעיית תשלום? צרו קשר בטלפון{' '}
+                  <a href={`tel:${BIT_PHONE}`} className="text-amber-400 font-bold underline underline-offset-2 hover:text-amber-300">
+                    052-228-4432
+                  </a>
+                </p>
 
                 <button onClick={handleWhatsAppApproval} className="w-full py-3 bg-emerald-900/20 text-emerald-400 text-sm font-bold rounded-xl border border-emerald-800/50 flex items-center justify-center gap-2 hover:bg-emerald-900/30 transition-all">
                   <span>💬</span> שלח אישור תשלום בוואטסאפ
