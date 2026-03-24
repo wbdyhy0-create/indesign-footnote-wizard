@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { ScriptData } from '../types';
+import { buildBitPayRequestUrl, openBitPayUrl } from '../utils/bitPay';
 
 interface PurchaseModalProps {
   script: ScriptData;
@@ -30,12 +31,6 @@ const parseAmountFromPrice = (priceLabel: string): number | null => {
   return amount;
 };
 
-const buildBitPayUrl = (phone: string, amountNis: number, text: string) => {
-  const encodedText = encodeURIComponent(text);
-  const normalizedAmount = Number.isInteger(amountNis) ? String(amountNis) : amountNis.toFixed(2);
-  return `https://www.bitpay.co.il/app/pay-request/?phone=${phone}&amount=${normalizedAmount}&text=${encodedText}`;
-};
-
 const buildClientFallbackOrder = (script: ScriptData): ClientOrderInfo => {
   const amountNis = parseAmountFromPrice(script.price);
   if (!amountNis) {
@@ -48,7 +43,7 @@ const buildClientFallbackOrder = (script: ScriptData): ClientOrderInfo => {
   return {
     id: `local-${Date.now()}`,
     orderCode,
-    bitPayUrl: buildBitPayUrl(BIT_PHONE, amountNis, payText),
+    bitPayUrl: buildBitPayRequestUrl(BIT_PHONE, amountNis, payText),
     amountNis,
     priceLabel: script.price,
     bitRecipientName: BIT_RECIPIENT_NAME,
@@ -153,8 +148,11 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
     if (!orderInfo?.bitPayUrl) return;
     if (isLikelyDesktop()) {
       alert('תשלום בביט מתבצע מהאפליקציה בנייד.\nפתח את אפליקציית Bit בסלולר כדי להשלים את התשלום.');
+      window.open(orderInfo.bitPayUrl, '_blank', 'noopener,noreferrer');
+      return;
     }
-    window.open(orderInfo.bitPayUrl, '_blank');
+    // בנייד: ניווט באותו חלון — כך בדרך כלל נשמרים פרמטרי בקשת התשלום בפתיחת האפליקציה
+    openBitPayUrl(orderInfo.bitPayUrl);
   };
 
   const checkPaymentStatus = async (manualCheck: boolean) => {
@@ -318,6 +316,9 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
                 </button>
                 <p className="text-[11px] text-slate-400 text-center -mt-1">
                   במחשב? פתח את אפליקציית Bit בנייד כדי להשלים את התשלום.
+                </p>
+                <p className="text-[11px] text-slate-500 text-center leading-relaxed px-1">
+                  בנייד: הדפדפן יעבור לביט עם סכום ופירוט הבקשה. אחרי התשלום חזור לדף זה (כפתור חזור) כדי לבדוק אישור ולהוריד.
                 </p>
 
                 <button onClick={handleWhatsAppApproval} className="w-full py-3 bg-emerald-900/20 text-emerald-400 text-sm font-bold rounded-xl border border-emerald-800/50 flex items-center justify-center gap-2 hover:bg-emerald-900/30 transition-all">

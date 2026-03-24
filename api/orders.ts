@@ -1,5 +1,6 @@
 import { kv } from '@vercel/kv';
 import { Resend } from 'resend';
+import { buildBitPayRequestUrl } from '../utils/bitPay';
 
 type OrderStatus = 'pending' | 'paid';
 
@@ -91,12 +92,6 @@ const loadOrders = async () => {
 
 const saveOrders = async (orders: OrderRecord[]) => {
   await kv.set(ORDERS_KEY, sortByNewest(orders).slice(0, MAX_ORDERS));
-};
-
-const getBitUrl = (phone: string, amountNis: number, text: string) => {
-  const encodedText = encodeURIComponent(text);
-  const normalizedAmount = Number.isInteger(amountNis) ? String(amountNis) : amountNis.toFixed(2);
-  return `https://www.bitpay.co.il/app/pay-request/?phone=${phone}&amount=${normalizedAmount}&text=${encodedText}`;
 };
 
 const sendDownloadEmail = async (order: OrderRecord): Promise<{ sent: boolean; error?: string }> => {
@@ -215,7 +210,7 @@ export default async function handler(req: any, res: any) {
           priceLabel: nextOrder.priceLabel,
           bitRecipientName: BIT_RECIPIENT_NAME,
           bitPhone: BIT_PHONE,
-          bitPayUrl: getBitUrl(BIT_PHONE, nextOrder.amountNis, payText),
+          bitPayUrl: buildBitPayRequestUrl(BIT_PHONE, nextOrder.amountNis, payText),
           createdAt: nextOrder.createdAt,
           customerToken: nextOrder.customerToken,
         },
