@@ -3,6 +3,7 @@
 ## Current Goal
 - Keep admin and client experiences separated and stable.
 - Keep UI compact by default across current and future pages.
+- New: allow managing a dedicated Promotions page from admin.
 
 ## Canonical URLs
 - Client home: `https://footnote-wizard-2.vercel.app/`
@@ -37,6 +38,14 @@
 ## Product copy alignment
 - Script/product detail pages and catalog cards use **justified** Hebrew body copy (`text-justify`) for short/long descriptions; `whitespace-pre-line` preserves line breaks from admin textareas.
 
+## Promotions Page (NEW)
+- Added client page route: `/promotions` with navbar item **"מבצעים"**.
+- Promotions are managed in Admin via a new tab **"מבצעים"** (`/admin/promotions`).
+- Each promotion supports the same core fields as scripts plus `bundleScriptLinks` (multiple links, one per line).
+- Promotion detail uses the same detail screen and now renders a section of bundle links when `bundleScriptLinks` exists.
+- Admin has a toggle for live visibility of promotions page: `siteSettings.promotionsPageVisible`.
+- When hidden, `/promotions` and direct promotion detail URLs redirect to Home and nav item is hidden.
+
 ## Script guide links
 - Each script may include optional `guideUrl` (e.g. Google Drive link to a PDF guide).
 - Admin script editor has field **"קישור מדריך (גוגל דרייב / PDF)"**; when set, the script detail page shows **"פתח מדריך (גוגל דרייב)"** directly **under the hero image** (left column).
@@ -47,6 +56,7 @@
 - Major pages were compacted (Home, Other Products, Torah Covers, Script Detail, Product Detail).
 
 ## Recent Important Commits
+- `dc61a30` add promotions page with admin bundle management and visibility toggle
 - `ba21a2f` fix modal positioning - use Portal so modals render in viewport
 - `3f39b1f` compact layout across current and future pages
 - `1d89106` compact and centered other-products page
