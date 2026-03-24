@@ -314,12 +314,6 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
                 <button onClick={handleBitPayment} className="w-full py-5 bg-white text-slate-900 font-black rounded-2xl shadow-xl flex items-center justify-center gap-3 border-2 border-slate-200 active:scale-95 transition-all">
                   לחץ לתשלום בביט
                 </button>
-                <p className="text-[11px] text-slate-100 text-center -mt-1">
-                  במחשב? פתח את אפליקציית Bit בנייד כדי להשלים את התשלום.
-                </p>
-                <p className="text-[11px] text-slate-100 text-center leading-relaxed px-1">
-                  בנייד: הדפדפן יעבור לביט עם סכום ופירוט הבקשה. אחרי התשלום חזור לדף זה (כפתור חזור) כדי לבדוק אישור ולהוריד.
-                </p>
                 <p className="text-[11px] text-slate-100 text-center leading-relaxed px-1">
                   אם בביט לא נפתחת בקשת תשלום עם הסכום — העתיקו את מספר הטלפון שלי, הדביקו בביט בשדה הנמען, והזינו את סכום הרכישה ידנית:{' '}
                   <a
@@ -328,6 +322,7 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
                   >
                     {BIT_PHONE}
                   </a>
+                  . לאחר מכן חזרו לעמוד התשלום ולחצו על הכפתור הירוק &quot;שלח אישור תשלום בוואטסאפ&quot;. לאחר שתשלח אישור תשלום בוואטסאפ, הכפתור הירוק יתחלף ל־&quot;הורד עכשיו&quot;.
                 </p>
 
                 <button onClick={handleWhatsAppApproval} className="w-full py-3 bg-emerald-900/20 text-emerald-400 text-sm font-bold rounded-xl border border-emerald-800/50 flex items-center justify-center gap-2 hover:bg-emerald-900/30 transition-all">
@@ -335,15 +330,6 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
                 </button>
 
                 <div className="py-6 border-t border-slate-800 mt-6 text-right space-y-3">
-                  <p className="text-[11px] font-bold text-slate-100 leading-tight bg-slate-800/30 p-4 rounded-2xl border border-slate-700/50">
-                    לאחר ביצוע התשלום, לחץ על הכפתור "שלח אישור תשלום בוואטספ".
-                  </p>
-                  <p className="text-[11px] text-slate-100 leading-tight bg-slate-900/40 p-3 rounded-xl border border-slate-800">
-                    לאחר שתשלח את האישור בוואטספ, הכפתור הירוק יתחלף ל"הורד עכשיו" ותוכל להוריד מיד.
-                  </p>
-                  <p className="text-[11px] text-slate-100 leading-tight bg-slate-900/40 p-3 rounded-xl border border-slate-800">
-                    אם נתקלת בבעיה, נא לשלוח הודעה לוואטספ.
-                  </p>
                   {isAutoChecking && (
                     <p className="text-[11px] text-indigo-300 font-bold">בודק אוטומטית אישור תשלום...</p>
                   )}
