@@ -306,7 +306,7 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
               <div className="mb-8">
                 <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-xl text-blue-500 font-black italic text-2xl border-2 border-slate-200">bit</div>
                 <h3 className="text-3xl font-black text-white mb-1">{orderInfo?.priceLabel || script.price}</h3>
-                <p className="text-slate-300 text-sm font-bold text-center">בצע תשלום בביט</p>
+                <p className="text-slate-100 text-sm font-bold text-center">בצע תשלום בביט</p>
                 <p className="text-amber-400 text-xs font-black mt-3 text-right">קוד הזמנה: {orderInfo?.orderCode || '-'}</p>
               </div>
 
@@ -314,13 +314,13 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
                 <button onClick={handleBitPayment} className="w-full py-5 bg-white text-slate-900 font-black rounded-2xl shadow-xl flex items-center justify-center gap-3 border-2 border-slate-200 active:scale-95 transition-all">
                   לחץ לתשלום בביט
                 </button>
-                <p className="text-[11px] text-slate-400 text-center -mt-1">
+                <p className="text-[11px] text-slate-100 text-center -mt-1">
                   במחשב? פתח את אפליקציית Bit בנייד כדי להשלים את התשלום.
                 </p>
-                <p className="text-[11px] text-slate-500 text-center leading-relaxed px-1">
+                <p className="text-[11px] text-slate-100 text-center leading-relaxed px-1">
                   בנייד: הדפדפן יעבור לביט עם סכום ופירוט הבקשה. אחרי התשלום חזור לדף זה (כפתור חזור) כדי לבדוק אישור ולהוריד.
                 </p>
-                <p className="text-[11px] text-slate-400 text-center leading-relaxed px-1">
+                <p className="text-[11px] text-slate-100 text-center leading-relaxed px-1">
                   אם בביט לא נפתחת בקשת תשלום עם הסכום — העתיקו את מספר הטלפון שלי, הדביקו בביט בשדה הנמען, והזינו את סכום הרכישה ידנית:{' '}
                   <a
                     href={`tel:${BIT_PHONE}`}
@@ -335,13 +335,13 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
                 </button>
 
                 <div className="py-6 border-t border-slate-800 mt-6 text-right space-y-3">
-                  <p className="text-[11px] font-bold text-slate-300 leading-tight bg-slate-800/30 p-4 rounded-2xl border border-slate-700/50">
+                  <p className="text-[11px] font-bold text-slate-100 leading-tight bg-slate-800/30 p-4 rounded-2xl border border-slate-700/50">
                     לאחר ביצוע התשלום, לחץ על הכפתור "שלח אישור תשלום בוואטספ".
                   </p>
-                  <p className="text-[11px] text-slate-300 leading-tight bg-slate-900/40 p-3 rounded-xl border border-slate-800">
+                  <p className="text-[11px] text-slate-100 leading-tight bg-slate-900/40 p-3 rounded-xl border border-slate-800">
                     לאחר שתשלח את האישור בוואטספ, הכפתור הירוק יתחלף ל"הורד עכשיו" ותוכל להוריד מיד.
                   </p>
-                  <p className="text-[11px] text-slate-300 leading-tight bg-slate-900/40 p-3 rounded-xl border border-slate-800">
+                  <p className="text-[11px] text-slate-100 leading-tight bg-slate-900/40 p-3 rounded-xl border border-slate-800">
                     אם נתקלת בבעיה, נא לשלוח הודעה לוואטספ.
                   </p>
                   {isAutoChecking && (
@@ -362,7 +362,7 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
                   >
                     {isCheckingPayment ? 'בודק סטטוס...' : readyDownloadUrl ? 'הורד עכשיו' : 'בדוק אישור תשלום והורד'}
                   </button>
-                  <p className="text-[11px] text-slate-300 leading-tight text-center">
+                  <p className="text-[11px] text-slate-100 leading-tight text-center">
                     לכל שאלה או בעיה, כתבו לנו ונחזור אליכם בהקדם.
                   </p>
                   <button
@@ -372,7 +372,7 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
                     <span>💬</span> פניה בוואטסאפ
                   </button>
                 </div>
-                <button onClick={() => setStep('form')} className="text-xs text-slate-500 underline">חזור לעדכון פרטים</button>
+                <button onClick={() => setStep('form')} className="text-xs text-slate-200 underline hover:text-white">חזור לעדכון פרטים</button>
               </div>
             </div>
           )}
