@@ -173,20 +173,35 @@ const AdminPortal: React.FC = () => {
 
   const uploadImageFileToCloud = async (file: File) => {
     const dataUrl = await fileToDataUrl(file);
-    const response = await fetch('/api/upload-cover-image', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        fileName: file.name,
-        contentType: file.type || 'image/png',
-        dataUrl,
-      }),
-    });
-    const result = await response.json().catch(() => ({}));
-    if (!response.ok || !result?.url) {
-      throw new Error(result?.error || 'העלאת התמונה נכשלה');
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 30000);
+    try {
+      const response = await fetch('/api/upload-cover-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fileName: file.name,
+          contentType: file.type || 'image/png',
+          dataUrl,
+        }),
+        signal: controller.signal,
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result?.url) {
+        if (response.status === 501) {
+          throw new Error('העלאה לענן לא זמינה כרגע בסביבה הזו. נסה באתר החי או הדבק קישור תמונה ידני.');
+        }
+        throw new Error(result?.error || 'העלאת התמונה נכשלה');
+      }
+      return String(result.url);
+    } catch (error: any) {
+      if (error?.name === 'AbortError') {
+        throw new Error('העלאת התמונה נמשכה יותר מדי זמן ונעצרה. נסה שוב או העלה תמונה קטנה יותר.');
+      }
+      throw error;
+    } finally {
+      window.clearTimeout(timeout);
     }
-    return String(result.url);
   };
 
   const stripDataUrl = (value: any) =>
@@ -701,7 +716,7 @@ const AdminPortal: React.FC = () => {
                       <input
                         type="file"
                         accept="image/*"
-                        onChange={handlePromotionImageUpload}
+                        onChange={handleScriptImageUpload}
                         disabled={isUploadingCoverImage}
                         className="hidden"
                       />
