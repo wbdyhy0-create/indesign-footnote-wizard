@@ -394,6 +394,14 @@ const AdminPortal: React.FC = () => {
     return `https://www.youtube.com/embed/${videoId}`;
   };
 
+  const toDirectDriveDownloadUrl = (url: string) => {
+    const trimmed = url.trim();
+    if (!trimmed) return '';
+    const fileIdMatch = trimmed.match(/drive\.google\.com\/file\/d\/([^/]+)/);
+    if (!fileIdMatch) return '';
+    return `https://drive.google.com/uc?export=download&id=${fileIdMatch[1]}`;
+  };
+
   const downloadLeadsCSV = () => {
     const escapeCsv = (value: string) => `"${String(value || '').replace(/"/g, '""')}"`;
     const headers = 'ID,Name,Email,Date,Script\n';
@@ -447,6 +455,13 @@ const AdminPortal: React.FC = () => {
     navigator.clipboard.writeText(JSON.stringify(fullData, null, 2));
     alert("✅ הקוד הועתק בהצלחה!\n(קישורי יוטיוב תוקנו. תמונות Base64 הוחלפו בריק כדי למנוע JSON ענק. מומלץ להשתמש בהעלאה לענן או בקישור https.)");
   };
+
+  const promotionZipUrl = editingPromotion?.downloadUrl?.trim() || '';
+  const directDriveZipUrl = toDirectDriveDownloadUrl(promotionZipUrl);
+  const isDriveViewZipUrl =
+    Boolean(promotionZipUrl) &&
+    /drive\.google\.com\/file\/d\//.test(promotionZipUrl) &&
+    !/uc\?export=download/i.test(promotionZipUrl);
 
   return (
     <div className="min-h-screen bg-[#060b14] p-6 md:p-12 text-right text-white font-sans" dir="rtl">
@@ -757,8 +772,30 @@ const AdminPortal: React.FC = () => {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-[#5c5cfc] text-sm font-bold mb-2">לינק הורדה מרכזי (אופציונלי)</label>
-                  <input value={editingPromotion.downloadUrl || ''} onChange={(e) => setEditingPromotion({ ...editingPromotion, downloadUrl: e.target.value })} className="w-full bg-[#060b14] border border-slate-800 p-4 rounded-2xl text-slate-300 font-mono text-sm text-left outline-none focus:border-[#5c5cfc]" />
+                  <label className="block text-[#5c5cfc] text-sm font-bold mb-2">לינק ZIP לחבילה (נשלח למייל אחרי אישור תשלום)</label>
+                  <input
+                    value={editingPromotion.downloadUrl || ''}
+                    onChange={(e) => setEditingPromotion({ ...editingPromotion, downloadUrl: e.target.value })}
+                    placeholder="https://drive.google.com/uc?export=download&id=..."
+                    className="w-full bg-[#060b14] border border-slate-800 p-4 rounded-2xl text-slate-300 font-mono text-sm text-left outline-none focus:border-[#5c5cfc]"
+                  />
+                  <p className="text-[11px] text-slate-500 mt-1.5">שים כאן ZIP אחד עם כל הסקריפטים בחבילה. זה הקישור שיישלח אוטומטית ללקוח במייל.</p>
+                  {isDriveViewZipUrl && (
+                    <div className="mt-2 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3">
+                      <p className="text-[11px] text-amber-200 font-bold mb-2">
+                        זוהה קישור Google Drive מסוג צפייה (view). מומלץ להשתמש בקישור הורדה ישיר כדי שה-ZIP ירד מיד.
+                      </p>
+                      {directDriveZipUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setEditingPromotion({ ...editingPromotion, downloadUrl: directDriveZipUrl })}
+                          className="text-[11px] px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-slate-950 font-black transition"
+                        >
+                          המר אוטומטית לקישור הורדה ישיר
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="block text-[#5c5cfc] text-sm font-bold mb-2">לינק ניסיון (אופציונלי)</label>
