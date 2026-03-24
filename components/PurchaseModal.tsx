@@ -125,9 +125,6 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
         const fallbackOrder = buildClientFallbackOrder(script);
         setOrderInfo(fallbackOrder);
         setStep('payment');
-        setStatusMessage(
-          'לא הצלחנו להתחבר לשרת ההזמנות, ממשיכים לתשלום ישיר בביט. לאחר התשלום, שלח אישור בוואטסאפ לקבלת הקובץ.'
-        );
       } catch (fallbackError: any) {
         setError(fallbackError?.message || 'יצירת ההזמנה נכשלה');
       }
@@ -334,7 +331,7 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
                     <p className="text-[11px] text-indigo-300 font-bold">בודק אוטומטית אישור תשלום...</p>
                   )}
 
-                  {statusMessage && <p className="text-xs text-amber-300 font-bold">{statusMessage}</p>}
+                  {statusMessage && <p className="text-xs text-slate-100 font-bold text-center">{statusMessage}</p>}
                   {error && <p className="text-xs text-red-400 font-bold">{error}</p>}
 
                   <button
