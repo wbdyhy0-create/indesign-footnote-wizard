@@ -1,5 +1,4 @@
 import { kv } from '@vercel/kv';
-import { Resend } from 'resend';
 import { buildBitPayRequestUrl } from '../utils/bitPay';
 
 type OrderStatus = 'pending' | 'paid';
@@ -98,17 +97,10 @@ const sendDownloadEmail = async (order: OrderRecord): Promise<{ sent: boolean; e
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) return { sent: false, error: 'RESEND_API_KEY not configured' };
 
-  // Resend Node SDK returns { data, error } and does NOT throw on API errors — must check `error`.
   const from =
     process.env.RESEND_FROM_EMAIL?.trim() || 'Footnote Wizard <onboarding@resend.dev>';
 
-  try {
-    const resend = new Resend(apiKey);
-    const { error: resendError } = await resend.emails.send({
-      from,
-      to: order.customerEmail,
-      subject: `הקובץ שלך מוכן להורדה – ${order.productName}`,
-      html: `
+  const html = `
         <div dir="rtl" style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:32px;background:#0f172a;color:#e2e8f0;border-radius:16px;">
           <h1 style="color:#f59e0b;font-size:24px;margin-bottom:8px;">תודה על הרכישה!</h1>
           <p style="font-size:16px;line-height:1.7;color:#94a3b8;">
@@ -137,18 +129,37 @@ const sendDownloadEmail = async (order: OrderRecord): Promise<{ sent: boolean; e
             Footnote Wizard – פתרונות אוטומציה למעמדים &nbsp;|&nbsp; יוסף עובדיה
           </p>
         </div>
-      `,
+      `;
+
+  try {
+    const r = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from,
+        to: [order.customerEmail],
+        subject: `הקובץ שלך מוכן להורדה – ${order.productName}`,
+        html,
+      }),
     });
-    if (resendError) {
-      console.error('Resend API error:', resendError);
+
+    const payload = (await r.json().catch(() => ({}))) as {
+      message?: string;
+      name?: string;
+      statusCode?: number;
+    };
+
+    if (!r.ok) {
       const msg =
-        typeof resendError === 'object' &&
-        resendError !== null &&
-        'message' in resendError &&
-        typeof (resendError as { message: unknown }).message === 'string'
-          ? (resendError as { message: string }).message
-          : JSON.stringify(resendError);
-      return { sent: false, error: msg || 'Resend rejected the email' };
+        payload?.message ||
+        payload?.name ||
+        (Object.keys(payload).length ? JSON.stringify(payload) : null) ||
+        `Resend HTTP ${r.status}`;
+      console.error('Resend API error:', r.status, payload);
+      return { sent: false, error: String(msg) };
     }
     return { sent: true };
   } catch (e: any) {
@@ -267,7 +278,13 @@ export default async function handler(req: any, res: any) {
       next[index] = updated;
       await saveOrders(next);
 
-      const emailResult = await sendDownloadEmail(updated);
+      let emailResult: { sent: boolean; error?: string };
+      try {
+        emailResult = await sendDownloadEmail(updated);
+      } catch (emailCrash: any) {
+        console.error('sendDownloadEmail threw:', emailCrash);
+        emailResult = { sent: false, error: emailCrash?.message || String(emailCrash) };
+      }
 
       return res.status(200).json({
         success: true,
@@ -332,7 +349,13 @@ export default async function handler(req: any, res: any) {
       next[index] = updated;
       await saveOrders(next);
 
-      const emailResult = await sendDownloadEmail(updated);
+      let emailResult: { sent: boolean; error?: string };
+      try {
+        emailResult = await sendDownloadEmail(updated);
+      } catch (emailCrash: any) {
+        console.error('sendDownloadEmail threw:', emailCrash);
+        emailResult = { sent: false, error: emailCrash?.message || String(emailCrash) };
+      }
 
       return res.status(200).json({
         success: true,
