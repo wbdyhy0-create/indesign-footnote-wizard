@@ -31,6 +31,25 @@ const parseAmountFromPrice = (priceLabel: string): number | null => {
   return amount;
 };
 
+/** קוראת את גוף התשובה פעם אחת (חשוב: לא לקרוא ל־response.json אחרי text). */
+const parseOrdersApiBody = async (
+  response: Response
+): Promise<{ ok: true; data: Record<string, unknown> } | { ok: false; reason: string }> => {
+  const text = await response.text();
+  if (!text.trim()) {
+    return { ok: false, reason: `תשובת שרת ריקה (קוד ${response.status})` };
+  }
+  try {
+    return { ok: true, data: JSON.parse(text) as Record<string, unknown> };
+  } catch {
+    const preview = text.replace(/\s+/g, ' ').slice(0, 220);
+    return {
+      ok: false,
+      reason: `תשובת שרת לא בפורמט JSON (${response.status}): ${preview}`,
+    };
+  }
+};
+
 const buildClientFallbackOrder = (script: ScriptData): ClientOrderInfo => {
   const amountNis = parseAmountFromPrice(script.price);
   if (!amountNis) {
@@ -276,24 +295,36 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
           }),
         });
 
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok || data?.success === false) {
-          const msg = data?.error || 'שגיאה בשליחת מייל';
+        const parsed = await parseOrdersApiBody(response);
+        if (!parsed.ok) {
+          setEmailStatus('failed');
+          setEmailError(parsed.reason);
+          setStatusMessage(`ניתן להוריד עכשיו. לא הצלחנו לשלוח מייל: ${parsed.reason}`);
+          return;
+        }
+
+        const data = parsed.data;
+        if (!response.ok || data.success === false) {
+          const msg =
+            (typeof data.error === 'string' && data.error) ||
+            (typeof data.emailError === 'string' && data.emailError) ||
+            `שגיאה בשליחת מייל (קוד ${response.status})`;
           setEmailStatus('failed');
           setEmailError(msg);
           setStatusMessage(`ניתן להוריד עכשיו. לא הצלחנו לשלוח מייל: ${msg}`);
           return;
         }
 
-        if (data?.emailSent) {
+        if (data.emailSent === true) {
           setEmailStatus('sent');
           setEmailError(null);
           setStatusMessage('ניתן להוריד עכשיו! קישור ההורדה נשלח גם למייל.');
         } else {
+          const emailErr =
+            (typeof data.emailError === 'string' && data.emailError) || 'המייל לא נשלח (סיבה לא ידועה)';
           setEmailStatus('failed');
-          setEmailError(data?.emailError || 'המייל לא נשלח');
-          const msg = data?.emailError || 'המייל לא נשלח';
-          setStatusMessage(`ניתן להוריד עכשיו. לא הצלחנו לשלוח מייל: ${msg}`);
+          setEmailError(emailErr);
+          setStatusMessage(`ניתן להוריד עכשיו. לא הצלחנו לשלוח מייל: ${emailErr}`);
         }
       } catch (e: any) {
         setEmailStatus('failed');
