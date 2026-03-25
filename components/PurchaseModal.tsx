@@ -57,6 +57,8 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
   const [orderInfo, setOrderInfo] = useState<ClientOrderInfo | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [emailStatus, setEmailStatus] = useState<'unknown' | 'sent' | 'failed'>('unknown');
+  const [emailError, setEmailError] = useState<string | null>(null);
   const [isCreatingOrder, setIsCreatingOrder] = useState(false);
   const [isCheckingPayment, setIsCheckingPayment] = useState(false);
   const [isAutoChecking, setIsAutoChecking] = useState(false);
@@ -68,6 +70,8 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
       setOrderInfo(null);
       setStatusMessage(null);
       setError(null);
+      setEmailStatus('unknown');
+      setEmailError(null);
       setIsCreatingOrder(false);
       setIsCheckingPayment(false);
       setIsAutoChecking(false);
@@ -203,7 +207,11 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
   const handleCheckPayment = async () => {
     if (readyDownloadUrl) {
       window.open(readyDownloadUrl, '_blank');
-      alert('הקובץ נשלח לכתובת המייל שהזנת.\nחפש בתיקיית הספאם / דואר זבל.');
+      if (emailStatus === 'failed') {
+        alert(`פתחנו את ההורדה.\n\nאבל נראה שהמייל לא נשלח.\n${emailError ? `שגיאה: ${emailError}` : 'בדוק הגדרות/ספאם.'}`);
+      } else {
+        alert('פתחנו את ההורדה.\nחפש בתיקיית הספאם / דואר זבל אם המייל לא הגיע.');
+      }
       onClose();
       return;
     }
@@ -239,9 +247,55 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
     const message = encodeURIComponent(messageLines.join('\n'));
     window.open(`https://wa.me/972522284432?text=${message}`, '_blank');
 
-    // לא פותחים הורדה ולא שולחים מייל מהצד של הלקוח.
-    // המייל נשלח רק אחרי שהאדמין מאשר (action: mark-paid), וההורדה נפתחת רק כשהסטטוס בשרת הוא `paid`.
-    setStatusMessage('הודעת אישור נשלחה. ממתינים לאישור מנהל...');
+    // מצב אוטומטי לפי הבקשה שלך:
+    // מיד פותחים הורדה, ובמקביל מבצעים קריאה לשרת כדי לסמן paid ולשלוח מייל ללקוח.
+    if (script.downloadUrl) {
+      setReadyDownloadUrl(script.downloadUrl);
+      setStatusMessage('ניתן להוריד עכשיו. שולחים מייל...');
+    }
+
+    if (orderInfo?.id && orderInfo?.customerToken && customerInfo.email) {
+      try {
+        const response = await fetch('/api/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'mark-paid-customer',
+            orderId: orderInfo.id,
+            customerEmail: customerInfo.email,
+            customerToken: orderInfo.customerToken,
+          }),
+        });
+
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || data?.success === false) {
+          const msg = data?.error || 'שגיאה בשליחת מייל';
+          setEmailStatus('failed');
+          setEmailError(msg);
+          setStatusMessage('ניתן להוריד עכשיו. לא הצלחנו לשלוח מייל.');
+          return;
+        }
+
+        if (data?.emailSent) {
+          setEmailStatus('sent');
+          setEmailError(null);
+          setStatusMessage('ניתן להוריד עכשיו! קישור ההורדה נשלח גם למייל.');
+        } else {
+          setEmailStatus('failed');
+          setEmailError(data?.emailError || 'המייל לא נשלח');
+          setStatusMessage('ניתן להוריד עכשיו. לא הצלחנו לשלוח מייל.');
+        }
+      } catch (e: any) {
+        setEmailStatus('failed');
+        setEmailError(e?.message || 'שגיאה בשליחת מייל');
+        setStatusMessage('ניתן להוריד עכשיו. לא הצלחנו לשלוח מייל.');
+      }
+    } else {
+      // אם אין customerToken (למשל מסלול fallback), אין איך לסמן paid בשרת -> גם לא נוכל לשלוח מייל דרך פעולה זו.
+      setEmailStatus('failed');
+      setEmailError('אין טוקן הזמנה לשליחת מייל');
+      setStatusMessage('ניתן להוריד עכשיו, אבל לא ניתן לשלוח מייל (בעיה בטוקן הזמנה).');
+    }
   };
 
   const handleWhatsAppSupport = () => {
