@@ -184,7 +184,16 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
       if (result?.order?.status === 'paid' && result?.downloadUrl) {
         const nextDownloadUrl = String(result.downloadUrl);
         setReadyDownloadUrl(nextDownloadUrl);
-        setStatusMessage('אישור התשלום התקבל! קישור ההורדה נשלח גם למייל שלך (בדוק בספאם אם לא מופיע).');
+        // אם כבר ידוע לנו סטטוס שליחת המייל (מ-mark-paid-customer), לא נדרוס אותו בהודעה גנרית.
+        if (emailStatus === 'failed') {
+          setStatusMessage(
+            `אישור התשלום התקבל, אבל נראה שהמייל לא נשלח.\n${emailError ? `פרטים: ${emailError}` : 'בדוק הגדרות/ספאם.'}`
+          );
+        } else if (emailStatus === 'sent') {
+          setStatusMessage('אישור התשלום התקבל! קישור ההורדה נשלח גם למייל שלך (בדוק בספאם אם לא מופיע).');
+        } else {
+          setStatusMessage('אישור התשלום התקבל! קישור ההורדה נשלח גם למייל שלך (בדוק בספאם אם לא מופיע).');
+        }
         return;
       }
 
@@ -226,7 +235,7 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
     }, 7000);
 
     return () => window.clearInterval(timer);
-  }, [isOpen, step, orderInfo?.id, customerInfo.email, readyDownloadUrl]);
+  }, [isOpen, step, orderInfo?.id, customerInfo.email, readyDownloadUrl, emailStatus, emailError]);
 
   if (!isOpen) return null;
 
@@ -272,7 +281,7 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
           const msg = data?.error || 'שגיאה בשליחת מייל';
           setEmailStatus('failed');
           setEmailError(msg);
-          setStatusMessage('ניתן להוריד עכשיו. לא הצלחנו לשלוח מייל.');
+          setStatusMessage(`ניתן להוריד עכשיו. לא הצלחנו לשלוח מייל: ${msg}`);
           return;
         }
 
@@ -283,12 +292,13 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
         } else {
           setEmailStatus('failed');
           setEmailError(data?.emailError || 'המייל לא נשלח');
-          setStatusMessage('ניתן להוריד עכשיו. לא הצלחנו לשלוח מייל.');
+          const msg = data?.emailError || 'המייל לא נשלח';
+          setStatusMessage(`ניתן להוריד עכשיו. לא הצלחנו לשלוח מייל: ${msg}`);
         }
       } catch (e: any) {
         setEmailStatus('failed');
         setEmailError(e?.message || 'שגיאה בשליחת מייל');
-        setStatusMessage('ניתן להוריד עכשיו. לא הצלחנו לשלוח מייל.');
+        setStatusMessage(`ניתן להוריד עכשיו. לא הצלחנו לשלוח מייל: ${e?.message || 'שגיאה בשליחת מייל'}`);
       }
     } else {
       // אם אין customerToken (למשל מסלול fallback), אין איך לסמן paid בשרת -> גם לא נוכל לשלוח מייל דרך פעולה זו.
