@@ -1,7 +1,7 @@
 {
   "functions": {
     "api/orders.ts": {
-      "maxDuration": 30
+      "maxDuration": 10
     }
   },
   "rewrites": [

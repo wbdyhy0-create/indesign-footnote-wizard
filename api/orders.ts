@@ -1,5 +1,32 @@
 import { kv } from '@vercel/kv';
-import { buildBitPayRequestUrl } from '../utils/bitPay';
+
+/** מוטמע כאן בכוונה — ייבוא מ־../utils עלול לא להיכלל בבנדל של Vercel ולגרום ל־FUNCTION_INVOCATION_FAILED. */
+function normalizeBitRecipientPhone(phone: string): string {
+  const digits = phone.replace(/\D/g, '');
+  if (digits.startsWith('972')) return digits;
+  if (digits.startsWith('0') && digits.length >= 9) return `972${digits.slice(1)}`;
+  return digits;
+}
+
+function buildBitPayRequestUrl(phone: string, amountNis: number, text: string): string {
+  const normalizedPhone = normalizeBitRecipientPhone(phone);
+  const encodedText = encodeURIComponent(text);
+  const normalizedAmount = Number.isInteger(amountNis) ? String(amountNis) : amountNis.toFixed(2);
+  return `https://www.bitpay.co.il/app/pay-request/?phone=${normalizedPhone}&amount=${normalizedAmount}&text=${encodedText}`;
+}
+
+const parsePostJsonBody = (req: any): Record<string, unknown> => {
+  try {
+    const raw =
+      typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body ?? {});
+    if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+      return raw as Record<string, unknown>;
+    }
+  } catch {
+    /* ignore */
+  }
+  return {};
+};
 
 type OrderStatus = 'pending' | 'paid';
 
@@ -169,6 +196,7 @@ const sendDownloadEmail = async (order: OrderRecord): Promise<{ sent: boolean; e
 };
 
 export default async function handler(req: any, res: any) {
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
   try {
     if (req.method === 'GET') {
       const adminCode = typeof req.query?.adminCode === 'string' ? req.query.adminCode : '';
@@ -184,7 +212,7 @@ export default async function handler(req: any, res: any) {
       return res.status(405).json({ success: false, error: 'שיטה לא מורשית' });
     }
 
-    const body = req.body || {};
+    const body = parsePostJsonBody(req);
     const action = typeof body.action === 'string' ? body.action : '';
 
     if (action === 'create') {
