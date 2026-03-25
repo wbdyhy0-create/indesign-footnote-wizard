@@ -380,6 +380,11 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
 
                   {statusMessage && <p className="text-xs text-slate-100 font-bold text-center">{statusMessage}</p>}
                   {error && <p className="text-xs text-red-400 font-bold">{error}</p>}
+                  {emailStatus === 'failed' && emailError && (
+                    <p className="text-[11px] text-red-300 font-bold text-center leading-tight break-words">
+                      פרטי שגיאה במייל: {emailError}
+                    </p>
+                  )}
 
                   <button
                     onClick={handleCheckPayment}
