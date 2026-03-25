@@ -98,10 +98,14 @@ const sendDownloadEmail = async (order: OrderRecord): Promise<{ sent: boolean; e
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) return { sent: false, error: 'RESEND_API_KEY not configured' };
 
+  // Resend Node SDK returns { data, error } and does NOT throw on API errors — must check `error`.
+  const from =
+    process.env.RESEND_FROM_EMAIL?.trim() || 'Footnote Wizard <onboarding@resend.dev>';
+
   try {
     const resend = new Resend(apiKey);
-    await resend.emails.send({
-      from: 'Footnote Wizard <onboarding@resend.dev>',
+    const { error: resendError } = await resend.emails.send({
+      from,
       to: order.customerEmail,
       subject: `הקובץ שלך מוכן להורדה – ${order.productName}`,
       html: `
@@ -135,6 +139,17 @@ const sendDownloadEmail = async (order: OrderRecord): Promise<{ sent: boolean; e
         </div>
       `,
     });
+    if (resendError) {
+      console.error('Resend API error:', resendError);
+      const msg =
+        typeof resendError === 'object' &&
+        resendError !== null &&
+        'message' in resendError &&
+        typeof (resendError as { message: unknown }).message === 'string'
+          ? (resendError as { message: string }).message
+          : JSON.stringify(resendError);
+      return { sent: false, error: msg || 'Resend rejected the email' };
+    }
     return { sent: true };
   } catch (e: any) {
     console.error('Email send failed:', e);
