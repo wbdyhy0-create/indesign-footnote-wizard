@@ -239,25 +239,9 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
     const message = encodeURIComponent(messageLines.join('\n'));
     window.open(`https://wa.me/972522284432?text=${message}`, '_blank');
 
-    // מיד אחרי שליחת וואטסאפ – סימון ההזמנה כ"שולמה" בשרת + שליחת מייל, והכפתור להורדה
-    if (script.downloadUrl) {
-      setReadyDownloadUrl(script.downloadUrl);
-      setStatusMessage('ניתן להוריד עכשיו.');
-    }
-    if (orderInfo?.id && orderInfo?.customerToken && customerInfo.email) {
-      try {
-        await fetch('/api/orders', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'mark-paid-customer',
-            orderId: orderInfo.id,
-            customerEmail: customerInfo.email,
-            customerToken: orderInfo.customerToken,
-          }),
-        });
-      } catch (_) {}
-    }
+    // לא פותחים הורדה ולא שולחים מייל מהצד של הלקוח.
+    // המייל נשלח רק אחרי שהאדמין מאשר (action: mark-paid), וההורדה נפתחת רק כשהסטטוס בשרת הוא `paid`.
+    setStatusMessage('הודעת אישור נשלחה. ממתינים לאישור מנהל...');
   };
 
   const handleWhatsAppSupport = () => {
