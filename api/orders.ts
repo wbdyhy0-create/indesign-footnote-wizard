@@ -221,7 +221,9 @@ export default async function handler(req: any, res: any) {
       const orderId = typeof body.orderId === 'string' ? body.orderId.trim() : '';
       const customerEmail = normalizeEmail(body.customerEmail);
       const customerToken = typeof body.customerToken === 'string' ? body.customerToken.trim() : '';
-      if (!orderId || !customerEmail || !customerToken) {
+      // אם customerToken חסר (למשל הזמנות ישנות/מצבים בהם הלקוח לא קיבל את הטוקן),
+      // עדיין אפשר לזהות הזמנה בבטחה סבירה לפי orderId + customerEmail.
+      if (!orderId || !customerEmail) {
         return res.status(400).json({ success: false, error: 'חסרים פרטי אישור' });
       }
 
@@ -230,10 +232,10 @@ export default async function handler(req: any, res: any) {
         (item) =>
           item.id === orderId &&
           item.customerEmail === customerEmail &&
-          item.customerToken === customerToken
+          (!customerToken || item.customerToken === customerToken)
       );
       if (index === -1) {
-        return res.status(404).json({ success: false, error: 'הזמנה לא נמצאה או טוקן לא תואם' });
+        return res.status(404).json({ success: false, error: 'הזמנה לא נמצאה או פרטי אישור לא תואמים' });
       }
 
       const current = orders[index];

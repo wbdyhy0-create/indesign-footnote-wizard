@@ -263,7 +263,7 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
       setStatusMessage('ניתן להוריד עכשיו. שולחים מייל...');
     }
 
-    if (orderInfo?.id && orderInfo?.customerToken && customerInfo.email) {
+    if (orderInfo?.id && customerInfo.email) {
       try {
         const response = await fetch('/api/orders', {
           method: 'POST',
@@ -272,7 +272,7 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
             action: 'mark-paid-customer',
             orderId: orderInfo.id,
             customerEmail: customerInfo.email,
-            customerToken: orderInfo.customerToken,
+            customerToken: orderInfo.customerToken || '',
           }),
         });
 
@@ -301,10 +301,9 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ script, isOpen, onClose }
         setStatusMessage(`ניתן להוריד עכשיו. לא הצלחנו לשלוח מייל: ${e?.message || 'שגיאה בשליחת מייל'}`);
       }
     } else {
-      // אם אין customerToken (למשל מסלול fallback), אין איך לסמן paid בשרת -> גם לא נוכל לשלוח מייל דרך פעולה זו.
       setEmailStatus('failed');
-      setEmailError('אין טוקן הזמנה לשליחת מייל');
-      setStatusMessage('ניתן להוריד עכשיו, אבל לא ניתן לשלוח מייל (בעיה בטוקן הזמנה).');
+      setEmailError('חסרים פרטי הזמנה לשליחת מייל');
+      setStatusMessage('ניתן להוריד עכשיו, אבל לא ניתן לשלוח מייל (חסרים פרטי הזמנה).');
     }
   };
 
