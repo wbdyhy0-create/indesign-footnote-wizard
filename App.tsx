@@ -112,10 +112,17 @@ const App: React.FC = () => {
     if (page === 'torah-covers') return siteSettings.coversPageVisible !== false;
     if (page === 'promotions') return siteSettings.promotionsPageVisible !== false;
 
-    if (scripts.some((s) => s.id === page)) return siteSettings.scriptsPageVisible !== false;
-    if (products.some((p: any) => p.id === page)) return siteSettings.productsPageVisible !== false;
-    if (covers.some((c: any) => c.id === page)) return siteSettings.coversPageVisible !== false;
-    if (promotions.some((p) => p.id === page)) return siteSettings.promotionsPageVisible !== false;
+    const script = scripts.find((s) => s.id === page);
+    if (script) return siteSettings.scriptsPageVisible !== false && script.isPublished !== false;
+
+    const product = products.find((p: any) => p.id === page);
+    if (product) return siteSettings.productsPageVisible !== false && Boolean(product.isPublished);
+
+    const cover = covers.find((c: any) => c.id === page);
+    if (cover) return siteSettings.coversPageVisible !== false && Boolean(cover.isPublished);
+
+    const promotion = promotions.find((p) => p.id === page);
+    if (promotion) return siteSettings.promotionsPageVisible !== false && promotion.isPublished !== false;
 
     return true;
   };
@@ -175,6 +182,13 @@ const App: React.FC = () => {
         siteSettings.promotionsPageVisible === false &&
         (pageFromPath === 'promotions' || promotions.some((p) => p.id === pageFromPath))
       ) {
+        setActivePage('home');
+        window.history.replaceState(null, '', '/');
+        return;
+      }
+
+      // פריט בודד שמוסתר (isPublished=false) → נשלח הביתה גם אם העמוד עצמו מוצג
+      if (!isPageAllowed(pageFromPath)) {
         setActivePage('home');
         window.history.replaceState(null, '', '/');
         return;
@@ -267,24 +281,33 @@ const App: React.FC = () => {
 
   const renderContent = () => {
     // 1. בדיקה אם הגולש לוחץ על סקריפט
-    const script = siteSettings.scriptsPageVisible === false ? null : scripts.find(s => s.id === activePage);
+    const script =
+      siteSettings.scriptsPageVisible === false
+        ? null
+        : scripts.find((s) => s.id === activePage && s.isPublished !== false);
     if (script) return <ScriptDetail product={script} onBack={() => navigateToPage('scripts-catalog')} />;
 
     if (siteSettings.promotionsPageVisible) {
-      const promotion = promotions.find((p) => p.id === activePage);
+      const promotion = promotions.find((p) => p.id === activePage && p.isPublished !== false);
       if (promotion) {
         return <ScriptDetail product={promotion} onBack={() => navigateToPage('promotions')} />;
       }
     }
 
     // 2. בדיקה אם הגולש לוחץ על מוצר
-    const product = siteSettings.productsPageVisible === false ? null : products.find((p: any) => p.id === activePage);
+    const product =
+      siteSettings.productsPageVisible === false
+        ? null
+        : products.find((p: any) => p.id === activePage && Boolean(p.isPublished));
     if (product) {
       // אם כן, פתח את דף הפירוט והעבר לו את נתוני המוצר
       return <ProductDetail product={product} onBack={() => navigateToPage('other-products')} />;
     }
 
-    const cover = siteSettings.coversPageVisible === false ? null : covers.find((c: any) => c.id === activePage);
+    const cover =
+      siteSettings.coversPageVisible === false
+        ? null
+        : covers.find((c: any) => c.id === activePage && Boolean(c.isPublished));
     if (cover) {
       return <ProductDetail product={cover} onBack={() => navigateToPage('torah-covers')} />;
     }

@@ -9,6 +9,7 @@ interface ScriptsCatalogProps {
 }
 
 const ScriptsCatalog: React.FC<ScriptsCatalogProps> = ({ onSelectScript, scripts }) => {
+  const publishedScripts = scripts.filter((s) => s.isPublished !== false);
   return (
     <div className="animate-fadeIn pb-20">
       <div className="mb-12">
@@ -17,7 +18,7 @@ const ScriptsCatalog: React.FC<ScriptsCatalogProps> = ({ onSelectScript, scripts
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {scripts.map(script => (
+        {publishedScripts.map(script => (
           <ScriptCard key={script.id} script={script} onSelect={onSelectScript} />
         ))}
       </div>
