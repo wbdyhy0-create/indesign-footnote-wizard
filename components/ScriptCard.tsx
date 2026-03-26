@@ -62,7 +62,7 @@ const ScriptCard: React.FC<ScriptCardProps> = ({ script, onSelect }) => {
 
           {script.originalPrice && (
 
-            <span className="text-slate-500 text-xs line-through mb-1 opacity-70">{script.originalPrice}</span>
+            <span className="text-white/90 text-xs line-through mb-1">{script.originalPrice}</span>
 
           )}
 

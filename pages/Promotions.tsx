@@ -11,6 +11,19 @@ const Promotions: React.FC<PromotionsProps> = ({ onSelectPromotion, promotions }
 
   return (
     <div className="animate-fadeIn pb-20">
+      <div className="mb-8 rounded-3xl border border-amber-400/40 bg-gradient-to-l from-amber-500/20 via-amber-400/10 to-rose-500/10 p-5 shadow-[0_0_35px_rgba(245,158,11,0.2)]">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="inline-flex items-center rounded-full border border-amber-300/40 bg-amber-500/20 px-3 py-1 text-xs font-black text-amber-200">
+            מבצע חג הפסח
+          </div>
+          <div className="text-xs font-bold text-amber-100/90">בתוקף עד 01.04.26</div>
+        </div>
+        <h2 className="mt-3 text-xl md:text-2xl font-black text-white leading-snug">
+          מבצע לכבוד חג הפסח, רכישת כל סקריפט בודד מתוך החנות בסך הכל{' '}
+          <span className="text-amber-300">100 ש&quot;ח</span>.
+        </h2>
+      </div>
+
       <div className="mb-12">
         <h1 className="text-4xl font-bold text-amber-500 mb-4">מבצעים</h1>
         <p className="text-slate-100">חבילות סקריפטים מיוחדות במחיר משתלם במיוחד.</p>
@@ -35,7 +48,7 @@ const Promotions: React.FC<PromotionsProps> = ({ onSelectPromotion, promotions }
                 </div>
                 <div className="flex flex-col items-end">
                   {promo.originalPrice && (
-                    <span className="text-slate-500 text-xs line-through mb-1 opacity-70">{promo.originalPrice}</span>
+                    <span className="text-white/90 text-xs line-through mb-1">{promo.originalPrice}</span>
                   )}
                   <div className="text-amber-500 font-bold">{promo.price}</div>
                 </div>
