@@ -45,9 +45,22 @@ const AdminPortal: React.FC = () => {
   const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('yosef_admin_site_settings_backup');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return {
+          promotionsPageVisible: parsed?.promotionsPageVisible !== false,
+          scriptsPageVisible: parsed?.scriptsPageVisible !== false,
+          productsPageVisible: parsed?.productsPageVisible !== false,
+          coversPageVisible: parsed?.coversPageVisible !== false,
+        };
+      }
     }
-    return { promotionsPageVisible: true };
+    return {
+      promotionsPageVisible: true,
+      scriptsPageVisible: true,
+      productsPageVisible: true,
+      coversPageVisible: true,
+    };
   });
 
   // --- תוספת חדשה: טעינת מוצרים מהזיכרון ---
@@ -335,7 +348,10 @@ const AdminPortal: React.FC = () => {
         }
         if (data?.siteSettings && typeof data.siteSettings === 'object') {
           setSiteSettings({
-            promotionsPageVisible: data.siteSettings.promotionsPageVisible !== false,
+            promotionsPageVisible: (data.siteSettings as any).promotionsPageVisible !== false,
+            scriptsPageVisible: (data.siteSettings as any).scriptsPageVisible !== false,
+            productsPageVisible: (data.siteSettings as any).productsPageVisible !== false,
+            coversPageVisible: (data.siteSettings as any).coversPageVisible !== false,
           });
         }
       } catch (error) {
@@ -1347,6 +1363,25 @@ const AdminPortal: React.FC = () => {
         ) : viewMode === 'products' ? (
 
           <div className="grid gap-6 animate-in fade-in duration-300">
+            <div className="rounded-xl border border-slate-700 bg-slate-900/40 p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+              <div className="text-sm font-bold text-slate-100">עמוד מוצרים באתר החי</div>
+              <button
+                type="button"
+                onClick={() =>
+                  setSiteSettings((prev) => ({
+                    ...prev,
+                    productsPageVisible: prev.productsPageVisible === false ? true : false,
+                  }))
+                }
+                className={`px-4 py-2 rounded-xl text-sm font-black transition ${
+                  siteSettings.productsPageVisible === false
+                    ? 'bg-red-900/40 text-red-300 border border-red-500/40'
+                    : 'bg-emerald-900/40 text-emerald-300 border border-emerald-500/40'
+                }`}
+              >
+                {siteSettings.productsPageVisible === false ? 'העמוד מוסתר באתר (לחץ להצגה)' : 'העמוד מוצג באתר (לחץ להסתרה)'}
+              </button>
+            </div>
             {products.map((p) => (
               <div key={p.id} className="bg-[#0b1121] border border-slate-800 p-8 rounded-[2.5rem] flex flex-col md:flex-row justify-between items-center shadow-lg hover:border-slate-700 transition">
                 <div className="flex items-center gap-6 mb-4 md:mb-0">
@@ -1386,6 +1421,25 @@ const AdminPortal: React.FC = () => {
         ) : viewMode === 'covers' ? (
 
           <div className="grid gap-6 animate-in fade-in duration-300">
+            <div className="rounded-xl border border-slate-700 bg-slate-900/40 p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+              <div className="text-sm font-bold text-slate-100">עמוד כריכות באתר החי</div>
+              <button
+                type="button"
+                onClick={() =>
+                  setSiteSettings((prev) => ({
+                    ...prev,
+                    coversPageVisible: prev.coversPageVisible === false ? true : false,
+                  }))
+                }
+                className={`px-4 py-2 rounded-xl text-sm font-black transition ${
+                  siteSettings.coversPageVisible === false
+                    ? 'bg-red-900/40 text-red-300 border border-red-500/40'
+                    : 'bg-emerald-900/40 text-emerald-300 border border-emerald-500/40'
+                }`}
+              >
+                {siteSettings.coversPageVisible === false ? 'העמוד מוסתר באתר (לחץ להצגה)' : 'העמוד מוצג באתר (לחץ להסתרה)'}
+              </button>
+            </div>
             {covers.map((c) => (
               <div key={c.id} className="bg-[#0b1121] border border-slate-800 p-8 rounded-[2.5rem] flex flex-col md:flex-row justify-between items-center shadow-lg hover:border-slate-700 transition">
                 <div className="flex items-center gap-6 mb-4 md:mb-0">
@@ -1419,6 +1473,25 @@ const AdminPortal: React.FC = () => {
         ) : (
 
           <div className="grid gap-6 animate-in fade-in duration-300">
+            <div className="rounded-xl border border-slate-700 bg-slate-900/40 p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+              <div className="text-sm font-bold text-slate-100">עמוד סקריפטים באתר החי</div>
+              <button
+                type="button"
+                onClick={() =>
+                  setSiteSettings((prev) => ({
+                    ...prev,
+                    scriptsPageVisible: prev.scriptsPageVisible === false ? true : false,
+                  }))
+                }
+                className={`px-4 py-2 rounded-xl text-sm font-black transition ${
+                  siteSettings.scriptsPageVisible === false
+                    ? 'bg-red-900/40 text-red-300 border border-red-500/40'
+                    : 'bg-emerald-900/40 text-emerald-300 border border-emerald-500/40'
+                }`}
+              >
+                {siteSettings.scriptsPageVisible === false ? 'העמוד מוסתר באתר (לחץ להצגה)' : 'העמוד מוצג באתר (לחץ להסתרה)'}
+              </button>
+            </div>
             {scripts.map((s) => (
               <div key={s.id} className="bg-[#0b1121] border border-slate-800 p-8 rounded-[2.5rem] flex flex-col md:flex-row justify-between items-center shadow-lg hover:border-slate-700 transition">
                 <div className="flex items-center gap-6 mb-4 md:mb-0">

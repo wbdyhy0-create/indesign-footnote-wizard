@@ -44,6 +44,9 @@ export interface PromotionBundleData extends ScriptData {
 
 export interface SiteSettings {
   promotionsPageVisible?: boolean;
+  scriptsPageVisible?: boolean;
+  productsPageVisible?: boolean;
+  coversPageVisible?: boolean;
 }
 
 export interface FAQItem {

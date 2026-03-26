@@ -90,20 +90,20 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage, sc
 
   const navItems = [
     { page: 'home', label: 'דף הבית' },
-    { page: 'scripts-catalog', label: 'הסקריפטים שלנו' },
+    ...(siteSettings.scriptsPageVisible === false ? [] : [{ page: 'scripts-catalog', label: 'הסקריפטים שלנו' }]),
     ...(siteSettings.promotionsPageVisible ? [{ page: 'promotions', label: 'מבצעים' }] : []),
-    { page: 'other-products', label: 'מוצרים נוספים' },
-    { page: 'torah-covers', label: 'עיצוב כריכות תורניים' },
+    ...(siteSettings.productsPageVisible === false ? [] : [{ page: 'other-products', label: 'מוצרים נוספים' }]),
+    ...(siteSettings.coversPageVisible === false ? [] : [{ page: 'torah-covers', label: 'עיצוב כריכות תורניים' }]),
     { page: 'about', label: 'אודות' },
     { page: 'contact', label: 'צור קשר' },
   ];
 
   const getActiveNavPage = () => {
     if (navItems.some((item) => item.page === activePage)) return activePage;
-    if (scripts.some((s) => s.id === activePage)) return 'scripts-catalog';
+    if (siteSettings.scriptsPageVisible !== false && scripts.some((s) => s.id === activePage)) return 'scripts-catalog';
     if (promotions.some((p) => p.id === activePage)) return 'promotions';
-    if (products.some((p: any) => p.id === activePage)) return 'other-products';
-    if (covers.some((c: any) => c.id === activePage)) return 'torah-covers';
+    if (siteSettings.productsPageVisible !== false && products.some((p: any) => p.id === activePage)) return 'other-products';
+    if (siteSettings.coversPageVisible !== false && covers.some((c: any) => c.id === activePage)) return 'torah-covers';
     return activePage;
   };
 

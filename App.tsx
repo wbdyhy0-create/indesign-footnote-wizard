@@ -87,7 +87,12 @@ const App: React.FC = () => {
   const [products, setProducts] = useState<any[]>(DEFAULT_PRODUCTS);
   const [covers, setCovers] = useState<any[]>(DEFAULT_COVERS);
   const [promotions, setPromotions] = useState<PromotionBundleData[]>([]);
-  const [siteSettings, setSiteSettings] = useState<SiteSettings>({ promotionsPageVisible: true });
+  const [siteSettings, setSiteSettings] = useState<SiteSettings>({
+    promotionsPageVisible: true,
+    scriptsPageVisible: true,
+    productsPageVisible: true,
+    coversPageVisible: true,
+  });
 
   const getPathFromPage = (page: string) => {
     if (page === 'home') return '/';
@@ -101,11 +106,27 @@ const App: React.FC = () => {
     return '/';
   };
 
+  const isPageAllowed = (page: string) => {
+    if (page === 'scripts-catalog') return siteSettings.scriptsPageVisible !== false;
+    if (page === 'other-products') return siteSettings.productsPageVisible !== false;
+    if (page === 'torah-covers') return siteSettings.coversPageVisible !== false;
+    if (page === 'promotions') return siteSettings.promotionsPageVisible !== false;
+
+    if (scripts.some((s) => s.id === page)) return siteSettings.scriptsPageVisible !== false;
+    if (products.some((p: any) => p.id === page)) return siteSettings.productsPageVisible !== false;
+    if (covers.some((c: any) => c.id === page)) return siteSettings.coversPageVisible !== false;
+    if (promotions.some((p) => p.id === page)) return siteSettings.promotionsPageVisible !== false;
+
+    return true;
+  };
+
   const navigateToPage = (page: string, options?: { replace?: boolean }) => {
-    setActivePage(page);
     if (typeof window === 'undefined') return;
 
-    const nextPath = getPathFromPage(page);
+    const targetPage = isPageAllowed(page) ? page : 'home';
+    setActivePage(targetPage);
+
+    const nextPath = getPathFromPage(targetPage);
     const currentPath = normalizePath(window.location.pathname);
     if (currentPath === nextPath) return;
 
@@ -123,11 +144,39 @@ const App: React.FC = () => {
       if (pageFromPath === 'admin' && !normalizePath(window.location.pathname).startsWith('/admin')) {
         window.history.replaceState(null, '', '/admin');
       }
-      if (!siteSettings.promotionsPageVisible && (pageFromPath === 'promotions' || promotions.some((p) => p.id === pageFromPath))) {
+      if (
+        siteSettings.scriptsPageVisible === false &&
+        (pageFromPath === 'scripts-catalog' || scripts.some((s) => s.id === pageFromPath))
+      ) {
         setActivePage('home');
-        if (typeof window !== 'undefined') {
-          window.history.replaceState(null, '', '/');
-        }
+        window.history.replaceState(null, '', '/');
+        return;
+      }
+
+      if (
+        siteSettings.productsPageVisible === false &&
+        (pageFromPath === 'other-products' || products.some((p: any) => p.id === pageFromPath))
+      ) {
+        setActivePage('home');
+        window.history.replaceState(null, '', '/');
+        return;
+      }
+
+      if (
+        siteSettings.coversPageVisible === false &&
+        (pageFromPath === 'torah-covers' || covers.some((c: any) => c.id === pageFromPath))
+      ) {
+        setActivePage('home');
+        window.history.replaceState(null, '', '/');
+        return;
+      }
+
+      if (
+        siteSettings.promotionsPageVisible === false &&
+        (pageFromPath === 'promotions' || promotions.some((p) => p.id === pageFromPath))
+      ) {
+        setActivePage('home');
+        window.history.replaceState(null, '', '/');
         return;
       }
       setActivePage(pageFromPath);
@@ -140,7 +189,16 @@ const App: React.FC = () => {
       window.removeEventListener('popstate', readPageFromLocation);
       window.removeEventListener('hashchange', readPageFromLocation);
     };
-  }, [siteSettings.promotionsPageVisible, promotions]);
+  }, [
+    siteSettings.promotionsPageVisible,
+    siteSettings.scriptsPageVisible,
+    siteSettings.productsPageVisible,
+    siteSettings.coversPageVisible,
+    promotions,
+    scripts,
+    products,
+    covers,
+  ]);
 
   // טעינת תוכן מהענן לאתר החי (fallback לקבועים במקרה כשל)
   useEffect(() => {
@@ -176,10 +234,18 @@ const App: React.FC = () => {
 
         if (data?.siteSettings && typeof data.siteSettings === 'object') {
           setSiteSettings({
-            promotionsPageVisible: data.siteSettings.promotionsPageVisible !== false,
+            promotionsPageVisible: (data.siteSettings as any).promotionsPageVisible !== false,
+            scriptsPageVisible: (data.siteSettings as any).scriptsPageVisible !== false,
+            productsPageVisible: (data.siteSettings as any).productsPageVisible !== false,
+            coversPageVisible: (data.siteSettings as any).coversPageVisible !== false,
           });
         } else {
-          setSiteSettings({ promotionsPageVisible: true });
+          setSiteSettings({
+            promotionsPageVisible: true,
+            scriptsPageVisible: true,
+            productsPageVisible: true,
+            coversPageVisible: true,
+          });
         }
       } catch (e) {
         console.warn('Cloud data unavailable, using constants fallback:', e);
@@ -187,7 +253,12 @@ const App: React.FC = () => {
         setProducts(DEFAULT_PRODUCTS);
         setCovers(DEFAULT_COVERS);
         setPromotions([]);
-        setSiteSettings({ promotionsPageVisible: true });
+        setSiteSettings({
+          promotionsPageVisible: true,
+          scriptsPageVisible: true,
+          productsPageVisible: true,
+          coversPageVisible: true,
+        });
       }
     };
 
@@ -196,10 +267,8 @@ const App: React.FC = () => {
 
   const renderContent = () => {
     // 1. בדיקה אם הגולש לוחץ על סקריפט
-    const script = scripts.find(s => s.id === activePage);
-    if (script) {
-      return <ScriptDetail product={script} onBack={() => navigateToPage('scripts-catalog')} />;
-    }
+    const script = siteSettings.scriptsPageVisible === false ? null : scripts.find(s => s.id === activePage);
+    if (script) return <ScriptDetail product={script} onBack={() => navigateToPage('scripts-catalog')} />;
 
     if (siteSettings.promotionsPageVisible) {
       const promotion = promotions.find((p) => p.id === activePage);
@@ -209,13 +278,13 @@ const App: React.FC = () => {
     }
 
     // 2. בדיקה אם הגולש לוחץ על מוצר
-    const product = products.find((p: any) => p.id === activePage);
+    const product = siteSettings.productsPageVisible === false ? null : products.find((p: any) => p.id === activePage);
     if (product) {
       // אם כן, פתח את דף הפירוט והעבר לו את נתוני המוצר
       return <ProductDetail product={product} onBack={() => navigateToPage('other-products')} />;
     }
 
-    const cover = covers.find((c: any) => c.id === activePage);
+    const cover = siteSettings.coversPageVisible === false ? null : covers.find((c: any) => c.id === activePage);
     if (cover) {
       return <ProductDetail product={cover} onBack={() => navigateToPage('torah-covers')} />;
     }
@@ -228,15 +297,21 @@ const App: React.FC = () => {
                  onNavigateToProducts={() => navigateToPage('other-products')} 
                />;
       case 'scripts-catalog':
-        return <ScriptsCatalog scripts={scripts} onSelectScript={(id) => navigateToPage(id)} />;
+        return siteSettings.scriptsPageVisible === false
+          ? <Home onNavigateToCatalog={() => navigateToPage('scripts-catalog')} onNavigateToProducts={() => navigateToPage('other-products')} />
+          : <ScriptsCatalog scripts={scripts} onSelectScript={(id) => navigateToPage(id)} />;
       case 'other-products': 
-        return <OtherProducts products={products} onNavigate={(page) => navigateToPage(page)} />;
+        return siteSettings.productsPageVisible === false
+          ? <Home onNavigateToCatalog={() => navigateToPage('scripts-catalog')} onNavigateToProducts={() => navigateToPage('other-products')} />
+          : <OtherProducts products={products} onNavigate={(page) => navigateToPage(page)} />;
       case 'promotions':
         return siteSettings.promotionsPageVisible
           ? <Promotions promotions={promotions} onSelectPromotion={(id) => navigateToPage(id)} />
           : <Home onNavigateToCatalog={() => navigateToPage('scripts-catalog')} onNavigateToProducts={() => navigateToPage('other-products')} />;
       case 'torah-covers':
-        return <TorahCovers covers={covers} onNavigate={(page) => navigateToPage(page)} />;
+        return siteSettings.coversPageVisible === false
+          ? <Home onNavigateToCatalog={() => navigateToPage('scripts-catalog')} onNavigateToProducts={() => navigateToPage('other-products')} />
+          : <TorahCovers covers={covers} onNavigate={(page) => navigateToPage(page)} />;
       case 'about':
         return <About />;
       case 'contact':
