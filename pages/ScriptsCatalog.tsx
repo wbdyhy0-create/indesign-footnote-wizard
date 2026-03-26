@@ -12,7 +12,11 @@ const ScriptsCatalog: React.FC<ScriptsCatalogProps> = ({ onSelectScript, scripts
   const publishedScripts = scripts.filter((s) => s.isPublished !== false);
   return (
     <div className="animate-fadeIn pb-20">
-      <div className="mb-8 rounded-3xl border border-amber-400/40 bg-gradient-to-l from-amber-500/20 via-amber-400/10 to-rose-500/10 p-5 shadow-[0_0_35px_rgba(245,158,11,0.2)]">
+      <a
+        href="https://footnote-wizard-2.vercel.app/promotions"
+        className="mb-8 block w-full cursor-pointer rounded-3xl border border-amber-400/40 bg-gradient-to-l from-amber-500/20 via-amber-400/10 to-rose-500/10 p-5 shadow-[0_0_35px_rgba(245,158,11,0.2)] transition hover:scale-[1.01] hover:border-amber-300/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70"
+        aria-label="מעבר לעמוד המבצעים"
+      >
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="inline-flex items-center rounded-full border border-amber-300/40 bg-amber-500/20 px-3 py-1 text-xs font-black text-amber-200">
             מבצע חג הפסח
@@ -27,7 +31,7 @@ const ScriptsCatalog: React.FC<ScriptsCatalogProps> = ({ onSelectScript, scripts
         <p className="mt-2 text-sm text-slate-100">
           הזדמנות חגיגית לזמן מוגבל - בחרו סקריפט וקבלו מחיר מבצע מיוחד.
         </p>
-      </div>
+      </a>
 
       <div className="mb-12">
         <h1 className="text-4xl font-bold text-amber-500 mb-4">הסקריפטים שלנו</h1>
