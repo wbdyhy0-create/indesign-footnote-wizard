@@ -333,29 +333,29 @@ const App: React.FC = () => {
       case 'home':
         return <Home 
                  onNavigateToCatalog={() => navigateToPage('scripts-catalog')} 
-                 onNavigateToProducts={() => navigateToPage('other-products')} 
+                 onNavigateToVideos={() => navigateToPage('videos')}
                />;
       case 'scripts-catalog':
         return siteSettings.scriptsPageVisible === false
-          ? <Home onNavigateToCatalog={() => navigateToPage('scripts-catalog')} onNavigateToProducts={() => navigateToPage('other-products')} />
+          ? <Home onNavigateToCatalog={() => navigateToPage('scripts-catalog')} onNavigateToVideos={() => navigateToPage('videos')} />
           : <ScriptsCatalog scripts={scripts} onSelectScript={(id) => navigateToPage(id)} />;
       case 'other-products': 
         return siteSettings.productsPageVisible === false
-          ? <Home onNavigateToCatalog={() => navigateToPage('scripts-catalog')} onNavigateToProducts={() => navigateToPage('other-products')} />
+          ? <Home onNavigateToCatalog={() => navigateToPage('scripts-catalog')} onNavigateToVideos={() => navigateToPage('videos')} />
           : <OtherProducts products={products} onNavigate={(page) => navigateToPage(page)} />;
       case 'promotions':
         return siteSettings.promotionsPageVisible
           ? <Promotions promotions={promotions} onSelectPromotion={(id) => navigateToPage(id)} />
-          : <Home onNavigateToCatalog={() => navigateToPage('scripts-catalog')} onNavigateToProducts={() => navigateToPage('other-products')} />;
+          : <Home onNavigateToCatalog={() => navigateToPage('scripts-catalog')} onNavigateToVideos={() => navigateToPage('videos')} />;
       case 'videos':
         return siteSettings.videosPageVisible === false ? (
-          <Home onNavigateToCatalog={() => navigateToPage('scripts-catalog')} onNavigateToProducts={() => navigateToPage('other-products')} />
+          <Home onNavigateToCatalog={() => navigateToPage('scripts-catalog')} onNavigateToVideos={() => navigateToPage('videos')} />
         ) : (
           <Videos videos={videos} />
         );
       case 'torah-covers':
         return siteSettings.coversPageVisible === false
-          ? <Home onNavigateToCatalog={() => navigateToPage('scripts-catalog')} onNavigateToProducts={() => navigateToPage('other-products')} />
+          ? <Home onNavigateToCatalog={() => navigateToPage('scripts-catalog')} onNavigateToVideos={() => navigateToPage('videos')} />
           : <TorahCovers covers={covers} onNavigate={(page) => navigateToPage(page)} />;
       case 'about':
         return <About />;
@@ -366,7 +366,7 @@ const App: React.FC = () => {
       default:
         return <Home 
                  onNavigateToCatalog={() => navigateToPage('scripts-catalog')}
-                 onNavigateToProducts={() => navigateToPage('other-products')}
+                 onNavigateToVideos={() => navigateToPage('videos')}
                />;
     }
   };

@@ -3,13 +3,14 @@ import { shouldSkipVisitBump } from '../utils/visitTracking';
 
 interface HomeProps {
   onNavigateToCatalog: () => void;
+  onNavigateToVideos: () => void;
 }
 
 /** מונע כפילות מונה בזמן React Strict Mode (פיתוח) ובמרווח קצר בין ריצות אפקט */
 let lastHomeVisitBumpAt = 0;
 const HOME_VISIT_DEBOUNCE_MS = 2500;
 
-const Home: React.FC<HomeProps> = ({ onNavigateToCatalog }) => {
+const Home: React.FC<HomeProps> = ({ onNavigateToCatalog, onNavigateToVideos }) => {
   const [visitCount, setVisitCount] = useState<number | null>(null);
 
   useEffect(() => {
@@ -105,15 +106,27 @@ const Home: React.FC<HomeProps> = ({ onNavigateToCatalog }) => {
           דיוק מושלם, מהירות חסרת תקדים ונוחות עבודה שתגרום לך להתאהב במקצוע מחדש.
         </p>
         
-        <div className="flex justify-center mb-10">
+        <div className="flex flex-col sm:flex-row justify-center mb-10 gap-3 sm:gap-4 px-4">
           <button 
             onClick={onNavigateToCatalog}
-            className="group relative px-8 md:px-10 py-4 md:py-5 bg-amber-600 text-white font-black text-lg md:text-xl rounded-[1.5rem] shadow-[0_20px_50px_rgba(245,158,11,0.3)] transition-all hover:scale-105 active:scale-95 flex items-center gap-3 md:gap-4 border border-amber-400/20 overflow-hidden"
+            className="group relative px-8 md:px-10 py-4 md:py-5 bg-amber-600 text-white font-black text-lg md:text-xl rounded-[1.5rem] shadow-[0_20px_50px_rgba(245,158,11,0.3)] transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-3 md:gap-4 border border-amber-400/20 overflow-hidden"
           >
             <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
             לצפייה בקטלוג 2026
             <svg className="w-6 h-6 md:w-7 md:h-7 rtl-flip transition-transform group-hover:translate-x-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+            </svg>
+          </button>
+
+          <button
+            type="button"
+            onClick={onNavigateToVideos}
+            className="group relative px-7 md:px-9 py-4 md:py-5 bg-slate-800/70 text-slate-100 font-black text-lg md:text-xl rounded-[1.5rem] shadow-[0_18px_45px_rgba(15,23,42,0.45)] transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-3 md:gap-4 border border-slate-600/50 overflow-hidden"
+          >
+            <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-sky-400/15 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+            סרטוני הדרכה
+            <svg className="w-6 h-6 md:w-7 md:h-7 rtl-flip transition-transform group-hover:translate-x-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M14 5l7 7m0 0l-7 7m7-7H3" />
             </svg>
           </button>
         </div>
