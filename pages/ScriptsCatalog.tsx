@@ -43,13 +43,6 @@ const ScriptsCatalog: React.FC<ScriptsCatalogProps> = ({ onSelectScript, scripts
           <ScriptCard key={script.id} script={script} onSelect={onSelectScript} />
         ))}
       </div>
-      
-      <div className="mt-16 p-8 bg-amber-500/5 rounded-3xl border border-amber-500/10">
-        <h3 className="text-xl font-bold mb-4 text-amber-200">גרסאות ניסיון</h3>
-        <p className="text-slate-400 text-sm mb-0">
-          ניתן להוריד גרסת ניסיון מלאה ל-24 שעות לכל אחד מהסקריפטים שלנו בדפי הפירוט הייעודיים.
-        </p>
-      </div>
     </div>
   );
 };
