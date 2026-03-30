@@ -103,7 +103,8 @@ export default async function handler(req: any, res: any) {
       });
     } catch (error) {
       console.error('Failed to load leads:', error);
-      return res.status(500).json({ success: false, error: 'שגיאה בטעינת הלידים' });
+      const details = (error as any)?.message ? String((error as any).message) : null;
+      return res.status(500).json({ success: false, error: 'שגיאה בטעינת הלידים', details });
     }
   }
 
@@ -132,7 +133,8 @@ export default async function handler(req: any, res: any) {
       return res.status(200).json({ success: true, lead: nextLead });
     } catch (error) {
       console.error('Failed to save lead:', error);
-      return res.status(500).json({ success: false, error: 'שגיאה בשמירת הליד' });
+      const details = (error as any)?.message ? String((error as any).message) : null;
+      return res.status(500).json({ success: false, error: 'שגיאה בשמירת הליד', details });
     }
   }
 
