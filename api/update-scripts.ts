@@ -31,11 +31,12 @@ const upsertById = (existing: any, incoming: any) => {
 export default async function handler(req: any, res: any) {
   if (req.method === 'GET') {
     try {
-      const [scripts, products, covers, promotions, siteSettings] = await Promise.all([
+      const [scripts, products, covers, promotions, videos, siteSettings] = await Promise.all([
         kv.get('scripts_data'),
         kv.get('products_data'),
         kv.get('covers_data'),
         kv.get('promotions_data'),
+        kv.get('videos_data'),
         kv.get('site_settings'),
       ]);
 
@@ -45,6 +46,7 @@ export default async function handler(req: any, res: any) {
         products: Array.isArray(products) ? products : null,
         covers: Array.isArray(covers) ? covers : null,
         promotions: Array.isArray(promotions) ? promotions : null,
+        videos: Array.isArray(videos) ? videos : null,
         siteSettings: siteSettings && typeof siteSettings === 'object' ? siteSettings : null,
       });
     } catch (error) {
@@ -61,6 +63,7 @@ export default async function handler(req: any, res: any) {
       const products = Array.isArray(body.products) ? body.products : null;
       const covers = Array.isArray(body.covers) ? body.covers : null;
       const promotions = Array.isArray(body.promotions) ? body.promotions : null;
+      const videos = Array.isArray(body.videos) ? body.videos : null;
       const siteSettings =
         body.siteSettings && typeof body.siteSettings === 'object' ? body.siteSettings : null;
 
@@ -68,11 +71,12 @@ export default async function handler(req: any, res: any) {
         return res.status(400).json({ success: false, error: 'פורמט סקריפטים לא תקין' });
       }
 
-      const [existingScripts, existingProducts, existingCovers, existingPromotions] = await Promise.all([
+      const [existingScripts, existingProducts, existingCovers, existingPromotions, existingVideos] = await Promise.all([
         kv.get('scripts_data'),
         kv.get('products_data'),
         kv.get('covers_data'),
         kv.get('promotions_data'),
+        kv.get('videos_data'),
       ]);
 
       const mergedScripts = upsertById(existingScripts, scripts);
@@ -91,6 +95,11 @@ export default async function handler(req: any, res: any) {
       if (promotions) {
         const mergedPromotions = upsertById(existingPromotions, promotions);
         operations.push(kv.set('promotions_data', mergedPromotions));
+      }
+
+      if (videos) {
+        const mergedVideos = upsertById(existingVideos, videos);
+        operations.push(kv.set('videos_data', mergedVideos));
       }
 
       if (siteSettings) {

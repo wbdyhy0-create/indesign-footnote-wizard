@@ -10,8 +10,9 @@ import OtherProducts from './pages/OtherProducts';
 import TorahCovers from './pages/TorahCovers';
 import Promotions from './pages/Promotions';
 import ProductDetail from './pages/ProductDetail'; // ייבוא של דף הפירוט החדש
+import Videos from './pages/Videos';
 import { SCRIPTS as DEFAULT_SCRIPTS, OTHER_PRODUCTS as DEFAULT_PRODUCTS, TORAH_COVER_DESIGNS as DEFAULT_COVERS } from './constants';
-import { PromotionBundleData, ScriptData, SiteSettings } from './types';
+import { PromotionBundleData, ScriptData, SiteSettings, VideoItem } from './types';
 
 const ROOT_PAGES = new Set([
   'home',
@@ -19,6 +20,7 @@ const ROOT_PAGES = new Set([
   'promotions',
   'other-products',
   'torah-covers',
+  'videos',
   'about',
   'contact',
   'admin',
@@ -30,6 +32,7 @@ const staticPathToPage: Record<string, string> = {
   '/promotions': 'promotions',
   '/other-products': 'other-products',
   '/torah-covers': 'torah-covers',
+  '/videos': 'videos',
   '/about': 'about',
   '/contact': 'contact',
   '/admin': 'admin',
@@ -87,11 +90,13 @@ const App: React.FC = () => {
   const [products, setProducts] = useState<any[]>(DEFAULT_PRODUCTS);
   const [covers, setCovers] = useState<any[]>(DEFAULT_COVERS);
   const [promotions, setPromotions] = useState<PromotionBundleData[]>([]);
+  const [videos, setVideos] = useState<VideoItem[]>([]);
   const [siteSettings, setSiteSettings] = useState<SiteSettings>({
     promotionsPageVisible: true,
     scriptsPageVisible: true,
     productsPageVisible: true,
     coversPageVisible: true,
+    videosPageVisible: true,
   });
 
   const getPathFromPage = (page: string) => {
@@ -111,6 +116,7 @@ const App: React.FC = () => {
     if (page === 'other-products') return siteSettings.productsPageVisible !== false;
     if (page === 'torah-covers') return siteSettings.coversPageVisible !== false;
     if (page === 'promotions') return siteSettings.promotionsPageVisible !== false;
+    if (page === 'videos') return siteSettings.videosPageVisible !== false;
 
     const script = scripts.find((s) => s.id === page);
     if (script) return siteSettings.scriptsPageVisible !== false && script.isPublished !== false;
@@ -246,12 +252,19 @@ const App: React.FC = () => {
           setPromotions([]);
         }
 
+        if (Array.isArray(data?.videos)) {
+          setVideos(data.videos);
+        } else {
+          setVideos([]);
+        }
+
         if (data?.siteSettings && typeof data.siteSettings === 'object') {
           setSiteSettings({
             promotionsPageVisible: (data.siteSettings as any).promotionsPageVisible !== false,
             scriptsPageVisible: (data.siteSettings as any).scriptsPageVisible !== false,
             productsPageVisible: (data.siteSettings as any).productsPageVisible !== false,
             coversPageVisible: (data.siteSettings as any).coversPageVisible !== false,
+            videosPageVisible: (data.siteSettings as any).videosPageVisible !== false,
           });
         } else {
           setSiteSettings({
@@ -259,6 +272,7 @@ const App: React.FC = () => {
             scriptsPageVisible: true,
             productsPageVisible: true,
             coversPageVisible: true,
+            videosPageVisible: true,
           });
         }
       } catch (e) {
@@ -267,11 +281,13 @@ const App: React.FC = () => {
         setProducts(DEFAULT_PRODUCTS);
         setCovers(DEFAULT_COVERS);
         setPromotions([]);
+        setVideos([]);
         setSiteSettings({
           promotionsPageVisible: true,
           scriptsPageVisible: true,
           productsPageVisible: true,
           coversPageVisible: true,
+          videosPageVisible: true,
         });
       }
     };
@@ -331,6 +347,12 @@ const App: React.FC = () => {
         return siteSettings.promotionsPageVisible
           ? <Promotions promotions={promotions} onSelectPromotion={(id) => navigateToPage(id)} />
           : <Home onNavigateToCatalog={() => navigateToPage('scripts-catalog')} onNavigateToProducts={() => navigateToPage('other-products')} />;
+      case 'videos':
+        return siteSettings.videosPageVisible === false ? (
+          <Home onNavigateToCatalog={() => navigateToPage('scripts-catalog')} onNavigateToProducts={() => navigateToPage('other-products')} />
+        ) : (
+          <Videos videos={videos} />
+        );
       case 'torah-covers':
         return siteSettings.coversPageVisible === false
           ? <Home onNavigateToCatalog={() => navigateToPage('scripts-catalog')} onNavigateToProducts={() => navigateToPage('other-products')} />

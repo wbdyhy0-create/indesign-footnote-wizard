@@ -46,10 +46,13 @@ export default defineConfig(({ mode }) => {
             };
 
             // in-memory store for local dev sync between devices simulation
-            let localCloudData: { scripts: any[] | null; products: any[] | null; covers: any[] | null } = {
+            let localCloudData: { scripts: any[] | null; products: any[] | null; covers: any[] | null; promotions: any[] | null; videos: any[] | null; siteSettings: any | null } = {
               scripts: null,
               products: null,
               covers: null,
+              promotions: null,
+              videos: null,
+              siteSettings: null,
             };
             let localLeads: any[] = [];
             let localSiteVisits = 0;
@@ -74,6 +77,9 @@ export default defineConfig(({ mode }) => {
                     const scripts = Array.isArray(body) ? body : body.scripts;
                     const products = Array.isArray(body?.products) ? body.products : localCloudData.products;
                     const covers = Array.isArray(body?.covers) ? body.covers : localCloudData.covers;
+                    const promotions = Array.isArray(body?.promotions) ? body.promotions : localCloudData.promotions;
+                    const videos = Array.isArray(body?.videos) ? body.videos : localCloudData.videos;
+                    const siteSettings = body?.siteSettings && typeof body.siteSettings === 'object' ? body.siteSettings : localCloudData.siteSettings;
 
                     if (!Array.isArray(scripts)) {
                       res.statusCode = 400;
@@ -86,6 +92,9 @@ export default defineConfig(({ mode }) => {
                       scripts: upsertById(localCloudData.scripts, scripts),
                       products: products ? upsertById(localCloudData.products, products) : localCloudData.products,
                       covers: covers ? upsertById(localCloudData.covers, covers) : localCloudData.covers,
+                      promotions: promotions ? upsertById(localCloudData.promotions, promotions) : localCloudData.promotions,
+                      videos: videos ? upsertById(localCloudData.videos, videos) : localCloudData.videos,
+                      siteSettings: siteSettings || localCloudData.siteSettings,
                     };
                     res.statusCode = 200;
                     res.setHeader('Content-Type', 'application/json; charset=utf-8');

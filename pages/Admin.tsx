@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { SCRIPTS as initialScripts, OTHER_PRODUCTS as initialProducts, TORAH_COVER_DESIGNS as initialCovers } from '../constants';
-import { Lead, PromotionBundleData, PurchaseOrder, SiteSettings } from '../types';
+import { Lead, PromotionBundleData, PurchaseOrder, SiteSettings, VideoItem } from '../types';
 import { setOwnerSkipVisitBump, shouldSkipVisitBump } from '../utils/visitTracking';
+import { toYouTubeEmbedUrl } from '../utils/youtube';
 
-const ADMIN_VIEWS = ['scripts', 'promotions', 'products', 'covers', 'orders', 'leads', 'json'] as const;
+const ADMIN_VIEWS = ['scripts', 'promotions', 'videos', 'products', 'covers', 'orders', 'leads', 'json'] as const;
 type AdminViewMode = (typeof ADMIN_VIEWS)[number];
 
 const isAdminViewMode = (value: string): value is AdminViewMode =>
@@ -42,6 +43,13 @@ const AdminPortal: React.FC = () => {
     }
     return [];
   });
+  const [videos, setVideos] = useState<VideoItem[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('yosef_admin_videos_backup');
+      if (saved) return JSON.parse(saved);
+    }
+    return [];
+  });
   const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('yosef_admin_site_settings_backup');
@@ -52,6 +60,7 @@ const AdminPortal: React.FC = () => {
           scriptsPageVisible: parsed?.scriptsPageVisible !== false,
           productsPageVisible: parsed?.productsPageVisible !== false,
           coversPageVisible: parsed?.coversPageVisible !== false,
+          videosPageVisible: parsed?.videosPageVisible !== false,
         };
       }
     }
@@ -60,6 +69,7 @@ const AdminPortal: React.FC = () => {
       scriptsPageVisible: true,
       productsPageVisible: true,
       coversPageVisible: true,
+      videosPageVisible: true,
     };
   });
 
@@ -81,6 +91,7 @@ const AdminPortal: React.FC = () => {
   
   const [editingScript, setEditingScript] = useState<any>(null);
   const [editingPromotion, setEditingPromotion] = useState<PromotionBundleData | null>(null);
+  const [editingVideo, setEditingVideo] = useState<VideoItem | null>(null);
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [editingProductKind, setEditingProductKind] = useState<'products' | 'covers'>('products');
   const [viewMode, setViewMode] = useState<AdminViewMode>('scripts');
@@ -309,6 +320,7 @@ const AdminPortal: React.FC = () => {
         body: JSON.stringify({
           scripts: payloadScripts,
           promotions: payloadPromotions,
+          videos,
           products: payloadProducts,
           covers: payloadCovers,
           siteSettings,
@@ -352,7 +364,11 @@ const AdminPortal: React.FC = () => {
             scriptsPageVisible: (data.siteSettings as any).scriptsPageVisible !== false,
             productsPageVisible: (data.siteSettings as any).productsPageVisible !== false,
             coversPageVisible: (data.siteSettings as any).coversPageVisible !== false,
+            videosPageVisible: (data.siteSettings as any).videosPageVisible !== false,
           });
+        }
+        if (Array.isArray(data?.videos)) {
+          setVideos(data.videos);
         }
       } catch (error) {
         console.warn('Cloud sync load failed, using local data:', error);
@@ -411,19 +427,12 @@ const AdminPortal: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('yosef_admin_backup', JSON.stringify(scripts));
     localStorage.setItem('yosef_admin_promotions_backup', JSON.stringify(promotions));
+    localStorage.setItem('yosef_admin_videos_backup', JSON.stringify(videos));
     localStorage.setItem('yosef_admin_products_backup', JSON.stringify(products));
     localStorage.setItem('yosef_admin_covers_backup', JSON.stringify(covers));
     localStorage.setItem('yosef_admin_site_settings_backup', JSON.stringify(siteSettings));
     setPublishStatus(null);
-  }, [scripts, promotions, products, covers, siteSettings]);
-
-  // מנגנון התיקון האוטומטי ליוטיוב
-  const formatYouTubeUrl = (url: string) => {
-    if (!url) return '';
-    if (url.includes('embed')) return url;
-    const videoId = url.split('v=')[1]?.split('&')[0] || url.split('/').pop();
-    return `https://www.youtube.com/embed/${videoId}`;
-  };
+  }, [scripts, promotions, videos, products, covers, siteSettings]);
 
   const toDirectDriveDownloadUrl = (url: string) => {
     const trimmed = url.trim();
@@ -459,13 +468,17 @@ const AdminPortal: React.FC = () => {
   const handleCopyCode = () => {
     const preparedScripts = scripts.map((s: any) => ({
       ...s,
-      videoUrl: formatYouTubeUrl(s.videoUrl),
+      videoUrl: toYouTubeEmbedUrl(s.videoUrl),
       imageUrl: stripDataUrl(s.imageUrl),
     }));
     const preparedPromotions = promotions.map((p: any) => ({
       ...p,
-      videoUrl: formatYouTubeUrl(p.videoUrl),
+      videoUrl: toYouTubeEmbedUrl(p.videoUrl),
       imageUrl: stripDataUrl(p.imageUrl),
+    }));
+    const preparedVideos = videos.map((v: any) => ({
+      ...v,
+      url: toYouTubeEmbedUrl(v.url),
     }));
     // מוצרים: מחליפים תמונות Base64 במחרוזת ריקה כדי שה-JSON לא יתנפח (מיליוני תווים)
     const preparedProducts = products.map((p: any) => {
@@ -479,6 +492,7 @@ const AdminPortal: React.FC = () => {
     const fullData = {
       SCRIPTS: preparedScripts,
       PROMOTIONS: preparedPromotions,
+      VIDEOS: preparedVideos,
       OTHER_PRODUCTS: preparedProducts,
       TORAH_COVER_DESIGNS: preparedCovers,
       SITE_SETTINGS: siteSettings,
@@ -531,7 +545,7 @@ const AdminPortal: React.FC = () => {
                 : 'סמן מכשיר זה: אל תספור את הכניסות שלי'}
             </button>
             <button
-              onClick={() => { setEditingScript(null); setEditingPromotion(null); setEditingProduct(null); setOrderCodeFilter(''); setViewMode('orders'); }}
+              onClick={() => { setEditingScript(null); setEditingPromotion(null); setEditingVideo(null); setEditingProduct(null); setOrderCodeFilter(''); setViewMode('orders'); }}
               className={`px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 transition ${
                 viewMode === 'orders'
                   ? 'bg-indigo-700 text-white'
@@ -540,14 +554,15 @@ const AdminPortal: React.FC = () => {
             >
               💳 הזמנות ({orders.length})
             </button>
-            <button onClick={() => { setEditingScript(null); setEditingPromotion(null); setEditingProduct(null); setViewMode('leads'); }} className={`px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 transition ${viewMode === 'leads' ? 'bg-[#064e3b] text-white' : 'bg-[#064e3b]/30 text-[#10b981] hover:bg-[#064e3b]/50 border border-[#10b981]/20'}`}>👤 לידים ({leads.length})</button>
+            <button onClick={() => { setEditingScript(null); setEditingPromotion(null); setEditingVideo(null); setEditingProduct(null); setViewMode('leads'); }} className={`px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 transition ${viewMode === 'leads' ? 'bg-[#064e3b] text-white' : 'bg-[#064e3b]/30 text-[#10b981] hover:bg-[#064e3b]/50 border border-[#10b981]/20'}`}>👤 לידים ({leads.length})</button>
             
             {/* --- לשוניות ניווט --- */}
             <div className="flex bg-slate-800/50 p-1 rounded-xl mx-2 border border-slate-700/50">
-              <button onClick={() => { setEditingScript(null); setEditingPromotion(null); setEditingProduct(null); setViewMode('scripts'); }} className={`px-4 py-1.5 rounded-lg text-sm font-bold transition ${viewMode === 'scripts' ? 'bg-[#f59e0b] text-slate-950' : 'text-slate-400 hover:text-white'}`}>סקריפטים</button>
-              <button onClick={() => { setEditingScript(null); setEditingPromotion(null); setEditingProduct(null); setViewMode('promotions'); }} className={`px-4 py-1.5 rounded-lg text-sm font-bold transition ${viewMode === 'promotions' ? 'bg-[#f97316] text-white' : 'text-slate-400 hover:text-white'}`}>מבצעים</button>
-              <button onClick={() => { setEditingScript(null); setEditingPromotion(null); setEditingProduct(null); setViewMode('products'); }} className={`px-4 py-1.5 rounded-lg text-sm font-bold transition ${viewMode === 'products' ? 'bg-[#5c5cfc] text-white' : 'text-slate-400 hover:text-white'}`}>מוצרים</button>
-              <button onClick={() => { setEditingScript(null); setEditingPromotion(null); setEditingProduct(null); setViewMode('covers'); }} className={`px-4 py-1.5 rounded-lg text-sm font-bold transition ${viewMode === 'covers' ? 'bg-[#14b8a6] text-white' : 'text-slate-400 hover:text-white'}`}>כריכות</button>
+              <button onClick={() => { setEditingScript(null); setEditingPromotion(null); setEditingVideo(null); setEditingProduct(null); setViewMode('scripts'); }} className={`px-4 py-1.5 rounded-lg text-sm font-bold transition ${viewMode === 'scripts' ? 'bg-[#f59e0b] text-slate-950' : 'text-slate-400 hover:text-white'}`}>סקריפטים</button>
+              <button onClick={() => { setEditingScript(null); setEditingPromotion(null); setEditingVideo(null); setEditingProduct(null); setViewMode('promotions'); }} className={`px-4 py-1.5 rounded-lg text-sm font-bold transition ${viewMode === 'promotions' ? 'bg-[#f97316] text-white' : 'text-slate-400 hover:text-white'}`}>מבצעים</button>
+              <button onClick={() => { setEditingScript(null); setEditingPromotion(null); setEditingVideo(null); setEditingProduct(null); setViewMode('videos'); }} className={`px-4 py-1.5 rounded-lg text-sm font-bold transition ${viewMode === 'videos' ? 'bg-[#ef4444] text-white' : 'text-slate-400 hover:text-white'}`}>סרטונים</button>
+              <button onClick={() => { setEditingScript(null); setEditingPromotion(null); setEditingVideo(null); setEditingProduct(null); setViewMode('products'); }} className={`px-4 py-1.5 rounded-lg text-sm font-bold transition ${viewMode === 'products' ? 'bg-[#5c5cfc] text-white' : 'text-slate-400 hover:text-white'}`}>מוצרים</button>
+              <button onClick={() => { setEditingScript(null); setEditingPromotion(null); setEditingVideo(null); setEditingProduct(null); setViewMode('covers'); }} className={`px-4 py-1.5 rounded-lg text-sm font-bold transition ${viewMode === 'covers' ? 'bg-[#14b8a6] text-white' : 'text-slate-400 hover:text-white'}`}>כריכות</button>
             </div>
 
             {/* כפתור הוספה מתחלף בהתאם ללשונית */}
@@ -577,6 +592,25 @@ const AdminPortal: React.FC = () => {
                 className="bg-[#f97316] hover:bg-[#ea580c] text-white px-6 py-2.5 rounded-xl font-black shadow-lg transition"
               >
                 + הוסף מבצע
+              </button>
+            )}
+            {viewMode === 'videos' && (
+              <button
+                type="button"
+                onClick={() => {
+                  const now = new Date().toISOString();
+                  setEditingVideo({
+                    id: `video-${Date.now()}`,
+                    title: '',
+                    url: '',
+                    isPublished: true,
+                    sortOrder: videos.length,
+                    createdAt: now,
+                  });
+                }}
+                className="bg-[#ef4444] hover:bg-[#dc2626] text-white px-6 py-2.5 rounded-xl font-black shadow-lg transition"
+              >
+                + הוסף סרטון
               </button>
             )}
             {viewMode === 'products' && (
@@ -636,7 +670,7 @@ const AdminPortal: React.FC = () => {
               {isPublishingLive ? 'מפרסם...' : '🚀 פרסם לאתר החי'}
             </button>
             <button onClick={handleCopyCode} className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2.5 rounded-xl font-black shadow-lg transition flex items-center gap-2">📋 העתק קוד לעדכון קבוע</button>
-            <button onClick={() => { setEditingScript(null); setEditingPromotion(null); setEditingProduct(null); setViewMode('json'); }} className="bg-slate-800/50 text-slate-300 px-5 py-2.5 rounded-xl font-bold border border-slate-700 text-sm hover:bg-slate-700 transition">תצוגת JSON</button>
+            <button onClick={() => { setEditingScript(null); setEditingPromotion(null); setEditingVideo(null); setEditingProduct(null); setViewMode('json'); }} className="bg-slate-800/50 text-slate-300 px-5 py-2.5 rounded-xl font-bold border border-slate-700 text-sm hover:bg-slate-700 transition">תצוגת JSON</button>
           </div>
         </div>
         {publishStatus && (
@@ -947,6 +981,144 @@ const AdminPortal: React.FC = () => {
                 className="w-full py-5 bg-[#f97316] text-white font-black rounded-2xl text-xl shadow-xl hover:bg-[#ea580c] transition-all"
               >
                 שמור מבצע במערכת
+              </button>
+            </div>
+          </div>
+
+        ) : editingVideo ? (
+
+          <div className="bg-[#0b1121] border border-[#ef4444] rounded-[2.5rem] p-8 md:p-12 shadow-2xl relative animate-in fade-in zoom-in-95 duration-300">
+            <div className="flex justify-between items-center mb-10 pb-6 border-b border-slate-800">
+              <div className="flex gap-4">
+                <button
+                  type="button"
+                  onClick={() => setVideos(videos.filter((v) => v.id !== editingVideo.id))}
+                  className="w-12 h-12 flex items-center justify-center border border-red-500/30 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition"
+                >
+                  🗑️
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditingVideo(null)}
+                  className="bg-[#ef4444] text-white px-8 py-2 rounded-xl font-black hover:bg-[#dc2626] transition"
+                >
+                  סגור עריכה
+                </button>
+              </div>
+              <h2 className="text-3xl font-black text-white">{editingVideo.title || 'סרטון חדש'}</h2>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8 max-h-[55vh] overflow-y-auto px-2 custom-scrollbar">
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-slate-500 text-sm font-bold mb-2">כותרת</label>
+                  <input
+                    value={editingVideo.title}
+                    onChange={(e) => setEditingVideo({ ...editingVideo, title: e.target.value })}
+                    className="w-full bg-[#060b14] border border-slate-800 p-4 rounded-2xl text-white font-black outline-none focus:border-[#ef4444] transition"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-500 text-sm font-bold mb-2">קישור יוטיוב</label>
+                  <input
+                    value={editingVideo.url}
+                    onChange={(e) => setEditingVideo({ ...editingVideo, url: e.target.value })}
+                    placeholder="https://www.youtube.com/watch?v=..."
+                    className="w-full bg-[#060b14] border border-slate-800 p-4 rounded-2xl text-slate-300 font-mono text-sm text-left outline-none focus:border-[#ef4444]"
+                  />
+                  <p className="text-[11px] text-slate-500 mt-1.5">
+                    אפשר להדביק watch / shorts / youtu.be — האתר ימיר ל-embed אוטומטית.
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-slate-500 text-sm font-bold mb-2">סדר תצוגה</label>
+                    <input
+                      value={String(editingVideo.sortOrder ?? 0)}
+                      onChange={(e) =>
+                        setEditingVideo({
+                          ...editingVideo,
+                          sortOrder: Number.isFinite(Number(e.target.value)) ? Number(e.target.value) : 0,
+                        })
+                      }
+                      className="w-full bg-[#060b14] border border-slate-800 p-4 rounded-2xl text-white font-black text-left outline-none focus:border-[#ef4444]"
+                    />
+                  </div>
+                  <div className="flex items-end">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setEditingVideo((prev) =>
+                          prev ? { ...prev, isPublished: prev.isPublished === false ? true : false } : prev,
+                        )
+                      }
+                      className={`w-full px-4 py-3 rounded-2xl text-sm font-black transition border ${
+                        editingVideo.isPublished === false
+                          ? 'bg-red-900/30 text-red-300 border-red-500/30'
+                          : 'bg-emerald-900/30 text-emerald-300 border-emerald-500/30'
+                      }`}
+                      title="הצג/הסתר סרטון באתר"
+                    >
+                      {editingVideo.isPublished === false ? 'מוסתר באתר' : 'מוצג באתר'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                <div className="rounded-2xl border border-slate-800 bg-slate-950/40 p-4">
+                  <div className="text-xs font-black text-slate-200 mb-3">תצוגה מקדימה</div>
+                  <div className="relative w-full overflow-hidden rounded-xl border border-slate-800 bg-black aspect-video">
+                    <iframe
+                      src={toYouTubeEmbedUrl(editingVideo.url)}
+                      title={editingVideo.title || 'Video preview'}
+                      className="absolute inset-0 w-full h-full"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      allowFullScreen
+                      loading="lazy"
+                      referrerPolicy="strict-origin-when-cross-origin"
+                    />
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-slate-700 bg-slate-900/40 p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                  <div className="text-sm font-bold text-slate-100">עמוד סרטונים באתר החי</div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSiteSettings((prev) => ({
+                        ...prev,
+                        videosPageVisible: prev.videosPageVisible === false ? true : false,
+                      }))
+                    }
+                    className={`px-4 py-2 rounded-xl text-sm font-black transition ${
+                      siteSettings.videosPageVisible === false
+                        ? 'bg-red-900/40 text-red-300 border border-red-500/40'
+                        : 'bg-emerald-900/40 text-emerald-300 border border-emerald-500/40'
+                    }`}
+                  >
+                    {siteSettings.videosPageVisible === false ? 'העמוד מוסתר באתר (לחץ להצגה)' : 'העמוד מוצג באתר (לחץ להסתרה)'}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-8 pt-6 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => {
+                  const normalized: VideoItem = { ...editingVideo, url: editingVideo.url.trim() };
+                  const exists = videos.find((v) => v.id === editingVideo.id);
+                  if (exists) {
+                    setVideos(videos.map((v) => (v.id === editingVideo.id ? normalized : v)));
+                  } else {
+                    setVideos([...videos, normalized]);
+                  }
+                  setEditingVideo(null);
+                }}
+                className="w-full py-5 bg-[#ef4444] text-white font-black rounded-2xl text-xl shadow-xl hover:bg-[#dc2626] transition-all"
+              >
+                שמור סרטון במערכת
               </button>
             </div>
           </div>
@@ -1307,6 +1479,10 @@ const AdminPortal: React.FC = () => {
                     ...p,
                     imageUrl: p.imageUrl && String(p.imageUrl).startsWith('data:') ? '[תמונה Base64 – הוסרה לתצוגה]' : (p.imageUrl || '')
                   })),
+                  VIDEOS: videos.map((v: any) => ({
+                    ...v,
+                    url: toYouTubeEmbedUrl(v.url),
+                  })),
                   OTHER_PRODUCTS: products.map((p: any) => ({
                     ...p,
                     imageUrl: p.imageUrl && String(p.imageUrl).startsWith('data:') ? '[תמונה Base64 – הוסרה לתצוגה]' : (p.imageUrl || '')
@@ -1358,6 +1534,80 @@ const AdminPortal: React.FC = () => {
                 <button onClick={() => setEditingPromotion(p)} className="bg-slate-800 hover:bg-[#f97316] hover:text-white px-10 py-3 rounded-2xl font-black text-[#f97316] transition-all border border-slate-700 w-full md:w-auto">ערוך מבצע</button>
               </div>
             ))}
+          </div>
+
+        ) : viewMode === 'videos' ? (
+
+          <div className="grid gap-6 animate-in fade-in duration-300">
+            <div className="rounded-2xl border border-slate-700 bg-slate-900/40 p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+              <div className="text-sm font-bold text-slate-100">עמוד סרטונים באתר החי</div>
+              <button
+                type="button"
+                onClick={() =>
+                  setSiteSettings((prev) => ({
+                    ...prev,
+                    videosPageVisible: prev.videosPageVisible === false ? true : false,
+                  }))
+                }
+                className={`px-4 py-2 rounded-xl text-sm font-black transition ${
+                  siteSettings.videosPageVisible === false
+                    ? 'bg-red-900/40 text-red-300 border border-red-500/40'
+                    : 'bg-emerald-900/40 text-emerald-300 border border-emerald-500/40'
+                }`}
+              >
+                {siteSettings.videosPageVisible === false ? 'העמוד מוסתר באתר (לחץ להצגה)' : 'העמוד מוצג באתר (לחץ להסתרה)'}
+              </button>
+            </div>
+
+            {videos
+              .slice()
+              .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+              .map((v) => (
+                <div
+                  key={v.id}
+                  className="bg-[#0b1121] border border-slate-800 p-6 rounded-[2.5rem] flex flex-col md:flex-row justify-between items-center shadow-lg hover:border-slate-700 transition gap-4"
+                >
+                  <div className="flex items-center gap-6 w-full md:w-auto">
+                    <button
+                      type="button"
+                      onClick={() => setVideos(videos.filter((i) => i.id !== v.id))}
+                      className="text-red-500 hover:scale-110 transition-transform bg-red-500/10 p-3 rounded-xl"
+                      title="מחק"
+                    >
+                      🗑️
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setVideos(
+                          videos.map((i) =>
+                            i.id === v.id ? { ...i, isPublished: i.isPublished === false ? true : false } : i,
+                          ),
+                        )
+                      }
+                      className={`px-3 py-2 rounded-xl text-xs font-black transition border ${
+                        v.isPublished === false
+                          ? 'bg-red-900/30 text-red-300 border-red-500/30'
+                          : 'bg-emerald-900/30 text-emerald-300 border-emerald-500/30'
+                      }`}
+                      title="הצג/הסתר סרטון באתר"
+                    >
+                      {v.isPublished === false ? 'מוסתר' : 'מוצג'}
+                    </button>
+                    <div>
+                      <h3 className="text-xl md:text-2xl font-black text-white">{v.title || 'ללא כותרת'}</h3>
+                      <p className="text-slate-400 text-xs font-mono break-all">{v.url}</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setEditingVideo(v)}
+                    className="bg-slate-800 hover:bg-[#ef4444] hover:text-white px-10 py-3 rounded-2xl font-black text-[#ef4444] transition-all border border-slate-700 w-full md:w-auto"
+                  >
+                    ערוך סרטון
+                  </button>
+                </div>
+              ))}
           </div>
 
         ) : viewMode === 'products' ? (

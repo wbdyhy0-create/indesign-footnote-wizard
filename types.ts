@@ -42,11 +42,24 @@ export interface PromotionBundleData extends ScriptData {
   bundleScriptLinks?: string[];
 }
 
+export interface VideoItem {
+  id: string;
+  title: string;
+  /** קישור YouTube (watch/shorts/embed) */
+  url: string;
+  /** האם מוצג באתר */
+  isPublished?: boolean;
+  /** סדר תצוגה (נמוך קודם) */
+  sortOrder?: number;
+  createdAt?: string;
+}
+
 export interface SiteSettings {
   promotionsPageVisible?: boolean;
   scriptsPageVisible?: boolean;
   productsPageVisible?: boolean;
   coversPageVisible?: boolean;
+  videosPageVisible?: boolean;
 }
 
 export interface FAQItem {
