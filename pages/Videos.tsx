@@ -44,8 +44,8 @@ const Videos: React.FC<VideosProps> = ({ videos }) => {
   return (
     <div className="animate-fadeIn pb-20" dir="rtl">
       <div className="mb-10">
-        <h1 className="text-3xl md:text-4xl font-black text-amber-500 mb-3">סרטונים</h1>
-        <p className="text-slate-100 text-sm md:text-base">כאן תמצא מדריכים והדגמות מיוטיוב.</p>
+        <h1 className="text-4xl md:text-5xl font-black text-amber-500 mb-3 leading-tight">סרטונים</h1>
+        <p className="text-slate-100 text-base md:text-lg font-bold">כאן תמצא מדריכים והדגמות מיוטיוב.</p>
       </div>
 
       {published.length > 0 && (
@@ -94,14 +94,18 @@ const Videos: React.FC<VideosProps> = ({ videos }) => {
               >
                 <div className="flex items-start justify-between gap-3 mb-3">
                   <div className="min-w-0">
-                    <div className="font-black text-white">{video.title || 'סרטון'}</div>
+                    <div className="font-black text-white text-xl md:text-2xl leading-snug">
+                      {video.title || 'סרטון'}
+                    </div>
                     {video.category && (
                       <div className="mt-1 inline-flex items-center rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-[10px] font-black text-amber-200">
                         {video.category}
                       </div>
                     )}
                     {video.shortDesc && (
-                      <p className="mt-2 text-slate-100 text-xs leading-relaxed">{video.shortDesc}</p>
+                      <p className="mt-2 text-slate-100 text-sm md:text-base leading-relaxed">
+                        {video.shortDesc}
+                      </p>
                     )}
                   </div>
                 </div>
