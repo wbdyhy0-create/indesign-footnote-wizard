@@ -143,6 +143,14 @@ export default async function handler(req: any, res: any) {
         timestamp: isNonEmptyString(body.timestamp) ? body.timestamp : now,
       };
 
+      // Quick KV write probe to help diagnose production issues.
+      try {
+        await kv.set('leads_write_probe', now);
+      } catch (probeError: any) {
+        const msg = probeError?.message ? String(probeError.message) : String(probeError);
+        throw new Error(`kv.probe failed: ${msg}`);
+      }
+
       await saveLead(nextLead);
 
       return res.status(200).json({ success: true, lead: nextLead });
