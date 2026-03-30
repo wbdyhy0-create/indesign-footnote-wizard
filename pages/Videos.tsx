@@ -126,6 +126,16 @@ const Videos: React.FC<VideosProps> = ({ videos }) => {
                   >
                     פתח ביוטיוב
                   </a>
+                  {video.driveViewUrl?.trim() && (
+                    <a
+                      href={video.driveViewUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-sky-300 hover:text-sky-200 font-bold"
+                    >
+                      צפה בגוגל דרייב
+                    </a>
+                  )}
                 </div>
               </div>
             );

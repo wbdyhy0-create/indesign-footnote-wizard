@@ -619,6 +619,7 @@ const AdminPortal: React.FC = () => {
                     title: '',
                     shortDesc: '',
                     category: '',
+                    driveViewUrl: '',
                     url: '',
                     isPublished: true,
                     sortOrder: videos.length,
@@ -1054,6 +1055,16 @@ const AdminPortal: React.FC = () => {
                   />
                 </div>
                 <div>
+                  <label className="block text-slate-500 text-sm font-bold mb-2">קישור צפייה בגוגל דרייב (אופציונלי)</label>
+                  <input
+                    value={editingVideo.driveViewUrl || ''}
+                    onChange={(e) => setEditingVideo({ ...editingVideo, driveViewUrl: e.target.value })}
+                    placeholder="https://drive.google.com/file/d/.../view"
+                    className="w-full bg-[#060b14] border border-slate-800 p-4 rounded-2xl text-slate-300 font-mono text-sm text-left outline-none focus:border-[#ef4444]"
+                  />
+                  <p className="text-[11px] text-slate-500 mt-1.5">יופיע ככפתור &quot;צפה בגוגל דרייב&quot; מתחת לסרטון בעמוד הסרטונים.</p>
+                </div>
+                <div>
                   <label className="block text-slate-500 text-sm font-bold mb-2">קישור יוטיוב</label>
                   <input
                     value={editingVideo.url}
@@ -1147,6 +1158,7 @@ const AdminPortal: React.FC = () => {
                     title: (editingVideo.title || '').trim(),
                     shortDesc: (editingVideo.shortDesc || '').trim(),
                     category: (editingVideo.category || '').trim(),
+                    driveViewUrl: (editingVideo.driveViewUrl || '').trim(),
                     url: (editingVideo.url || '').trim(),
                   };
                   const exists = videos.find((v) => v.id === editingVideo.id);

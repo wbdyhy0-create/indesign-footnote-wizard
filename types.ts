@@ -49,6 +49,8 @@ export interface VideoItem {
   shortDesc?: string;
   /** קטגוריה לחיפוש וסינון (למשל "מדריכים", "הדגמות", "טיפים") */
   category?: string;
+  /** קישור צפייה בגוגל דרייב (אופציונלי) */
+  driveViewUrl?: string;
   /** קישור YouTube (watch/shorts/embed) */
   url: string;
   /** האם מוצג באתר */
