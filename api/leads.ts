@@ -1,5 +1,9 @@
 import { kv } from '@vercel/kv';
 
+export const config = {
+  runtime: 'nodejs',
+};
+
 type LeadRecord = {
   id: string;
   name: string;
