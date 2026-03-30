@@ -95,6 +95,8 @@ const AdminPortal: React.FC = () => {
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [editingProductKind, setEditingProductKind] = useState<'products' | 'covers'>('products');
   const [viewMode, setViewMode] = useState<AdminViewMode>('scripts');
+  const [videoSearchText, setVideoSearchText] = useState('');
+  const [videoCategoryFilter, setVideoCategoryFilter] = useState<'all' | string>('all');
   const [isPublishingLive, setIsPublishingLive] = useState(false);
   const [publishStatus, setPublishStatus] = useState<string | null>(null);
   const [isUploadingCoverImage, setIsUploadingCoverImage] = useState(false);
@@ -560,7 +562,20 @@ const AdminPortal: React.FC = () => {
             <div className="flex bg-slate-800/50 p-1 rounded-xl mx-2 border border-slate-700/50">
               <button onClick={() => { setEditingScript(null); setEditingPromotion(null); setEditingVideo(null); setEditingProduct(null); setViewMode('scripts'); }} className={`px-4 py-1.5 rounded-lg text-sm font-bold transition ${viewMode === 'scripts' ? 'bg-[#f59e0b] text-slate-950' : 'text-slate-400 hover:text-white'}`}>סקריפטים</button>
               <button onClick={() => { setEditingScript(null); setEditingPromotion(null); setEditingVideo(null); setEditingProduct(null); setViewMode('promotions'); }} className={`px-4 py-1.5 rounded-lg text-sm font-bold transition ${viewMode === 'promotions' ? 'bg-[#f97316] text-white' : 'text-slate-400 hover:text-white'}`}>מבצעים</button>
-              <button onClick={() => { setEditingScript(null); setEditingPromotion(null); setEditingVideo(null); setEditingProduct(null); setViewMode('videos'); }} className={`px-4 py-1.5 rounded-lg text-sm font-bold transition ${viewMode === 'videos' ? 'bg-[#ef4444] text-white' : 'text-slate-400 hover:text-white'}`}>סרטונים</button>
+              <button
+                onClick={() => {
+                  setEditingScript(null);
+                  setEditingPromotion(null);
+                  setEditingVideo(null);
+                  setEditingProduct(null);
+                  setViewMode('videos');
+                  setVideoSearchText('');
+                  setVideoCategoryFilter('all');
+                }}
+                className={`px-4 py-1.5 rounded-lg text-sm font-bold transition ${viewMode === 'videos' ? 'bg-[#ef4444] text-white' : 'text-slate-400 hover:text-white'}`}
+              >
+                סרטונים
+              </button>
               <button onClick={() => { setEditingScript(null); setEditingPromotion(null); setEditingVideo(null); setEditingProduct(null); setViewMode('products'); }} className={`px-4 py-1.5 rounded-lg text-sm font-bold transition ${viewMode === 'products' ? 'bg-[#5c5cfc] text-white' : 'text-slate-400 hover:text-white'}`}>מוצרים</button>
               <button onClick={() => { setEditingScript(null); setEditingPromotion(null); setEditingVideo(null); setEditingProduct(null); setViewMode('covers'); }} className={`px-4 py-1.5 rounded-lg text-sm font-bold transition ${viewMode === 'covers' ? 'bg-[#14b8a6] text-white' : 'text-slate-400 hover:text-white'}`}>כריכות</button>
             </div>
@@ -602,6 +617,8 @@ const AdminPortal: React.FC = () => {
                   setEditingVideo({
                     id: `video-${Date.now()}`,
                     title: '',
+                    shortDesc: '',
+                    category: '',
                     url: '',
                     isPublished: true,
                     sortOrder: videos.length,
@@ -1019,6 +1036,24 @@ const AdminPortal: React.FC = () => {
                   />
                 </div>
                 <div>
+                  <label className="block text-slate-500 text-sm font-bold mb-2">תיאור קצר</label>
+                  <textarea
+                    value={editingVideo.shortDesc || ''}
+                    onChange={(e) => setEditingVideo({ ...editingVideo, shortDesc: e.target.value })}
+                    className="w-full bg-[#060b14] border border-slate-800 p-4 rounded-2xl text-white text-sm h-24 outline-none focus:border-[#ef4444] transition"
+                    placeholder="שורה-שתיים שמסבירות מה רואים בסרטון"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-500 text-sm font-bold mb-2">קטגוריה</label>
+                  <input
+                    value={editingVideo.category || ''}
+                    onChange={(e) => setEditingVideo({ ...editingVideo, category: e.target.value })}
+                    placeholder="לדוגמה: מדריכים / הדגמות / טיפים"
+                    className="w-full bg-[#060b14] border border-slate-800 p-4 rounded-2xl text-slate-200 font-bold outline-none focus:border-[#ef4444]"
+                  />
+                </div>
+                <div>
                   <label className="block text-slate-500 text-sm font-bold mb-2">קישור יוטיוב</label>
                   <input
                     value={editingVideo.url}
@@ -1107,7 +1142,13 @@ const AdminPortal: React.FC = () => {
               <button
                 type="button"
                 onClick={() => {
-                  const normalized: VideoItem = { ...editingVideo, url: editingVideo.url.trim() };
+                  const normalized: VideoItem = {
+                    ...editingVideo,
+                    title: (editingVideo.title || '').trim(),
+                    shortDesc: (editingVideo.shortDesc || '').trim(),
+                    category: (editingVideo.category || '').trim(),
+                    url: (editingVideo.url || '').trim(),
+                  };
                   const exists = videos.find((v) => v.id === editingVideo.id);
                   if (exists) {
                     setVideos(videos.map((v) => (v.id === editingVideo.id ? normalized : v)));
@@ -1559,55 +1600,114 @@ const AdminPortal: React.FC = () => {
               </button>
             </div>
 
-            {videos
-              .slice()
-              .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
-              .map((v) => (
-                <div
-                  key={v.id}
-                  className="bg-[#0b1121] border border-slate-800 p-6 rounded-[2.5rem] flex flex-col md:flex-row justify-between items-center shadow-lg hover:border-slate-700 transition gap-4"
+            <div className="rounded-2xl border border-slate-800 bg-[#0b1121] p-4 md:p-5 flex flex-col md:flex-row md:items-end md:justify-between gap-3">
+              <div className="flex-1">
+                <div className="text-xs font-black text-slate-400 mb-2">חיפוש באדמין</div>
+                <input
+                  value={videoSearchText}
+                  onChange={(e) => setVideoSearchText(e.target.value)}
+                  placeholder="חפש לפי כותרת / תיאור / קטגוריה"
+                  className="w-full bg-[#060b14] border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white outline-none focus:border-[#ef4444]"
+                />
+              </div>
+              <div className="w-full md:w-72">
+                <div className="text-xs font-black text-slate-400 mb-2">סינון קטגוריה</div>
+                <select
+                  value={videoCategoryFilter}
+                  onChange={(e) => setVideoCategoryFilter(e.target.value || 'all')}
+                  className="w-full bg-[#060b14] border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white outline-none focus:border-[#ef4444]"
                 >
-                  <div className="flex items-center gap-6 w-full md:w-auto">
-                    <button
-                      type="button"
-                      onClick={() => setVideos(videos.filter((i) => i.id !== v.id))}
-                      className="text-red-500 hover:scale-110 transition-transform bg-red-500/10 p-3 rounded-xl"
-                      title="מחק"
-                    >
-                      🗑️
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setVideos(
-                          videos.map((i) =>
-                            i.id === v.id ? { ...i, isPublished: i.isPublished === false ? true : false } : i,
-                          ),
-                        )
-                      }
-                      className={`px-3 py-2 rounded-xl text-xs font-black transition border ${
-                        v.isPublished === false
-                          ? 'bg-red-900/30 text-red-300 border-red-500/30'
-                          : 'bg-emerald-900/30 text-emerald-300 border-emerald-500/30'
-                      }`}
-                      title="הצג/הסתר סרטון באתר"
-                    >
-                      {v.isPublished === false ? 'מוסתר' : 'מוצג'}
-                    </button>
-                    <div>
-                      <h3 className="text-xl md:text-2xl font-black text-white">{v.title || 'ללא כותרת'}</h3>
-                      <p className="text-slate-400 text-xs font-mono break-all">{v.url}</p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setEditingVideo(v)}
-                    className="bg-slate-800 hover:bg-[#ef4444] hover:text-white px-10 py-3 rounded-2xl font-black text-[#ef4444] transition-all border border-slate-700 w-full md:w-auto"
+                  <option value="all">כל הקטגוריות</option>
+                  {Array.from(
+                    new Set(
+                      videos
+                        .map((v) => (v.category || '').trim())
+                        .filter(Boolean)
+                        .map((c) => c.toLowerCase())
+                    )
+                  )
+                    .sort()
+                    .map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                </select>
+              </div>
+            </div>
+
+            {(() => {
+              const searchText = videoSearchText.trim().toLowerCase();
+              const selectedCategory = String(videoCategoryFilter || 'all').trim().toLowerCase();
+              const matches = (v: any) => {
+                const hay = `${v.title || ''}\n${v.shortDesc || ''}\n${v.category || ''}`.toLowerCase();
+                const categoryOk =
+                  selectedCategory === 'all' ? true : (String(v.category || '').trim().toLowerCase() === selectedCategory);
+                const searchOk = !searchText ? true : hay.includes(searchText);
+                return categoryOk && searchOk;
+              };
+              return videos
+                .slice()
+                .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+                .filter(matches)
+                .map((v) => (
+                  <div
+                    key={v.id}
+                    className="bg-[#0b1121] border border-slate-800 p-6 rounded-[2.5rem] flex flex-col md:flex-row justify-between items-center shadow-lg hover:border-slate-700 transition gap-4"
                   >
-                    ערוך סרטון
-                  </button>
-                </div>
-              ))}
+                    <div className="flex items-center gap-6 w-full md:w-auto">
+                      <button
+                        type="button"
+                        onClick={() => setVideos(videos.filter((i) => i.id !== v.id))}
+                        className="text-red-500 hover:scale-110 transition-transform bg-red-500/10 p-3 rounded-xl"
+                        title="מחק"
+                      >
+                        🗑️
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setVideos(
+                            videos.map((i) =>
+                              i.id === v.id ? { ...i, isPublished: i.isPublished === false ? true : false } : i,
+                            ),
+                          )
+                        }
+                        className={`px-3 py-2 rounded-xl text-xs font-black transition border ${
+                          v.isPublished === false
+                            ? 'bg-red-900/30 text-red-300 border-red-500/30'
+                            : 'bg-emerald-900/30 text-emerald-300 border-emerald-500/30'
+                        }`}
+                        title="הצג/הסתר סרטון באתר"
+                      >
+                        {v.isPublished === false ? 'מוסתר' : 'מוצג'}
+                      </button>
+                      <div className="min-w-0">
+                        <h3 className="text-xl md:text-2xl font-black text-white">{v.title || 'ללא כותרת'}</h3>
+                        {v.category && (
+                          <div className="mt-1 inline-flex items-center rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1 text-[10px] font-black text-red-200">
+                            {v.category}
+                          </div>
+                        )}
+                        {v.shortDesc && (
+                          <p className="mt-2 text-slate-200 text-xs leading-relaxed max-w-[48rem]">
+                            {v.shortDesc}
+                          </p>
+                        )}
+                        <p className="text-slate-400 text-xs font-mono break-all mt-2">{v.url}</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setEditingVideo(v)}
+                      className="bg-slate-800 hover:bg-[#ef4444] hover:text-white px-10 py-3 rounded-2xl font-black text-[#ef4444] transition-all border border-slate-700 w-full md:w-auto"
+                    >
+                      ערוך סרטון
+                    </button>
+                  </div>
+                ));
+            })()}
+
           </div>
 
         ) : viewMode === 'products' ? (

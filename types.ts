@@ -45,6 +45,10 @@ export interface PromotionBundleData extends ScriptData {
 export interface VideoItem {
   id: string;
   title: string;
+  /** תיאור קצר להצגה בעמוד הסרטונים */
+  shortDesc?: string;
+  /** קטגוריה לחיפוש וסינון (למשל "מדריכים", "הדגמות", "טיפים") */
+  category?: string;
   /** קישור YouTube (watch/shorts/embed) */
   url: string;
   /** האם מוצג באתר */
