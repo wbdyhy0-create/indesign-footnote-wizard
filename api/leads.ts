@@ -78,9 +78,19 @@ const saveLead = async (lead: LeadRecord): Promise<void> => {
   // Prefer list-based write.
   if (typeof kvListApi.lpush === 'function' && typeof kvListApi.ltrim === 'function') {
     const payload = JSON.stringify(lead);
-    await kvListApi.lpush(LEADS_LIST_KEY, payload);
+    try {
+      await kvListApi.lpush(LEADS_LIST_KEY, payload);
+    } catch (error: any) {
+      const msg = error?.message ? String(error.message) : String(error);
+      throw new Error(`kv.lpush failed: ${msg}`);
+    }
     // keep only newest MAX_LEADS items
-    await kvListApi.ltrim(LEADS_LIST_KEY, 0, MAX_LEADS - 1);
+    try {
+      await kvListApi.ltrim(LEADS_LIST_KEY, 0, MAX_LEADS - 1);
+    } catch (error: any) {
+      const msg = error?.message ? String(error.message) : String(error);
+      throw new Error(`kv.ltrim failed: ${msg}`);
+    }
     return;
   }
 
@@ -91,7 +101,12 @@ const saveLead = async (lead: LeadRecord): Promise<void> => {
     : [];
 
   const updated = sortByNewest([lead, ...existing]).slice(0, MAX_LEADS);
-  await kv.set(LEADS_KEY, updated);
+  try {
+    await kv.set(LEADS_KEY, updated);
+  } catch (error: any) {
+    const msg = error?.message ? String(error.message) : String(error);
+    throw new Error(`kv.set failed: ${msg}`);
+  }
 };
 
 export default async function handler(req: any, res: any) {
