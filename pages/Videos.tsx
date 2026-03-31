@@ -34,7 +34,7 @@ const Videos: React.FC<VideosProps> = ({ videos }) => {
     const q = searchText.trim().toLowerCase();
     const cat = String(category).trim().toLowerCase();
     return published.filter((v) => {
-      const hay = `${v.title || ''}\n${v.shortDesc || ''}\n${v.category || ''}`.toLowerCase();
+      const hay = `${v.title || ''}\n${v.shortDesc || ''}\n${v.longDesc || ''}\n${v.category || ''}`.toLowerCase();
       const searchOk = !q ? true : hay.includes(q);
       const categoryOk = cat === 'all' ? true : String(v.category || '').trim().toLowerCase() === cat;
       return searchOk && categoryOk;
@@ -141,6 +141,15 @@ const Videos: React.FC<VideosProps> = ({ videos }) => {
                     </a>
                   )}
                 </div>
+
+                {video.longDesc?.trim() && (
+                  <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-950/30 p-4">
+                    <div className="text-[11px] font-black text-slate-400 mb-2">תיאור מפורט</div>
+                    <div className="text-slate-100 text-sm md:text-base leading-relaxed whitespace-pre-line text-justify">
+                      {video.longDesc}
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}

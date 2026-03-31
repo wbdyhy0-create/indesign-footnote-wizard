@@ -618,6 +618,7 @@ const AdminPortal: React.FC = () => {
                     id: `video-${Date.now()}`,
                     title: '',
                     shortDesc: '',
+                    longDesc: '',
                     category: '',
                     driveViewUrl: '',
                     url: '',
@@ -1046,6 +1047,15 @@ const AdminPortal: React.FC = () => {
                   />
                 </div>
                 <div>
+                  <label className="block text-slate-500 text-sm font-bold mb-2">תיאור ארוך</label>
+                  <textarea
+                    value={editingVideo.longDesc || ''}
+                    onChange={(e) => setEditingVideo({ ...editingVideo, longDesc: e.target.value })}
+                    className="w-full bg-[#060b14] border border-slate-800 p-4 rounded-2xl text-white text-sm h-32 outline-none focus:border-[#ef4444] transition"
+                    placeholder="תיאור מפורט שיופיע בתחתית הכרטיס מתחת לסרטון"
+                  />
+                </div>
+                <div>
                   <label className="block text-slate-500 text-sm font-bold mb-2">קטגוריה</label>
                   <input
                     value={editingVideo.category || ''}
@@ -1157,6 +1167,7 @@ const AdminPortal: React.FC = () => {
                     ...editingVideo,
                     title: (editingVideo.title || '').trim(),
                     shortDesc: (editingVideo.shortDesc || '').trim(),
+                    longDesc: (editingVideo.longDesc || '').trim(),
                     category: (editingVideo.category || '').trim(),
                     driveViewUrl: (editingVideo.driveViewUrl || '').trim(),
                     url: (editingVideo.url || '').trim(),
