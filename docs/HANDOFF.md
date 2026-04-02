@@ -88,6 +88,9 @@
 - The AI assistant calls `/api/ask-assistant` (serverless function) which uses `GEMINI_API_KEY` or `VITE_GEMINI_API_KEY` from Vercel env.
 - The API key must be set in Vercel for production. Local dev uses `.env` (VITE_GEMINI_API_KEY or GEMINI_API_KEY).
 
+## Hebrew mark editor (local tool)
+- Folder `hebrew-mark-editor/`: Python + tkinter + fonttools GUI to adjust Hebrew mark positions via GPOS Mark-to-Base (`editor.py`, `pip install -r hebrew-mark-editor/requirements.txt`).
+
 ## Notes for Next Agent
 - Read this file first before making changes.
 - Keep commit messages concise and consistent with repository style.
