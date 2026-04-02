@@ -8,6 +8,8 @@
 
 from __future__ import annotations
 
+import os
+import sys
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 from typing import Any, Callable, List, Optional, Tuple
@@ -18,6 +20,26 @@ from fontTools.pens.boundsPen import BoundsPen
 from fontTools.pens.transformPen import TransformPen
 from fontTools.ttLib import TTFont
 from fontTools.ttLib.tables import otTables
+
+
+def _default_font_open_dir() -> str:
+    """תיקיית Fonts בווינדוס (או הבית) — נקודת פתיחה לדיאלוג קובץ."""
+    if sys.platform == "win32":
+        windir = os.environ.get("WINDIR", r"C:\Windows")
+        fonts_dir = os.path.join(windir, "Fonts")
+        if os.path.isdir(fonts_dir):
+            return fonts_dir
+    return os.path.expanduser("~")
+
+
+# סינון קבצים ל־Windows: נקודה-פסיק בין סיומות (רווח לא תמיד עובד ב־Common Dialog).
+_FONT_FILETYPES = [
+    ("גופן TTF / OTF", "*.ttf;*.TTF;*.otf;*.OTF"),
+    ("TrueType (*.ttf)", "*.ttf;*.TTF"),
+    ("OpenType (*.otf)", "*.otf;*.OTF"),
+    ("כל הקבצים", "*.*"),
+]
+
 
 # --- Unicode sets ---
 
@@ -382,10 +404,9 @@ class HebrewMarkEditorApp(tk.Tk):
     def _open_font(self) -> None:
         path = filedialog.askopenfilename(
             title="בחר קובץ גופן",
-            filetypes=[
-                ("גופנים", "*.ttf *.otf *.TTF *.OTF"),
-                ("הכל", "*.*"),
-            ],
+            parent=self,
+            initialdir=_default_font_open_dir(),
+            filetypes=_FONT_FILETYPES,
         )
         if not path:
             return
@@ -563,8 +584,13 @@ class HebrewMarkEditorApp(tk.Tk):
             return
         path = filedialog.asksaveasfilename(
             title="שמור גופן",
+            parent=self,
             defaultextension=".ttf",
-            filetypes=[("TTF", "*.ttf"), ("OTF", "*.otf"), ("הכל", "*.*")],
+            filetypes=[
+                ("TrueType (*.ttf)", "*.ttf"),
+                ("OpenType (*.otf)", "*.otf"),
+                ("כל הקבצים", "*.*"),
+            ],
         )
         if not path:
             return
