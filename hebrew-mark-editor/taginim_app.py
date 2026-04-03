@@ -21,6 +21,8 @@ from fontTools.ttLib import TTFont
 
 from PIL import Image, ImageQt
 
+from windows_font_dirs import default_font_open_dir
+
 from PyQt5.QtCore import QPoint, Qt, pyqtSignal
 from PyQt5.QtGui import QBrush, QColor, QFont, QKeySequence, QPainter, QPen
 from PyQt5.QtWidgets import (
@@ -52,15 +54,6 @@ PREVIEW_TEXT = "שמע ישראל ה אלהינו ה אחד"
 
 def _cp_label(cp: int) -> str:
     return f"U+{cp:04X}  {chr(cp)}"
-
-
-def _default_font_open_dir() -> str:
-    if sys.platform == "win32":
-        windir = os.environ.get("WINDIR", r"C:\Windows")
-        fonts_dir = os.path.join(windir, "Fonts")
-        if os.path.isdir(fonts_dir):
-            return fonts_dir
-    return os.path.expanduser("~")
 
 
 # קירוב מעגל בבזייה (יחס בקרה לרדיוס)
@@ -423,11 +416,12 @@ class MainWindow(QMainWindow):
         return float(b[0]), float(b[1]), float(b[2]), float(b[3])
 
     def _open_font(self) -> None:
+        start_dir = default_font_open_dir()
         path, _ = QFileDialog.getOpenFileName(
             self,
             "בחר קובץ גופן",
-            _default_font_open_dir(),
-            "גופנים (*.ttf *.TTF *.otf *.OTF);;כל הקבצים (*.*)",
+            start_dir,
+            "גופנים (*.ttf *.otf *.ttc *.TTF *.OTF *.TTC);;כל הקבצים (*.*)",
         )
         if not path:
             return

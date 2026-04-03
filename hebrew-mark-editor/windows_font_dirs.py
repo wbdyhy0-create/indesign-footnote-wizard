@@ -1,0 +1,69 @@
+# -*- coding: utf-8 -*-
+"""נתיבי גופנים טיפוסיים בווינדוס — לדיאלוגי פתיחת קובץ."""
+from __future__ import annotations
+
+import os
+import sys
+from typing import List
+
+
+def _norm_dir(path: str) -> str:
+    path = os.path.expandvars(path)
+    return os.path.normpath(os.path.abspath(path))
+
+
+def iter_windows_font_directories() -> List[str]:
+    """רשימת תיקיות קיימות לפי סדר עדיפות (ללא כפילויות)."""
+    if sys.platform != "win32":
+        return []
+    seen: set[str] = set()
+    out: List[str] = []
+
+    def add(raw: str) -> None:
+        p = _norm_dir(raw)
+        if p in seen or not os.path.isdir(p):
+            return
+        seen.add(p)
+        out.append(p)
+
+    windir = os.environ.get("WINDIR", r"C:\Windows")
+    add(os.path.join(windir, "Fonts"))
+    add(r"C:\Windows\Fonts")
+
+    local = os.environ.get("LOCALAPPDATA", "")
+    if local:
+        add(os.path.join(local, "Microsoft", "Windows", "Fonts"))
+
+    userprofile = os.environ.get("USERPROFILE", "")
+    if userprofile:
+        add(os.path.join(userprofile, "AppData", "Local", "Microsoft", "Windows", "Fonts"))
+
+    public = os.environ.get("PUBLIC", r"C:\Users\Public")
+    add(os.path.join(public, "Documents", "Fonts"))
+
+    return out
+
+
+def _dir_has_font_file(directory: str) -> bool:
+    try:
+        for name in os.listdir(directory):
+            low = name.lower()
+            if low.endswith((".ttf", ".otf", ".ttc")):
+                return True
+    except OSError:
+        return False
+    return False
+
+
+def default_font_open_dir() -> str:
+    """
+    תיקיית התחלה לדיאלוג גופן: בווינדוס — תיקייה שבה יש לפחות קובץ גופן אחד,
+    אחרת תיקיית המערכת הראשונה שנמצאת; אחרת תיקיית הבית.
+    """
+    if sys.platform == "win32":
+        for d in iter_windows_font_directories():
+            if _dir_has_font_file(d):
+                return d
+        for d in iter_windows_font_directories():
+            return d
+    return os.path.expanduser("~")

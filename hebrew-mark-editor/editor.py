@@ -21,15 +21,7 @@ from fontTools.pens.transformPen import TransformPen
 from fontTools.ttLib import TTFont
 from fontTools.ttLib.tables import otTables
 
-
-def _default_font_open_dir() -> str:
-    """תיקיית Fonts בווינדוס (או הבית) — נקודת פתיחה לדיאלוג קובץ."""
-    if sys.platform == "win32":
-        windir = os.environ.get("WINDIR", r"C:\Windows")
-        fonts_dir = os.path.join(windir, "Fonts")
-        if os.path.isdir(fonts_dir):
-            return fonts_dir
-    return os.path.expanduser("~")
+from windows_font_dirs import default_font_open_dir
 
 
 # סינון קבצים ל־Windows: נקודה-פסיק בין סיומות (רווח לא תמיד עובד ב־Common Dialog).
@@ -405,7 +397,7 @@ class HebrewMarkEditorApp(tk.Tk):
         path = filedialog.askopenfilename(
             title="בחר קובץ גופן",
             parent=self,
-            initialdir=_default_font_open_dir(),
+            initialdir=default_font_open_dir(),
             filetypes=_FONT_FILETYPES,
         )
         if not path:
