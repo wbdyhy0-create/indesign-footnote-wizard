@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
 import freetype
+from fontTools.pens.boundsPen import BoundsPen
 from fontTools.pens.recordingPen import DecomposingRecordingPen
 from fontTools.pens.ttGlyphPen import TTGlyphPen
 from fontTools.ttLib import TTFont
@@ -80,6 +81,26 @@ def _cmap_cp_to_glyph_name(font: TTFont, cp: int) -> Optional[str]:
         except Exception:
             return None
     return None
+
+
+def _glyph_bounds_from_font(font: TTFont, gname: str) -> Optional[Tuple[float, float, float, float]]:
+    """bbox ביחידות גופן; _TTGlyphGlyf בגרסאות חדשות ללא .bounds — נופלים ל-BoundsPen."""
+    gs = font.getGlyphSet()
+    if gname not in gs:
+        return None
+    glyph = gs[gname]
+    b = getattr(glyph, "bounds", None)
+    if b is not None:
+        return float(b[0]), float(b[1]), float(b[2]), float(b[3])
+    pen = BoundsPen(gs)
+    try:
+        glyph.draw(pen)
+    except Exception:
+        return None
+    bb = pen.bounds
+    if bb is None:
+        return None
+    return float(bb[0]), float(bb[1]), float(bb[2]), float(bb[3])
 
 PREVIEW_TEXT = "שמע ישראל ה אלהינו ה אחד"
 
@@ -441,13 +462,7 @@ class MainWindow(QMainWindow):
     def _glyph_bounds_fu(self, gname: str) -> Optional[Tuple[float, float, float, float]]:
         if self._ttfont is None:
             return None
-        gs = self._ttfont.getGlyphSet()
-        if gname not in gs:
-            return None
-        b = gs[gname].bounds
-        if b is None:
-            return None
-        return float(b[0]), float(b[1]), float(b[2]), float(b[3])
+        return _glyph_bounds_from_font(self._ttfont, gname)
 
     def _explorer_font_search(self) -> None:
         if sys.platform != "win32":
@@ -754,7 +769,7 @@ class MainWindow(QMainWindow):
         upem = float(font["head"].unitsPerEm)
         hhea = font.get("hhea")
         _asc = float(hhea.ascender) if hhea is not None else upem * 0.8
-        b = glyph_set[gname].bounds
+        b = _glyph_bounds_from_font(font, gname)
         if b is None:
             y_max = _asc
             cx = upem * 0.35
