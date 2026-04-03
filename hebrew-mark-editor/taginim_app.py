@@ -21,7 +21,7 @@ from fontTools.ttLib import TTFont
 
 from PIL import Image, ImageQt
 
-from windows_font_dirs import default_font_open_dir
+from windows_font_dirs import default_font_open_dir, launch_windows_font_search
 
 from PyQt5.QtCore import QPoint, Qt, pyqtSignal
 from PyQt5.QtGui import QBrush, QColor, QFont, QKeySequence, QPainter, QPen
@@ -416,6 +416,8 @@ class MainWindow(QMainWindow):
         return float(b[0]), float(b[1]), float(b[2]), float(b[3])
 
     def _open_font(self) -> None:
+        if sys.platform == "win32":
+            launch_windows_font_search()
         start_dir = default_font_open_dir()
         # הדיאלוג המובנה של Windows לעיתים לא מציג קבצים ב־C:\Windows\Fonts (תיקיית מעטפת).
         # דיאלוג Qt רושם את התיקייה דרך מערכת הקבצים ומציג את ה־ttf/otf כרגיל.

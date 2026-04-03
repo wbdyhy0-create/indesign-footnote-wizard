@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import os
+import subprocess
 import sys
 from typing import List
+from urllib.parse import quote
 
 
 def _norm_dir(path: str) -> str:
@@ -29,6 +31,9 @@ def iter_windows_font_directories() -> List[str]:
             return
         seen.add(p)
         out.append(p)
+
+    # תיקיית גופנים מותאמת אישית בשורש C: (מתאים ל־search-ms עם crumb=location:C:\Fonts)
+    add(r"C:\Fonts")
 
     local = os.environ.get("LOCALAPPDATA", "")
     if local:
@@ -71,3 +76,25 @@ def default_font_open_dir() -> str:
         for d in iter_windows_font_directories():
             return d
     return os.path.expanduser("~")
+
+
+def font_search_ms_uri() -> str:
+    """כתובת search-ms: חיפוש בכל כונן C עם מיקום C:\\Fonts (כמו ב־Explorer של Windows)."""
+    display = quote("תוצאות חיפוש ב- דיסק מקומי (C:)")
+    return f"search-ms:displayname={display}&crumb=location:C%3A%5CFonts"
+
+
+def launch_windows_font_search() -> bool:
+    """פותח את חיפוש הקבצים של Windows עם אותו crumb כמו בכתובת search-ms."""
+    if sys.platform != "win32":
+        return False
+    uri = font_search_ms_uri()
+    try:
+        subprocess.Popen(["explorer.exe", uri], close_fds=True)
+        return True
+    except OSError:
+        try:
+            os.startfile(uri)  # type: ignore[attr-defined]
+            return True
+        except OSError:
+            return False
