@@ -11,6 +11,7 @@ import json
 import math
 import os
 import sys
+import traceback
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -19,12 +20,12 @@ from fontTools.pens.recordingPen import DecomposingRecordingPen
 from fontTools.pens.ttGlyphPen import TTGlyphPen
 from fontTools.ttLib import TTFont
 
-from PIL import Image, ImageQt
+from PIL import Image
 
 from windows_font_dirs import default_font_open_dir, launch_windows_font_search
 
 from PyQt5.QtCore import QPoint, Qt, pyqtSignal
-from PyQt5.QtGui import QBrush, QColor, QFont, QKeySequence, QPainter, QPen
+from PyQt5.QtGui import QBrush, QColor, QFont, QImage, QKeySequence, QPainter, QPen
 from PyQt5.QtWidgets import (
     QAction,
     QApplication,
@@ -45,6 +46,21 @@ from PyQt5.QtWidgets import (
 )
 
 # --- אותיות ותגין ---
+
+
+def _pil_rgb_to_qimage(pil_rgb: Image.Image) -> QImage:
+    """המרה בטוחה ל־QImage בלי ImageQt (נמנעת קריסות ב־Python חדש / שילובי גרסאות)."""
+    if pil_rgb.mode != "RGB":
+        pil_rgb = pil_rgb.convert("RGB")
+    w, h = pil_rgb.size
+    if w <= 0 or h <= 0:
+        pil_rgb = Image.new("RGB", (1, 1), (255, 255, 255))
+        w, h = 1, 1
+    stride = w * 3
+    data = pil_rgb.tobytes("raw", "RGB")
+    q = QImage(data, w, h, stride, QImage.Format_RGB888)
+    return q.copy()
+
 
 THREE_TAGINIM_CP: Tuple[int, ...] = (0x05E9, 0x05E2, 0x05D8, 0x05E0, 0x05D6, 0x05D2, 0x05E6)
 ONE_TAG_CP: Tuple[int, ...] = (0x05D1, 0x05D3, 0x05E7, 0x05D7, 0x05D9, 0x05D4)
@@ -460,22 +476,34 @@ class MainWindow(QMainWindow):
             )
             font.close()
             return
+        try:
+            # אותו אינדקס כמו ב־TTFont (חשוב ל־TTC)
+            ft_face = freetype.Face(path, index=0)
+        except Exception as e:
+            font.close()
+            QMessageBox.critical(self, "שגיאה", f"freetype לא טען את הקובץ:\n{e}")
+            return
         if self._ttfont is not None:
             self._ttfont.close()
         self._ttfont = font
+        self._ft_face = ft_face
         self._font_path = path
         self._upem = int(font["head"].unitsPerEm)
         hhea = font.get("hhea")
         self._ascender = int(hhea.ascender) if hhea is not None else int(round(self._upem * 0.8))
-        try:
-            self._ft_face = freetype.Face(path)
-        except Exception as e:
-            QMessageBox.critical(self, "שגיאה", f"freetype לא טען את הקובץ:\n{e}")
-            return
         self._settings_path = path + ".taginim.json"
         self._load_settings_file()
         self._btn_save.setEnabled(True)
-        self._refresh_letter_ui()
+        try:
+            self._refresh_letter_ui()
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "שגיאה אחרי טעינת הגופן",
+                "הגופן נטען אך הממשק נכשל. פרטים טכניים:\n\n"
+                f"{e}\n\n"
+                f"{traceback.format_exc()}",
+            )
 
     def _load_settings_file(self) -> None:
         if not self._settings_path or not os.path.isfile(self._settings_path):
@@ -628,19 +656,24 @@ class MainWindow(QMainWindow):
         face.set_pixel_sizes(0, 280)
         face.load_char(ch, freetype.FT_LOAD_RENDER)
         bitmap = face.glyph.bitmap
-        w, h = bitmap.width, bitmap.rows
-        if w == 0 or h == 0:
-            img = Image.new("L", (80, 80), 255)
+        bw, bh = int(bitmap.width), int(bitmap.rows)
+        left = int(face.glyph.bitmap_left)
+        top = int(face.glyph.bitmap_top)
+        if bw <= 0 or bh <= 0:
+            # גליף חסר / ריק — חייבים מימדים חיוביים (אחרת Image.new((0,0)) ו־QImage קורסים)
+            bw, bh = 80, 80
+            img = Image.new("L", (bw, bh), 255)
+            left, top = 0, 40
         else:
-            img = Image.frombytes("L", (w, h), bytes(bitmap.buffer))
-        img_rgb = Image.new("RGB", (w, h), (255, 255, 255))
+            buf = bytes(bitmap.buffer)
+            img = Image.frombytes("L", (bw, bh), buf)
+        img_rgb = Image.new("RGB", (bw, bh), (255, 255, 255))
         img_rgb.paste((0, 0, 0), mask=img)
-        qimg = ImageQt.ImageQt(img_rgb)
-        left = face.glyph.bitmap_left
-        top = face.glyph.bitmap_top
+        qimg = _pil_rgb_to_qimage(img_rgb)
+        w, h = bw, bh
         upem = float(self._upem)
         asc = float(self._ascender)
-        px_per_fu = h / asc if asc > 0 else 1.0
+        px_per_fu = float(h) / asc if asc > 0 else 1.0
         gname = self._glyph_name(self._current_cp)
         bbox_cx = upem * 0.35
         bbox_top = asc
