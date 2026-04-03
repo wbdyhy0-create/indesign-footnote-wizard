@@ -13,7 +13,11 @@ def _norm_dir(path: str) -> str:
 
 
 def iter_windows_font_directories() -> List[str]:
-    """רשימת תיקיות קיימות לפי סדר עדיפות (ללא כפילויות)."""
+    """רשימת תיקיות קיימות לפי סדר עדיפות (ללא כפילויות).
+
+    תיקיית המשתמש מופיעה לפני C:\\Windows\\Fonts — שם הקבצים תמיד נספרים ב־API רגיל,
+    בעוד שדיאלוג הקבצים המובנה של Windows לעיתים מציג את תיקיית המערכת כריקה.
+    """
     if sys.platform != "win32":
         return []
     seen: set[str] = set()
@@ -26,10 +30,6 @@ def iter_windows_font_directories() -> List[str]:
         seen.add(p)
         out.append(p)
 
-    windir = os.environ.get("WINDIR", r"C:\Windows")
-    add(os.path.join(windir, "Fonts"))
-    add(r"C:\Windows\Fonts")
-
     local = os.environ.get("LOCALAPPDATA", "")
     if local:
         add(os.path.join(local, "Microsoft", "Windows", "Fonts"))
@@ -40,6 +40,10 @@ def iter_windows_font_directories() -> List[str]:
 
     public = os.environ.get("PUBLIC", r"C:\Users\Public")
     add(os.path.join(public, "Documents", "Fonts"))
+
+    windir = os.environ.get("WINDIR", r"C:\Windows")
+    add(os.path.join(windir, "Fonts"))
+    add(r"C:\Windows\Fonts")
 
     return out
 

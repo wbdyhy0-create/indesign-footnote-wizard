@@ -417,11 +417,16 @@ class MainWindow(QMainWindow):
 
     def _open_font(self) -> None:
         start_dir = default_font_open_dir()
+        # הדיאלוג המובנה של Windows לעיתים לא מציג קבצים ב־C:\Windows\Fonts (תיקיית מעטפת).
+        # דיאלוג Qt רושם את התיקייה דרך מערכת הקבצים ומציג את ה־ttf/otf כרגיל.
+        fd_opts = QFileDialog.Options()
+        fd_opts |= QFileDialog.DontUseNativeDialog
         path, _ = QFileDialog.getOpenFileName(
             self,
             "בחר קובץ גופן",
             start_dir,
             "גופנים (*.ttf *.otf *.ttc *.TTF *.OTF *.TTC);;כל הקבצים (*.*)",
+            options=fd_opts,
         )
         if not path:
             return
