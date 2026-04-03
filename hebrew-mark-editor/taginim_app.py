@@ -102,6 +102,55 @@ def _glyph_bounds_from_font(font: TTFont, gname: str) -> Optional[Tuple[float, f
         return None
     return float(bb[0]), float(bb[1]), float(bb[2]), float(bb[3])
 
+
+def _suffix_export_font_name_table(font: TTFont) -> None:
+    """מבדיל את קובץ הייצוא בשם — אחרת InDesign/Windows עלולים לטעון את הגופן המקורי מהמטמון."""
+    nt = font.get("name")
+    if nt is None:
+        return
+    fam_suffix = " Taginim"
+    for rec in nt.names:
+        if rec.nameID not in (1, 3, 4, 16, 18, 21):
+            continue
+        try:
+            t = rec.toUnicode()
+        except Exception:
+            continue
+        if "Taginim" in t:
+            continue
+        new_t = t + fam_suffix
+        try:
+            enc = rec.getEncoding()
+        except Exception:
+            enc = "utf_16_be" if rec.platformID == 3 else "latin-1"
+        enc_norm = enc.replace("-", "_").lower()
+        try:
+            if "utf_16" in enc_norm:
+                rec.string = new_t.encode("utf-16-be")
+            else:
+                rec.string = new_t.encode(enc)
+        except Exception:
+            try:
+                rec.string = new_t.encode("utf-16-be")
+            except Exception:
+                pass
+    for rec in nt.names:
+        if rec.nameID != 6:
+            continue
+        try:
+            t = rec.toUnicode().strip()
+        except Exception:
+            continue
+        if "-Taginim" in t or t.endswith("Taginim"):
+            continue
+        base = "".join(c for c in t if c.isalnum() or c in "-_") or "Font"
+        ps = (base + "-Taginim")[:63]
+        try:
+            rec.string = ps.encode("latin-1")
+        except Exception:
+            rec.string = ps.encode("ascii", errors="replace")
+
+
 PREVIEW_TEXT = "שמע ישראל ה אלהינו ה אחד"
 
 
@@ -749,13 +798,21 @@ class MainWindow(QMainWindow):
                 if not gname or gname not in glyph_set:
                     continue
                 self._embed_taginim_in_glyph(font, glyph_set, gname, ls)
+            _suffix_export_font_name_table(font)
             font.save(out_path)
         except Exception as e:
             QMessageBox.critical(self, "שגיאה", f"שמירה נכשלה:\n{e}")
             return
         finally:
             font.close()
-        QMessageBox.information(self, "נשמר", f"הגופן נשמר בהצלחה:\n{out_path}")
+        QMessageBox.information(
+            self,
+            "נשמר",
+            "הגופן נשמר בהצלחה:\n"
+            f"{out_path}\n\n"
+            "ב־InDesign בחר בגופן בשם המשפחה עם הסיומת « Taginim » "
+            "(או התקן רק את קובץ ה־_taginim והסר/כבה את המקורי כדי למנוע בלבול).",
+        )
         self._set_preview_font(out_path)
 
     def _embed_taginim_in_glyph(
