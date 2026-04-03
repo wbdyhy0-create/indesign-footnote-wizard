@@ -325,6 +325,11 @@ class MainWindow(QMainWindow):
 
         self._btn_open = QPushButton("פתח גופן…")
         self._btn_open.clicked.connect(self._open_font)
+        self._btn_explorer_search = QPushButton("חיפוש גופנים ב־Explorer…")
+        self._btn_explorer_search.setToolTip(
+            "פותח חיפוש Windows (אופציונלי). לבחירת קובץ השתמש ב־«פתח גופן»."
+        )
+        self._btn_explorer_search.clicked.connect(self._explorer_font_search)
         self._btn_save = QPushButton("שמור גופן חדש")
         self._btn_save.clicked.connect(self._save_font)
         self._btn_save.setEnabled(False)
@@ -337,6 +342,7 @@ class MainWindow(QMainWindow):
         right_panel = QWidget()
         rv = QVBoxLayout(right_panel)
         rv.addWidget(self._btn_open)
+        rv.addWidget(self._btn_explorer_search)
         rv.addWidget(self._btn_save)
         rv.addWidget(settings_box)
         rv.addWidget(QLabel("תצוגה מקדימה אחרי שמירה:"))
@@ -415,9 +421,18 @@ class MainWindow(QMainWindow):
             return None
         return float(b[0]), float(b[1]), float(b[2]), float(b[3])
 
+    def _explorer_font_search(self) -> None:
+        if sys.platform != "win32":
+            return
+        ok = launch_windows_font_search(use_system_fonts_folder=False)
+        if not ok:
+            QMessageBox.warning(
+                self,
+                "לא נפתח",
+                "לא ניתן לפתוח את חיפוש Windows. נסה לפתוח גופן דרך «פתח גופן…».",
+            )
+
     def _open_font(self) -> None:
-        if sys.platform == "win32":
-            launch_windows_font_search()
         start_dir = default_font_open_dir()
         # הדיאלוג המובנה של Windows לעיתים לא מציג קבצים ב־C:\Windows\Fonts (תיקיית מעטפת).
         # דיאלוג Qt רושם את התיקייה דרך מערכת הקבצים ומציג את ה־ttf/otf כרגיל.

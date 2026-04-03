@@ -2,11 +2,10 @@
 """נתיבי גופנים טיפוסיים בווינדוס — לדיאלוגי פתיחת קובץ."""
 from __future__ import annotations
 
+import ctypes
 import os
-import subprocess
 import sys
 from typing import List
-from urllib.parse import quote
 
 
 def _norm_dir(path: str) -> str:
@@ -79,19 +78,36 @@ def default_font_open_dir() -> str:
 
 
 def font_search_ms_uri() -> str:
-    """כתובת search-ms: חיפוש בכל כונן C עם מיקום C:\\Fonts (כמו ב־Explorer של Windows)."""
-    display = quote("תוצאות חיפוש ב- דיסק מקומי (C:)")
-    return f"search-ms:displayname={display}&crumb=location:C%3A%5CFonts"
+    """חיפוש Windows במיקום C:\\Fonts.
+
+    ללא displayname וללא & — בחלק מהמערכות מחרוזת עם crumb=location גורמת ל-Windows
+    לנסות לפתוח פרוטוקול 'location:' בטעות ולהציג 'קבל אפליקציה לקישור location'.
+    """
+    return "search-ms:crumb=location:C%3A%5CFonts"
 
 
-def launch_windows_font_search() -> bool:
-    """פותח את חיפוש הקבצים של Windows עם אותו crumb כמו בכתובת search-ms."""
+def font_search_ms_uri_windows_folder() -> str:
+    """חיפוש במיקום תיקיית הגופנים של המערכת."""
+    return "search-ms:crumb=location:C%3A%5CWindows%5CFonts"
+
+
+def launch_windows_font_search(use_system_fonts_folder: bool = False) -> bool:
+    """פותח חיפוש Explorer; ShellExecuteW מטפל נכון ב־search-ms (בניגוד ל־explorer argv)."""
     if sys.platform != "win32":
         return False
-    uri = font_search_ms_uri()
+    uri = font_search_ms_uri_windows_folder() if use_system_fonts_folder else font_search_ms_uri()
     try:
-        subprocess.Popen(["explorer.exe", uri], close_fds=True)
-        return True
+        rc = int(
+            ctypes.windll.shell32.ShellExecuteW(  # type: ignore[attr-defined]
+                None,
+                "open",
+                uri,
+                None,
+                None,
+                1,  # SW_SHOWNORMAL
+            )
+        )
+        return rc > 32
     except OSError:
         try:
             os.startfile(uri)  # type: ignore[attr-defined]
