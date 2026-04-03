@@ -65,6 +65,22 @@ def _pil_rgb_to_qimage(pil_rgb: Image.Image) -> QImage:
 THREE_TAGINIM_CP: Tuple[int, ...] = (0x05E9, 0x05E2, 0x05D8, 0x05E0, 0x05D6, 0x05D2, 0x05E6)
 ONE_TAG_CP: Tuple[int, ...] = (0x05D1, 0x05D3, 0x05E7, 0x05D7, 0x05D9, 0x05D4)
 
+
+def _cmap_cp_to_glyph_name(font: TTFont, cp: int) -> Optional[str]:
+    """getBestCmap מחזיר שם גליף (str), לא GID — לא לקרוא getGlyphName על המחרוזת."""
+    cmap = font.getBestCmap()
+    if cmap is None or cp not in cmap:
+        return None
+    val = cmap[cp]
+    if isinstance(val, str):
+        return val
+    if isinstance(val, int):
+        try:
+            return font.getGlyphName(val)
+        except Exception:
+            return None
+    return None
+
 PREVIEW_TEXT = "שמע ישראל ה אלהינו ה אחד"
 
 
@@ -420,11 +436,7 @@ class MainWindow(QMainWindow):
     def _glyph_name(self, cp: int) -> Optional[str]:
         if self._ttfont is None:
             return None
-        cmap = self._ttfont.getBestCmap()
-        if cmap is None or cp not in cmap:
-            return None
-        gid = cmap[cp]
-        return self._ttfont.getGlyphName(gid)
+        return _cmap_cp_to_glyph_name(self._ttfont, cp)
 
     def _glyph_bounds_fu(self, gname: str) -> Optional[Tuple[float, float, float, float]]:
         if self._ttfont is None:
@@ -718,10 +730,7 @@ class MainWindow(QMainWindow):
                 ls = self._by_cp.get(cp)
                 if ls is None:
                     continue
-                gname = None
-                cmap = font.getBestCmap()
-                if cmap and cp in cmap:
-                    gname = font.getGlyphName(cmap[cp])
+                gname = _cmap_cp_to_glyph_name(font, cp)
                 if not gname or gname not in glyph_set:
                     continue
                 self._embed_taginim_in_glyph(font, glyph_set, gname, ls)
