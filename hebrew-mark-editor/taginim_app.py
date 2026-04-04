@@ -13,7 +13,7 @@ import os
 import sys
 import traceback
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import freetype
 from fontTools.pens.boundsPen import BoundsPen
@@ -154,6 +154,12 @@ def _suffix_export_font_name_table(font: TTFont) -> None:
 PREVIEW_TEXT = "שמע ישראל ה אלהינו ה אחד"
 
 
+def _shaatnez_preset_path() -> str:
+    d = os.path.join(os.path.expanduser("~"), ".taginim_editor")
+    os.makedirs(d, exist_ok=True)
+    return os.path.join(d, "shaatnez_preset.json")
+
+
 def _cp_label(cp: int) -> str:
     return f"U+{cp:04X}  {chr(cp)}"
 
@@ -199,6 +205,13 @@ class LetterSettings:
     line_width_frac: float = 0.02
     dot_frac: float = 0.03
     spacing_frac: float = 0.08
+    """תג אמצעי בשלושה: גבוה יותר מהצדדים ביחס (למשל 0.12 = +12% גובה קו)."""
+    middle_boost_frac: float = 0.12
+    """הזזת כל חבילת התגין יחד (יחידות גופן)."""
+    group_dx_fu: float = 0.0
+    group_dy_fu: float = 0.0
+    """מכפיל על גודל התגין (קו, נקודה, מרווח)."""
+    package_scale: float = 1.0
     tags: List[TagPosition] = field(default_factory=list)
 
     def ensure_tags(self) -> None:
@@ -216,6 +229,10 @@ class LetterSettings:
             "line_width_frac": self.line_width_frac,
             "dot_frac": self.dot_frac,
             "spacing_frac": self.spacing_frac,
+            "middle_boost_frac": self.middle_boost_frac,
+            "group_dx_fu": self.group_dx_fu,
+            "group_dy_fu": self.group_dy_fu,
+            "package_scale": self.package_scale,
             "tags": [{"dx_fu": t.dx_fu, "dy_fu": t.dy_fu} for t in self.tags],
         }
 
@@ -229,14 +246,32 @@ class LetterSettings:
             line_width_frac=float(d.get("line_width_frac", 0.02)),
             dot_frac=float(d.get("dot_frac", 0.03)),
             spacing_frac=float(d.get("spacing_frac", 0.08)),
+            middle_boost_frac=float(d.get("middle_boost_frac", 0.12)),
+            group_dx_fu=float(d.get("group_dx_fu", 0.0)),
+            group_dy_fu=float(d.get("group_dy_fu", 0.0)),
+            package_scale=float(d.get("package_scale", 1.0)),
             tags=tags,
         )
         ls.ensure_tags()
+        # מיגרציה מגרסה ישנה: היסטים per-tag → חבילה אחת (לפני שדות group_* ב־JSON)
+        legacy = "group_dx_fu" not in d
+        if ls.tag_count == 3 and len(ls.tags) == 3 and legacy:
+            if any(abs(ls.tags[i].dx_fu) > 1e-9 or abs(ls.tags[i].dy_fu) > 1e-9 for i in range(3)):
+                ls.group_dx_fu = sum(t.dx_fu for t in ls.tags) / 3.0
+                ls.group_dy_fu = sum(t.dy_fu for t in ls.tags) / 3.0
+                for t in ls.tags:
+                    t.dx_fu = 0.0
+                    t.dy_fu = 0.0
+        elif ls.tag_count == 1 and len(ls.tags) >= 1 and legacy:
+            ls.group_dx_fu = ls.tags[0].dx_fu
+            ls.group_dy_fu = ls.tags[0].dy_fu
+            ls.tags[0].dx_fu = 0.0
+            ls.tags[0].dy_fu = 0.0
         return ls
 
 
 class TaginimEditorCanvas(QWidget):
-    """תצוגת אות + תגין לגרירה (פיקסלים)."""
+    """תצוגת אות + תגין; שלושה תגין = חבילה אחת לגרירה, אמצעי גבוה יותר."""
 
     tagDragStarted = pyqtSignal()
     tagDragged = pyqtSignal()
@@ -252,13 +287,18 @@ class TaginimEditorCanvas(QWidget):
         self._bbox_center_x_fu: float = 0.0
         self._bbox_top_fu: float = 0.0
         self._tag_count: int = 1
-        self._tags_fu: List[TagPosition] = []
-        self._stem_h_fu: float = 100.0
+        self._group_dx_fu: float = 0.0
+        self._group_dy_fu: float = 0.0
+        self._stem_h_list_fu: List[float] = [100.0]
         self._stem_w_fu: float = 25.0
         self._dot_r_fu: float = 20.0
         self._slot_x_fu: List[float] = []
-        self._drag_idx: Optional[int] = None
+        self._drag_package: bool = False
         self._last_mouse: Optional[QPoint] = None
+        self._drag_delta_cb: Optional[Callable[[float, float], None]] = None
+
+    def set_drag_delta_callback(self, cb: Optional[Callable[[float, float], None]]) -> None:
+        self._drag_delta_cb = cb
 
     def set_render_state(
         self,
@@ -280,40 +320,55 @@ class TaginimEditorCanvas(QWidget):
     def set_geometry(
         self,
         tag_count: int,
-        tags: List[TagPosition],
+        group_dx_fu: float,
+        group_dy_fu: float,
         slot_x_fu: List[float],
-        stem_h_fu: float,
+        stem_h_fu_list: List[float],
         stem_w_fu: float,
         dot_r_fu: float,
     ) -> None:
         self._tag_count = tag_count
-        self._tags_fu = tags
-        self._slot_x_fu = slot_x_fu[:tag_count] if len(slot_x_fu) >= tag_count else slot_x_fu + [0.0] * (tag_count - len(slot_x_fu))
-        self._stem_h_fu = stem_h_fu
+        self._group_dx_fu = group_dx_fu
+        self._group_dy_fu = group_dy_fu
+        self._slot_x_fu = (
+            slot_x_fu[:tag_count]
+            if len(slot_x_fu) >= tag_count
+            else slot_x_fu + [0.0] * (tag_count - len(slot_x_fu))
+        )
+        self._stem_h_list_fu = (
+            stem_h_fu_list[:tag_count]
+            if len(stem_h_fu_list) >= tag_count
+            else stem_h_fu_list + [stem_h_fu_list[-1] if stem_h_fu_list else 100.0] * (tag_count - len(stem_h_fu_list))
+        )
         self._stem_w_fu = stem_w_fu
         self._dot_r_fu = dot_r_fu
         self.update()
 
-    def _fu_to_px(self, slot_x: float, dx_fu: float, dy_fu: float) -> Tuple[float, float]:
-        """מרכז בסיס התג (תחתית הקו) בפיקסלים ביחס לווידג'ט."""
-        cx_px = self._ox + (self._bbox_center_x_fu + slot_x + dx_fu) * self._px_per_fu
+    def _fu_to_px(self, slot_x: float) -> Tuple[float, float]:
+        """בסיס תחתית הקו לתג (פיקסלים). group כלול ב-slot_x או נפרד — כאן slot+group."""
+        cx_px = self._ox + (self._bbox_center_x_fu + slot_x) * self._px_per_fu
         top_px = self._oy - self._bbox_top_fu * self._px_per_fu
-        base_y_px = top_px - dy_fu * self._px_per_fu
+        base_y_px = top_px - self._group_dy_fu * self._px_per_fu
         return cx_px, base_y_px
 
-    def _tag_hit_indices(self, mx: float, my: float) -> Optional[int]:
-        hit_r = max(12.0, self._stem_w_fu * self._px_per_fu * 1.5)
-        best: Optional[int] = None
-        best_d = hit_r + 1.0
-        for i, t in enumerate(self._tags_fu[: self._tag_count]):
+    def _hit_package(self, mx: float, my: float) -> bool:
+        hit_pad = max(14.0, self._stem_w_fu * self._px_per_fu * 2.0)
+        for i in range(self._tag_count):
             slot = self._slot_x_fu[i] if i < len(self._slot_x_fu) else 0.0
-            cx, by = self._fu_to_px(slot, t.dx_fu, t.dy_fu)
-            mid_y = by - (self._stem_h_fu * 0.5 + self._dot_r_fu) * self._px_per_fu
-            d = math.hypot(mx - cx, my - mid_y)
-            if d < best_d and d <= hit_r:
-                best_d = d
-                best = i
-        return best
+            slot_x = slot + self._group_dx_fu
+            cx, base_y = self._fu_to_px(slot_x)
+            stem_h = self._stem_h_list_fu[i] if i < len(self._stem_h_list_fu) else self._stem_h_list_fu[0]
+            half_w = max(2.0, self._stem_w_fu * self._px_per_fu * 0.5)
+            top_y = base_y - stem_h * self._px_per_fu
+            dot_r_px = self._dot_r_fu * self._px_per_fu
+            # מלבן גס סביב קו+נקודה
+            left = cx - half_w - hit_pad * 0.3
+            right = cx + half_w + hit_pad * 0.3
+            bottom = base_y + hit_pad * 0.2
+            top = top_y - dot_r_px * 2 - hit_pad * 0.3
+            if left <= mx <= right and top <= my <= bottom:
+                return True
+        return False
 
     def paintEvent(self, event) -> None:
         p = QPainter(self)
@@ -324,16 +379,18 @@ class TaginimEditorCanvas(QWidget):
         pen_line.setCapStyle(Qt.RoundCap)
         p.setPen(pen_line)
         p.setBrush(QBrush(QColor(30, 30, 30)))
-        for i, t in enumerate(self._tags_fu[: self._tag_count]):
+        for i in range(self._tag_count):
             slot = self._slot_x_fu[i] if i < len(self._slot_x_fu) else 0.0
-            cx, base_y = self._fu_to_px(slot, t.dx_fu, t.dy_fu)
+            slot_x = slot + self._group_dx_fu
+            cx, base_y = self._fu_to_px(slot_x)
+            stem_h = self._stem_h_list_fu[i] if i < len(self._stem_h_list_fu) else self._stem_h_list_fu[0]
             half_w = max(1.0, self._stem_w_fu * self._px_per_fu * 0.5)
-            top_y = base_y - self._stem_h_fu * self._px_per_fu
+            top_y = base_y - stem_h * self._px_per_fu
             p.fillRect(
                 int(round(cx - half_w)),
                 int(round(top_y)),
                 int(round(half_w * 2)),
-                int(round(self._stem_h_fu * self._px_per_fu)),
+                int(round(stem_h * self._px_per_fu)),
                 QColor(30, 30, 30),
             )
             dot_r_px = self._dot_r_fu * self._px_per_fu
@@ -350,21 +407,19 @@ class TaginimEditorCanvas(QWidget):
 
     def mousePressEvent(self, e) -> None:
         if e.button() == Qt.LeftButton:
-            idx = self._tag_hit_indices(e.x(), e.y())
-            self._drag_idx = idx
+            self._drag_package = self._hit_package(float(e.x()), float(e.y()))
             self._last_mouse = e.pos()
-            if idx is not None:
+            if self._drag_package:
                 self.tagDragStarted.emit()
 
     def mouseMoveEvent(self, e) -> None:
-        if self._drag_idx is not None and (e.buttons() & Qt.LeftButton):
-            if self._last_mouse is not None:
+        if self._drag_package and (e.buttons() & Qt.LeftButton):
+            if self._last_mouse is not None and self._drag_delta_cb is not None:
                 dx_px = e.x() - self._last_mouse.x()
                 dy_px = e.y() - self._last_mouse.y()
-                t = self._tags_fu[self._drag_idx]
-                t.dx_fu += dx_px / self._px_per_fu
-                t.dy_fu -= dy_px / self._px_per_fu
-                self.update()
+                ddx = dx_px / self._px_per_fu
+                ddy = -dy_px / self._px_per_fu
+                self._drag_delta_cb(ddx, ddy)
                 self.tagDragged.emit()
             self._last_mouse = e.pos()
         else:
@@ -372,7 +427,7 @@ class TaginimEditorCanvas(QWidget):
 
     def mouseReleaseEvent(self, e) -> None:
         if e.button() == Qt.LeftButton:
-            self._drag_idx = None
+            self._drag_package = False
             self._last_mouse = None
 
 
@@ -401,6 +456,7 @@ class MainWindow(QMainWindow):
         self._letters_list.currentRowChanged.connect(self._on_letter_row)
 
         self._canvas = TaginimEditorCanvas()
+        self._canvas.set_drag_delta_callback(self._on_canvas_drag_delta)
         self._canvas.tagDragStarted.connect(self._push_undo)
         self._canvas.tagDragged.connect(self._on_tag_dragged)
 
@@ -408,22 +464,54 @@ class MainWindow(QMainWindow):
         self._slider_line = self._make_slider(5, 80, 20, "%×10")
         self._slider_dot = self._make_slider(10, 80, 30, "%×10")
         self._slider_spacing = self._make_slider(2, 25, 8, "%")
+        self._slider_middle_boost = self._make_slider(0, 35, 12, "%/100")
+        self._slider_pkg_scale = self._make_slider(50, 200, 100, "%/100")
+        self._slider_gdx = self._make_slider(-2000, 2000, 0, "fu")
+        self._slider_gdy = self._make_slider(-2000, 2000, 0, "fu")
 
         self._slider_height.valueChanged.connect(self._on_sliders_changed)
         self._slider_line.valueChanged.connect(self._on_sliders_changed)
         self._slider_dot.valueChanged.connect(self._on_sliders_changed)
         self._slider_spacing.valueChanged.connect(self._on_sliders_changed)
+        self._slider_middle_boost.valueChanged.connect(self._on_sliders_changed)
+        self._slider_pkg_scale.valueChanged.connect(self._on_sliders_changed)
+        self._slider_gdx.valueChanged.connect(self._on_sliders_changed)
+        self._slider_gdy.valueChanged.connect(self._on_sliders_changed)
 
-        for s in (self._slider_height, self._slider_line, self._slider_dot, self._slider_spacing):
+        for s in (
+            self._slider_height,
+            self._slider_line,
+            self._slider_dot,
+            self._slider_spacing,
+            self._slider_middle_boost,
+            self._slider_pkg_scale,
+            self._slider_gdx,
+            self._slider_gdy,
+        ):
             s.sliderPressed.connect(self._push_undo)
 
         settings_box = QGroupBox("הגדרות תג")
         form = QFormLayout()
         form.addRow("גובה התג (יחס לגובה האות):", self._slider_height)
+        form.addRow("עודף גובה תג אמצעי (שלושה):", self._slider_middle_boost)
+        form.addRow("קנה מידה לחבילת תגין:", self._slider_pkg_scale)
         form.addRow("עובי הקו (יחס לרוחב האות):", self._slider_line)
         form.addRow("קוטר הנקודה (יחס לגובה האות):", self._slider_dot)
         form.addRow("מרווח בין תגין (שלושה):", self._slider_spacing)
+        form.addRow("היסט חבילה אופקי (יחידות גופן):", self._slider_gdx)
+        form.addRow("היסט חבילה אנכי:", self._slider_gdy)
         settings_box.setLayout(form)
+
+        preset_box = QGroupBox("תבנית שעטנז״גץ (לכל הגופנים)")
+        pv = QVBoxLayout()
+        self._btn_preset_save = QPushButton("שמור תבנית מהאות הנוכחית…")
+        self._btn_preset_save.setToolTip("שומר גודל, מיקום, עובי וכו׳ — להחלה על כל אות שעטנז״גץ בגופן חדש.")
+        self._btn_preset_save.clicked.connect(self._save_shaatnez_preset)
+        self._btn_preset_apply = QPushButton("החל תבנית על כל שעטנז״גץ")
+        self._btn_preset_apply.clicked.connect(self._apply_shaatnez_preset)
+        pv.addWidget(self._btn_preset_save)
+        pv.addWidget(self._btn_preset_apply)
+        preset_box.setLayout(pv)
 
         self._btn_open = QPushButton("פתח גופן…")
         self._btn_open.clicked.connect(self._open_font)
@@ -447,6 +535,7 @@ class MainWindow(QMainWindow):
         rv.addWidget(self._btn_explorer_search)
         rv.addWidget(self._btn_save)
         rv.addWidget(settings_box)
+        rv.addWidget(preset_box)
         rv.addWidget(QLabel("תצוגה מקדימה אחרי שמירה:"))
         rv.addWidget(self._preview_label)
         rv.addStretch()
@@ -670,6 +759,89 @@ class MainWindow(QMainWindow):
     def _on_tag_dragged(self) -> None:
         self._save_settings_file()
 
+    def _on_canvas_drag_delta(self, ddx: float, ddy: float) -> None:
+        ls = self._current_letter_settings()
+        if ls is None:
+            return
+        ls.group_dx_fu += ddx
+        ls.group_dy_fu += ddy
+        self._undo_suspend += 1
+        try:
+            self._slider_gdx.setValue(int(max(-2000, min(2000, round(ls.group_dx_fu)))))
+            self._slider_gdy.setValue(int(max(-2000, min(2000, round(ls.group_dy_fu)))))
+        finally:
+            self._undo_suspend -= 1
+        self._update_canvas_geometry()
+        self._save_settings_file()
+
+    def _save_shaatnez_preset(self) -> None:
+        ls = self._current_letter_settings()
+        if ls is None:
+            return
+        if ls.tag_count != 3:
+            QMessageBox.information(
+                self,
+                "תבנית שעטנז״גץ",
+                "בחר אות משורת «שלושה תגין» (שעטנז״גץ) כדי לשמור תבנית.",
+            )
+            return
+        payload = {
+            "version": 2,
+            "height_frac": ls.height_frac,
+            "line_width_frac": ls.line_width_frac,
+            "dot_frac": ls.dot_frac,
+            "spacing_frac": ls.spacing_frac,
+            "middle_boost_frac": ls.middle_boost_frac,
+            "package_scale": ls.package_scale,
+            "group_dx_fu": ls.group_dx_fu,
+            "group_dy_fu": ls.group_dy_fu,
+        }
+        path = _shaatnez_preset_path()
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(payload, f, ensure_ascii=False, indent=2)
+        except OSError as e:
+            QMessageBox.critical(self, "שגיאה", f"לא ניתן לשמור תבנית:\n{e}")
+            return
+        QMessageBox.information(self, "נשמר", f"התבנית נשמרה:\n{path}")
+
+    def _apply_shaatnez_preset(self) -> None:
+        path = _shaatnez_preset_path()
+        if not os.path.isfile(path):
+            QMessageBox.warning(
+                self,
+                "אין תבנית",
+                "עדיין לא נשמרה תבנית. בחר אות משעטנז״גץ, כוון, ולחץ «שמור תבנית מהאות הנוכחית».",
+            )
+            return
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception as e:
+            QMessageBox.critical(self, "שגיאה", f"לא ניתן לטעון תבנית:\n{e}")
+            return
+        keys = (
+            "height_frac",
+            "line_width_frac",
+            "dot_frac",
+            "spacing_frac",
+            "middle_boost_frac",
+            "package_scale",
+            "group_dx_fu",
+            "group_dy_fu",
+        )
+        self._push_undo()
+        for cp in THREE_TAGINIM_CP:
+            ls = self._by_cp.get(cp)
+            if ls is None:
+                continue
+            for k in keys:
+                if k in data:
+                    setattr(ls, k, float(data[k]))
+        self._save_settings_file()
+        self._refresh_letter_ui()
+        QMessageBox.information(self, "הוחל", "ההגדרות מהתבנית הוחלו על כל שבע אותיות שעטנז״גץ.")
+
     def _slot_offsets_fu(self, ls: LetterSettings, ink_w: float) -> List[float]:
         spacing = ls.spacing_frac * ink_w
         if ls.tag_count == 3:
@@ -681,6 +853,10 @@ class MainWindow(QMainWindow):
         ls.line_width_frac = self._slider_line.value() / 1000.0
         ls.dot_frac = self._slider_dot.value() / 1000.0
         ls.spacing_frac = self._slider_spacing.value() / 100.0
+        ls.middle_boost_frac = self._slider_middle_boost.value() / 100.0
+        ls.package_scale = max(0.25, min(3.0, self._slider_pkg_scale.value() / 100.0))
+        ls.group_dx_fu = float(self._slider_gdx.value())
+        ls.group_dy_fu = float(self._slider_gdy.value())
 
     def _letter_to_sliders(self, ls: LetterSettings) -> None:
         self._undo_suspend += 1
@@ -689,6 +865,10 @@ class MainWindow(QMainWindow):
             self._slider_line.setValue(int(round(ls.line_width_frac * 1000)))
             self._slider_dot.setValue(int(round(ls.dot_frac * 1000)))
             self._slider_spacing.setValue(int(round(ls.spacing_frac * 100)))
+            self._slider_middle_boost.setValue(int(round(ls.middle_boost_frac * 100)))
+            self._slider_pkg_scale.setValue(int(round(max(0.25, min(3.0, ls.package_scale)) * 100)))
+            self._slider_gdx.setValue(int(max(-2000, min(2000, round(ls.group_dx_fu)))))
+            self._slider_gdy.setValue(int(max(-2000, min(2000, round(ls.group_dy_fu)))))
         finally:
             self._undo_suspend -= 1
 
@@ -769,11 +949,28 @@ class MainWindow(QMainWindow):
         ls.ensure_tags()
         ink_h = self._ink_height_fu(ls)
         ink_w = self._ink_width_fu(ls)
-        stem_h = max(30.0, ls.height_frac * ink_h)
-        stem_w = max(8.0, ls.line_width_frac * ink_w * 0.5)
-        dot_r = max(10.0, ls.dot_frac * ink_h * 0.5)
-        slots = self._slot_offsets_fu(ls, ink_w)
-        self._canvas.set_geometry(ls.tag_count, ls.tags, slots, stem_h, stem_w * 2, dot_r)
+        sc = max(0.25, min(3.0, ls.package_scale))
+        stem_side = max(30.0, ls.height_frac * ink_h) * sc
+        stem_w = max(8.0, ls.line_width_frac * ink_w * 0.5) * sc
+        dot_r = max(10.0, ls.dot_frac * ink_h * 0.5) * sc
+        slots = self._slot_offsets_fu(ls, ink_w * sc)
+        if ls.tag_count == 3:
+            stem_heights = [
+                stem_side,
+                stem_side * (1.0 + max(0.0, ls.middle_boost_frac)),
+                stem_side,
+            ]
+        else:
+            stem_heights = [stem_side]
+        self._canvas.set_geometry(
+            ls.tag_count,
+            ls.group_dx_fu,
+            ls.group_dy_fu,
+            slots,
+            stem_heights,
+            stem_w * 2,
+            dot_r,
+        )
 
     def _save_font(self) -> None:
         if self._ttfont is None or not self._font_path:
@@ -838,24 +1035,30 @@ class MainWindow(QMainWindow):
             y_max = y1
             ink_h = max(1.0, y1 - y0)
             ink_w = max(1.0, x1 - x0)
-        stem_h = max(30.0, ls.height_frac * ink_h)
-        half_w = max(10.0, ls.line_width_frac * ink_w * 0.5)
-        dot_r = max(12.0, ls.dot_frac * ink_h * 0.5)
-        spacing = ls.spacing_frac * ink_w
+        sc = max(0.25, min(3.0, ls.package_scale))
+        stem_side = max(30.0, ls.height_frac * ink_h) * sc
+        half_w = max(10.0, ls.line_width_frac * ink_w * 0.5) * sc
+        dot_r = max(12.0, ls.dot_frac * ink_h * 0.5) * sc
+        spacing = ls.spacing_frac * ink_w * sc
 
         rec = DecomposingRecordingPen(glyph_set)
         glyph_set[gname].draw(rec)
         pen = TTGlyphPen(glyph_set)
         rec.replay(pen)
 
-        for i, t in enumerate(ls.tags[: ls.tag_count]):
+        for i in range(ls.tag_count):
             if ls.tag_count == 3:
                 base_dx = (i - 1) * spacing
             else:
                 base_dx = 0.0
-            tcx = cx + base_dx + t.dx_fu
-            y_stem_bottom = y_max + t.dy_fu
-            y_stem_top = y_stem_bottom + stem_h
+            stem_hi = (
+                stem_side * (1.0 + max(0.0, ls.middle_boost_frac))
+                if ls.tag_count == 3 and i == 1
+                else stem_side
+            )
+            tcx = cx + base_dx + ls.group_dx_fu
+            y_stem_bottom = y_max + ls.group_dy_fu
+            y_stem_top = y_stem_bottom + stem_hi
             _add_rect_stem(pen, tcx, y_stem_bottom, y_stem_top, half_w)
             cy_dot = y_stem_top + dot_r
             _add_circle_contour(pen, tcx, cy_dot, dot_r)
