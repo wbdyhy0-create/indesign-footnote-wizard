@@ -186,6 +186,65 @@ def _suffix_export_font_name_table(font: TTFont) -> None:
             rec.string = ps.encode("ascii", errors="replace")
 
 
+def _sync_font_vertical_metrics_to_glyf_extents(font: TTFont) -> None:
+    """מעלה ascender / usWinAscent וכו׳ לפי הקצה האמיתי של כל הגליפים.
+
+    תגין מעל הדיו נשברים אם המטריקות נשארות נמוכות — InDesign ומנועי שורה עלולים לחתוך
+    או לא לצייר את החלק שמעל ה־ascender המוצהר.
+    """
+    try:
+        gs = font.getGlyphSet()
+    except Exception:
+        return
+    y_max = -1e9
+    y_min = 1e9
+    for gname in font.getGlyphOrder():
+        try:
+            glyph = gs[gname]
+        except KeyError:
+            continue
+        pen = BoundsPen(gs)
+        try:
+            glyph.draw(pen)
+        except Exception:
+            continue
+        bb = pen.bounds
+        if bb is None:
+            continue
+        _, y0, _, y1 = bb
+        y_max = max(y_max, float(y1))
+        y_min = min(y_min, float(y0))
+    if y_max < -1e8:
+        return
+    upem = float(font["head"].unitsPerEm)
+    pad = int(max(40, round(upem * 0.05)))
+    top = int(math.ceil(y_max + pad))
+    bot = int(math.floor(y_min - pad))
+    hhea = font.get("hhea")
+    if hhea is not None:
+        if top > int(hhea.ascender):
+            hhea.ascender = top
+        if bot < int(hhea.descender):
+            hhea.descender = bot
+    head = font.get("head")
+    if head is not None:
+        head.yMax = max(int(getattr(head, "yMax", 0)), top)
+        head.yMin = min(int(getattr(head, "yMin", 0)), bot)
+    os2 = font.get("OS/2")
+    if os2 is not None and int(getattr(os2, "version", 0)) >= 1:
+        if hasattr(os2, "usWinAscent") and top > int(os2.usWinAscent):
+            os2.usWinAscent = top
+        below = max(0.0, -y_min)
+        wd = int(math.ceil(below + pad))
+        if hasattr(os2, "usWinDescent") and wd > int(os2.usWinDescent):
+            os2.usWinDescent = wd
+    if os2 is not None and int(getattr(os2, "version", 0)) >= 4:
+        if hasattr(os2, "sTypoAscender") and top > int(os2.sTypoAscender):
+            os2.sTypoAscender = top
+        if hasattr(os2, "sTypoDescender") and bot < int(os2.sTypoDescender):
+            os2.sTypoDescender = bot
+
+
 PREVIEW_TEXT = "שמע ישראל ה אלהינו ה אחד"
 
 
@@ -1394,6 +1453,7 @@ class MainWindow(QMainWindow):
             glyph_set = font.getGlyphSet()
             for gname, ls in _glyph_embed_job_list(font, self._by_cp, all_cp):
                 self._embed_taginim_in_glyph(font, glyph_set, gname, ls)
+            _sync_font_vertical_metrics_to_glyf_extents(font)
             _suffix_export_font_name_table(font)
 
             candidates = tagin_save_candidate_paths(out_name, out_path)
@@ -1481,7 +1541,10 @@ class MainWindow(QMainWindow):
             "מתיקיית גופני Windows — השמירה ל־Downloads / שולחן עבודה / מסמכים (לפי מה שקיים). "
             "שם הקובץ מסתיים ב־_taginim.ttf\n\n"
             "להתקנה בווינדוס: לחיצה ימנית על הקובץ → התקנה למשתמש.\n"
-            "ב־InDesign: בחר גופן עם הסיומת Taginim ברשימת המשפחות.\n"
+            "ב־InDesign: בחרו במפורש את משפחת הגופן עם הסיומת «Taginim» (לא את הקובץ המקורי). "
+            "סגירה והפעלה מחדש של InDesign אחרי התקנה עוזרת אם נטען גרסה ישנה מהמטמון.\n"
+            "עברית: מומלץ מחבר פסקה «World-Ready» (או מסגרת עמוד) ו־RTL. "
+            "אם עדיין בלי תגין: בטלו זמנית OpenType (ליגטורות / חלופות) לבדיקה.\n"
             "אם שין בלי תגין: הטמעה כוללת גם גליפי שין עם נקודה (U+FB2C/U+FB2D) כשקיימים בגופן."
         )
         btn_open = box.addButton("פתח תיקייה ב־Explorer", QMessageBox.ActionRole)
