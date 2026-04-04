@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import subprocess
 import sys
 import traceback
 from dataclasses import dataclass, field
@@ -152,6 +153,24 @@ def _suffix_export_font_name_table(font: TTFont) -> None:
 
 
 PREVIEW_TEXT = "שמע ישראל ה אלהינו ה אחד"
+
+
+def _reveal_file_in_folder(file_path: str) -> None:
+    """פותח סייר קבצים על התיקייה ומסמן את הקובץ (ווינדוס: Explorer /select)."""
+    path = os.path.normpath(os.path.abspath(file_path))
+    folder = os.path.dirname(path)
+    if sys.platform == "win32":
+        try:
+            subprocess.run(["explorer", "/select,", path], check=False)
+        except OSError:
+            try:
+                os.startfile(folder)  # type: ignore[attr-defined]
+            except OSError:
+                pass
+    elif sys.platform == "darwin":
+        subprocess.run(["open", "-R", path], check=False)
+    else:
+        subprocess.run(["xdg-open", folder], check=False)
 
 
 def _shaatnez_preset_path() -> str:
@@ -1002,14 +1021,23 @@ class MainWindow(QMainWindow):
             return
         finally:
             font.close()
-        QMessageBox.information(
-            self,
-            "נשמר",
-            "הגופן נשמר בהצלחה:\n"
-            f"{out_path}\n\n"
-            "ב־InDesign בחר בגופן בשם המשפחה עם הסיומת « Taginim » "
-            "(או התקן רק את קובץ ה־_taginim והסר/כבה את המקורי כדי למנוע בלבול).",
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Information)
+        box.setWindowTitle("נשמר")
+        box.setText("הגופן עם התגין נשמר.")
+        box.setInformativeText(
+            f"מיקום הקובץ:\n{out_path}\n\n"
+            "זו תמיד אותה תיקייה שממנה פתחת את קובץ הגופן המקורי ב־«פתח גופן». "
+            "שם הקובץ החדש מסתיים ב־_taginim.ttf\n\n"
+            "להתקנה בווינדוס: לחיצה ימנית על הקובץ → התקנה למשתמש.\n"
+            "ב־InDesign: בחר גופן עם הסיומת Taginim ברשימת המשפחות."
         )
+        btn_open = box.addButton("פתח תיקייה ב־Explorer", QMessageBox.ActionRole)
+        btn_close = box.addButton("סגור", QMessageBox.RejectRole)
+        box.setDefaultButton(btn_close)
+        box.exec_()
+        if box.clickedButton() == btn_open:
+            _reveal_file_in_folder(out_path)
         self._set_preview_font(out_path)
 
     def _embed_taginim_in_glyph(
