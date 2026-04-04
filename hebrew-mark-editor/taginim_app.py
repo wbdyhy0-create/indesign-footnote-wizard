@@ -426,6 +426,8 @@ class TaginimEditorCanvas(QWidget):
         self._px_per_fu_x: float = 1.0
         self._px_per_fu_y: float = 1.0
         self._bbox_center_x_fu: float = 0.0
+        # קצה שמאל של תיבת הדיו ביחידות גופן — חייבים בניכוי כדי ליישר תגין לביטמאפ (לא x=0)
+        self._ink_x0_fu: float = 0.0
         self._bitmap_top_px: int = 0
         # y מקסימלי של תיבת הדיו ביחידות גופן (עיגון אנכי מול קו הבסיס)
         self._bbox_y_top_fu: float = 0.0
@@ -453,6 +455,7 @@ class TaginimEditorCanvas(QWidget):
         bbox_center_x_fu: float,
         bitmap_top_px: int = 0,
         bbox_y_top_fu: float = 0.0,
+        ink_x0_fu: float = 0.0,
     ) -> None:
         self._glyph_qimage = qimage
         self._ox = ox
@@ -460,6 +463,7 @@ class TaginimEditorCanvas(QWidget):
         self._px_per_fu_x = max(px_per_fu_x, 1e-6)
         self._px_per_fu_y = max(px_per_fu_y, 1e-6)
         self._bbox_center_x_fu = bbox_center_x_fu
+        self._ink_x0_fu = float(ink_x0_fu)
         self._bitmap_top_px = int(bitmap_top_px)
         self._bbox_y_top_fu = float(bbox_y_top_fu)
         self.update()
@@ -497,7 +501,8 @@ class TaginimEditorCanvas(QWidget):
         קו הבסיס בפיקסלים: oy + bitmap_top (FreeType). נקודה בגובה y ביחידות גופן:
         baseline_px - y * py. py מגיע מ־y_ppem/unitsPerEm — לא מ־h/ink_h (נוטה לשבור בגופנים עם bbox מול ביטמאפ).
         """
-        cx_px = self._ox + (self._bbox_center_x_fu + slot_x) * self._px_per_fu_x
+        x_abs_fu = self._bbox_center_x_fu + slot_x
+        cx_px = self._ox + (x_abs_fu - self._ink_x0_fu) * self._px_per_fu_x
         baseline_px = float(self._oy + self._bitmap_top_px)
         y_anchor_fu = self._bbox_y_top_fu + self._group_dy_fu
         base_y_px = baseline_px - y_anchor_fu * self._px_per_fu_y
@@ -1255,10 +1260,12 @@ class MainWindow(QMainWindow):
         bbox_cx = upem * 0.35
         bbox_y_top = asc
         px_per_fu_x = float(w) / asc if asc > 0 else (x_ppem / max(upem_ft, 1.0))
+        ink_x0 = 0.0
         if gname:
             b = self._glyph_bounds_fu(gname)
             if b:
                 x0, y0, x1, y1 = map(float, b)
+                ink_x0 = x0
                 bbox_cx = (x0 + x1) * 0.5
                 bbox_y_top = y1
                 ink_w = max(1.0, x1 - x0)
@@ -1275,6 +1282,7 @@ class MainWindow(QMainWindow):
             bbox_cx,
             bitmap_top_px=top,
             bbox_y_top_fu=bbox_y_top,
+            ink_x0_fu=ink_x0,
         )
 
     def _update_canvas_geometry(self) -> None:
