@@ -185,6 +185,25 @@ def _shaatnez_preset_path() -> str:
     return os.path.join(d, "shaatnez_preset.json")
 
 
+def _tagin_style_preset_path() -> str:
+    d = os.path.join(os.path.expanduser("~"), ".taginim_editor")
+    os.makedirs(d, exist_ok=True)
+    return os.path.join(d, "tagin_style_preset.json")
+
+
+# שדות ויזואליים משותפים: שמירת סגנון בודד + תבנית שעטנז״גץ (ללא embed_in_font)
+TAGIN_STYLE_PRESET_KEYS: Tuple[str, ...] = (
+    "height_frac",
+    "line_width_frac",
+    "dot_frac",
+    "spacing_frac",
+    "middle_boost_frac",
+    "package_scale",
+    "group_dx_fu",
+    "group_dy_fu",
+)
+
+
 def _cp_label(cp: int) -> str:
     return f"U+{cp:04X}  {chr(cp)}"
 
@@ -547,6 +566,24 @@ class MainWindow(QMainWindow):
         form.addRow("היסט חבילה אנכי:", self._slider_gdy)
         settings_box.setLayout(form)
 
+        style_box = QGroupBox("סגנון תגין (העתקה בין אותיות)")
+        sv = QVBoxLayout()
+        self._btn_style_save = QPushButton("שמור סגנון מהאות הנוכחית…")
+        self._btn_style_save.setToolTip(
+            "שומר את כל הסליידרים וההיסטים (גובה, עובי, מרווחים, היסט חבילה) מהאות שבחרת. "
+            "עוברים לאות אחרת ברשימה ולוחצים «החל סגנון על אות זו» — בלי לאבד צביון אחיד."
+        )
+        self._btn_style_save.clicked.connect(self._save_tagin_style_preset)
+        self._btn_style_apply = QPushButton("החל סגנון על אות זו")
+        self._btn_style_apply.setToolTip(
+            "מעתיק את הערכים שנשמרו ב־«שמור סגנון» לאות הנוכחית בלבד. "
+            "לא משנה אם להטמיע בגופן — רק מראה התגין."
+        )
+        self._btn_style_apply.clicked.connect(self._apply_tagin_style_to_current_letter)
+        sv.addWidget(self._btn_style_save)
+        sv.addWidget(self._btn_style_apply)
+        style_box.setLayout(sv)
+
         preset_box = QGroupBox("תבנית שעטנז״גץ (לכל הגופנים)")
         pv = QVBoxLayout()
         self._btn_preset_save = QPushButton("שמור תבנית מהאות הנוכחית…")
@@ -580,6 +617,7 @@ class MainWindow(QMainWindow):
         rv.addWidget(self._btn_explorer_search)
         rv.addWidget(self._btn_save)
         rv.addWidget(settings_box)
+        rv.addWidget(style_box)
         rv.addWidget(preset_box)
         rv.addWidget(QLabel("תצוגה מקדימה אחרי שמירה:"))
         rv.addWidget(self._preview_label)
@@ -830,17 +868,7 @@ class MainWindow(QMainWindow):
                 "בחר אות משורת «שלושה תגין» (שעטנז״גץ) כדי לשמור תבנית.",
             )
             return
-        payload = {
-            "version": 2,
-            "height_frac": ls.height_frac,
-            "line_width_frac": ls.line_width_frac,
-            "dot_frac": ls.dot_frac,
-            "spacing_frac": ls.spacing_frac,
-            "middle_boost_frac": ls.middle_boost_frac,
-            "package_scale": ls.package_scale,
-            "group_dx_fu": ls.group_dx_fu,
-            "group_dy_fu": ls.group_dy_fu,
-        }
+        payload = {"version": 2, **{k: getattr(ls, k) for k in TAGIN_STYLE_PRESET_KEYS}}
         path = _shaatnez_preset_path()
         try:
             with open(path, "w", encoding="utf-8") as f:
@@ -865,27 +893,81 @@ class MainWindow(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, "שגיאה", f"לא ניתן לטעון תבנית:\n{e}")
             return
-        keys = (
-            "height_frac",
-            "line_width_frac",
-            "dot_frac",
-            "spacing_frac",
-            "middle_boost_frac",
-            "package_scale",
-            "group_dx_fu",
-            "group_dy_fu",
-        )
         self._push_undo()
         for cp in THREE_TAGINIM_CP:
             ls = self._by_cp.get(cp)
             if ls is None:
                 continue
-            for k in keys:
-                if k in data:
-                    setattr(ls, k, float(data[k]))
+            self._apply_tagin_style_data_to_letter(ls, data)
         self._save_settings_file()
         self._refresh_letter_ui()
         QMessageBox.information(self, "הוחל", "ההגדרות מהתבנית הוחלו על כל שבע אותיות שעטנז״גץ.")
+
+    def _apply_tagin_style_data_to_letter(self, ls: LetterSettings, data: Dict[str, Any]) -> None:
+        for k in TAGIN_STYLE_PRESET_KEYS:
+            if k in data:
+                setattr(ls, k, float(data[k]))
+        ls.ensure_tags()
+        for t in ls.tags:
+            t.dx_fu = 0.0
+            t.dy_fu = 0.0
+
+    def _save_tagin_style_preset(self) -> None:
+        ls = self._current_letter_settings()
+        if ls is None:
+            return
+        self._slider_values_to_letter(ls)
+        payload = {
+            "version": 3,
+            "saved_from_cp": ls.codepoint,
+            **{k: getattr(ls, k) for k in TAGIN_STYLE_PRESET_KEYS},
+        }
+        path = _tagin_style_preset_path()
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(payload, f, ensure_ascii=False, indent=2)
+        except OSError as e:
+            QMessageBox.critical(self, "שגיאה", f"לא ניתן לשמור סגנון:\n{e}")
+            return
+        QMessageBox.information(
+            self,
+            "נשמר",
+            f"סגנון התגין נשמר (מאות {_cp_label(ls.codepoint)}).\n\n{path}\n\n"
+            "בחרו אות אחרת ברשימה ולחצו «החל סגנון על אות זו».",
+        )
+
+    def _apply_tagin_style_to_current_letter(self) -> None:
+        ls = self._current_letter_settings()
+        if ls is None:
+            return
+        path = _tagin_style_preset_path()
+        if not os.path.isfile(path):
+            QMessageBox.warning(
+                self,
+                "אין סגנון שמור",
+                "עדיין לא נשמר סגנון. כווננו אות אחת (למשל שין), לחצו «שמור סגנון מהאות הנוכחית», "
+                "ועברו לאות הבאה.",
+            )
+            return
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception as e:
+            QMessageBox.critical(self, "שגיאה", f"לא ניתן לטעון סגנון:\n{e}")
+            return
+        self._push_undo()
+        self._slider_values_to_letter(ls)
+        self._apply_tagin_style_data_to_letter(ls, data)
+        self._save_settings_file()
+        self._refresh_letter_ui()
+        ref = data.get("saved_from_cp")
+        ref_txt = f" (מיוחס מ־{_cp_label(int(ref))})" if isinstance(ref, int) else ""
+        QMessageBox.information(
+            self,
+            "הוחל",
+            f"הסגנון הוחל על {_cp_label(ls.codepoint)}{ref_txt}.\n"
+            "בדקו בעורך; לעיתים נדרש היסט אופקי קטן לאות ספציפית.",
+        )
 
     def _slot_offsets_fu(self, ls: LetterSettings, ink_w: float) -> List[float]:
         spacing = ls.spacing_frac * ink_w
