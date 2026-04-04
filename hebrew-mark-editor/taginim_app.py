@@ -13,7 +13,7 @@ import os
 import subprocess
 import sys
 import traceback
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import freetype
@@ -333,6 +333,37 @@ class LetterSettings:
         return ls
 
 
+# גודל דפוס לתצוגת מ״מ ליד הסליידרים (משוער; ההטמעה נשארת ביחידות גופן)
+REFERENCE_PT_FOR_MM_LABEL = 12.0
+
+
+def _fu_to_mm_at_pt(fu: float, upem: int, pt: float = REFERENCE_PT_FOR_MM_LABEL) -> float:
+    if upem <= 0:
+        return 0.0
+    return (fu / float(upem)) * pt * (25.4 / 72.0)
+
+
+def _default_letter_for_cp(cp: int) -> LetterSettings:
+    """אותיות חדשות / חסרות ב־JSON — אותם ערכי סליידר לכולן (אין קפיצות בין אותיות עד שמירה נפרדת)."""
+    base = LetterSettings(
+        codepoint=0,
+        tag_count=1,
+        height_frac=0.15,
+        line_width_frac=0.02,
+        dot_frac=0.03,
+        spacing_frac=0.08,
+        middle_boost_frac=0.12,
+        group_dx_fu=0.0,
+        group_dy_fu=0.0,
+        package_scale=1.0,
+        embed_in_font=False,
+    )
+    n = 3 if cp in THREE_TAGINIM_CP else 1
+    ls = replace(base, codepoint=cp, tag_count=n, tags=[])
+    ls.ensure_tags()
+    return ls
+
+
 def _glyph_embed_job_list(
     font: TTFont,
     by_cp: Dict[int, LetterSettings],
@@ -603,14 +634,24 @@ class MainWindow(QMainWindow):
         settings_box = QGroupBox("הגדרות תג")
         form = QFormLayout()
         form.addRow(self._chk_embed_in_font)
-        form.addRow("גובה התג (יחס לגובה האות):", self._slider_height)
-        form.addRow("עודף גובה תג אמצעי (שלושה):", self._slider_middle_boost)
-        form.addRow("קנה מידה לחבילת תגין:", self._slider_pkg_scale)
-        form.addRow("עובי הקו (יחס לרוחב האות):", self._slider_line)
-        form.addRow("קוטר הנקודה (יחס לגובה האות):", self._slider_dot)
-        form.addRow("מרווח בין תגין (שלושה):", self._slider_spacing)
-        form.addRow("היסט חבילה אופקי (יחידות גופן):", self._slider_gdx)
-        form.addRow("היסט חבילה אנכי:", self._slider_gdy)
+        self._lbl_mm_hint = QLabel(
+            f"ליד כל סליידר מוצגים ערכים מדויקים ומ״מ משוערים (הדפסה @{int(REFERENCE_PT_FOR_MM_LABEL)}pt, לפי UPEM ומידות האות הנוכחית)."
+        )
+        self._lbl_mm_hint.setWordWrap(True)
+        self._lbl_mm_hint.setStyleSheet("color: #555; font-size: 11px;")
+        form.addRow(self._lbl_mm_hint)
+        self._lbl_slider_height = self._form_row_slider_metric(form, "גובה התג (יחס לגובה האות):", self._slider_height)
+        self._lbl_slider_middle = self._form_row_slider_metric(
+            form, "עודף גובה תג אמצעי (שלושה):", self._slider_middle_boost
+        )
+        self._lbl_slider_pkg = self._form_row_slider_metric(form, "קנה מידה לחבילת תגין:", self._slider_pkg_scale)
+        self._lbl_slider_line = self._form_row_slider_metric(form, "עובי הקו (יחס לרוחב האות):", self._slider_line)
+        self._lbl_slider_dot = self._form_row_slider_metric(form, "קוטר הנקודה (יחס לגובה האות):", self._slider_dot)
+        self._lbl_slider_spacing = self._form_row_slider_metric(form, "מרווח בין תגין (שלושה):", self._slider_spacing)
+        self._lbl_slider_gdx = self._form_row_slider_metric(
+            form, "היסט חבילה אופקי (יחידות גופן):", self._slider_gdx
+        )
+        self._lbl_slider_gdy = self._form_row_slider_metric(form, "היסט חבילה אנכי:", self._slider_gdy)
         settings_box.setLayout(form)
 
         style_box = QGroupBox("סגנון תגין (העתקה בין אותיות)")
@@ -709,18 +750,24 @@ class MainWindow(QMainWindow):
         s.setProperty("suffix", suffix)
         return s
 
+    def _form_row_slider_metric(self, form: QFormLayout, title: str, slider: QSlider) -> QLabel:
+        lbl = QLabel("")
+        lbl.setMinimumWidth(200)
+        lbl.setLayoutDirection(Qt.LeftToRight)
+        lbl.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        lbl.setStyleSheet("color: #1a1a1a; font-size: 11px;")
+        row = QWidget()
+        hl = QHBoxLayout(row)
+        hl.setContentsMargins(0, 0, 0, 0)
+        hl.addWidget(slider, 1)
+        hl.addWidget(lbl, 0)
+        form.addRow(title, row)
+        return lbl
+
     def _init_default_letter_settings(self) -> None:
-        for cp in THREE_TAGINIM_CP:
-            ls = LetterSettings(codepoint=cp, tag_count=3)
-            ls.ensure_tags()
-            for t in ls.tags:
-                t.dx_fu = 0.0
-                t.dy_fu = 0.0
-            self._by_cp[cp] = ls
-        for cp in ONE_TAG_CP:
-            ls = LetterSettings(codepoint=cp, tag_count=1)
-            ls.ensure_tags()
-            self._by_cp[cp] = ls
+        self._by_cp.clear()
+        for cp in list(THREE_TAGINIM_CP) + list(ONE_TAG_CP):
+            self._by_cp[cp] = _default_letter_for_cp(cp)
 
     def _glyph_name(self, cp: int) -> Optional[str]:
         if self._ttfont is None:
@@ -820,11 +867,7 @@ class MainWindow(QMainWindow):
             self._by_cp[ls.codepoint] = ls
         for cp in list(THREE_TAGINIM_CP) + list(ONE_TAG_CP):
             if cp not in self._by_cp:
-                self._by_cp[cp] = LetterSettings(
-                    codepoint=cp,
-                    tag_count=3 if cp in THREE_TAGINIM_CP else 1,
-                )
-                self._by_cp[cp].ensure_tags()
+                self._by_cp[cp] = _default_letter_for_cp(cp)
 
     def _save_settings_file(self) -> None:
         if not self._settings_path:
@@ -902,6 +945,7 @@ class MainWindow(QMainWindow):
         finally:
             self._undo_suspend -= 1
         self._update_canvas_geometry()
+        self._update_slider_metric_labels()
         self._save_settings_file()
 
     def _save_shaatnez_preset(self) -> None:
@@ -1053,6 +1097,7 @@ class MainWindow(QMainWindow):
         self._slider_values_to_letter(ls)
         self._update_canvas_geometry()
         self._save_settings_file()
+        self._update_slider_metric_labels()
 
     def _on_embed_in_font_changed(self, state: int) -> None:
         if self._undo_suspend:
@@ -1086,6 +1131,59 @@ class MainWindow(QMainWindow):
                 return max(1.0, b[2] - b[0])
         return float(self._upem * 0.6)
 
+    def _fmt_mm_fu_line(self, fu: float) -> str:
+        """מ״מ חיובי (גדלים פיזיים) + יחידות גופן."""
+        mm = max(0.0, _fu_to_mm_at_pt(abs(fu), self._upem, REFERENCE_PT_FOR_MM_LABEL))
+        return f"{mm:.2f} מ״מ · {abs(fu):.0f} FU"
+
+    def _fmt_mm_fu_signed(self, fu: float) -> str:
+        """היסטים יכולים להיות שליליים — מ״מ ו־FU עם סימן."""
+        mm = _fu_to_mm_at_pt(fu, self._upem, REFERENCE_PT_FOR_MM_LABEL)
+        return f"{mm:+.2f} מ״מ · {fu:+.0f} FU"
+
+    def _update_slider_metric_labels(self) -> None:
+        ls = self._current_letter_settings()
+        if ls is None:
+            return
+        ls.ensure_tags()
+        ink_h = self._ink_height_fu(ls)
+        ink_w = self._ink_width_fu(ls)
+        sc = max(0.25, min(3.0, ls.package_scale))
+        stem_side = max(30.0, ls.height_frac * ink_h) * sc
+        stem_w = max(8.0, ls.line_width_frac * ink_w * 0.5) * sc
+        dot_r = max(10.0, ls.dot_frac * ink_h * 0.5) * sc
+        line_full_w = stem_w * 2.0
+        dot_d = dot_r * 2.0
+        spacing_fu = ls.spacing_frac * ink_w * sc
+
+        h_pct = self._slider_height.value()
+        self._lbl_slider_height.setText(f"{h_pct}% → {self._fmt_mm_fu_line(stem_side)}")
+
+        mid_pct = self._slider_middle_boost.value()
+        if ls.tag_count == 3:
+            extra_mid = stem_side * max(0.0, ls.middle_boost_frac)
+            self._lbl_slider_middle.setText(f"+{mid_pct}% → {self._fmt_mm_fu_line(extra_mid)}")
+        else:
+            self._lbl_slider_middle.setText("— (תו אחד)")
+
+        pkg_v = self._slider_pkg_scale.value() / 100.0
+        self._lbl_slider_pkg.setText(f"×{pkg_v:.2f} (קנה מידה; ללא מ״מ)")
+
+        lw_k = self._slider_line.value()
+        self._lbl_slider_line.setText(f"{lw_k / 10:.1f}‰ → {self._fmt_mm_fu_line(line_full_w)}")
+
+        dot_k = self._slider_dot.value()
+        self._lbl_slider_dot.setText(f"{dot_k / 10:.1f}‰ → {self._fmt_mm_fu_line(dot_d)}")
+
+        sp_pct = self._slider_spacing.value()
+        if ls.tag_count == 3:
+            self._lbl_slider_spacing.setText(f"{sp_pct}% → {self._fmt_mm_fu_line(spacing_fu)}")
+        else:
+            self._lbl_slider_spacing.setText("— (תו אחד)")
+
+        self._lbl_slider_gdx.setText(self._fmt_mm_fu_signed(float(ls.group_dx_fu)))
+        self._lbl_slider_gdy.setText(self._fmt_mm_fu_signed(float(ls.group_dy_fu)))
+
     def _refresh_letter_ui(self) -> None:
         ls = self._current_letter_settings()
         if ls is None:
@@ -1094,6 +1192,7 @@ class MainWindow(QMainWindow):
         self._sync_embed_checkbox(ls)
         self._render_glyph_preview()
         self._update_canvas_geometry()
+        self._update_slider_metric_labels()
 
     def _render_glyph_preview(self) -> None:
         if self._ft_face is None or self._current_cp is None:
