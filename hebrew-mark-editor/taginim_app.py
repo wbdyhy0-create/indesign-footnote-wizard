@@ -315,6 +315,9 @@ class TaginimEditorCanvas(QWidget):
         self._px_per_fu_x: float = 1.0
         self._px_per_fu_y: float = 1.0
         self._bbox_center_x_fu: float = 0.0
+        self._bitmap_top_px: int = 0
+        # y מקסימלי של תיבת הדיו ביחידות גופן (עיגון אנכי מול קו הבסיס)
+        self._bbox_y_top_fu: float = 0.0
         self._tag_count: int = 1
         self._group_dx_fu: float = 0.0
         self._group_dy_fu: float = 0.0
@@ -337,6 +340,8 @@ class TaginimEditorCanvas(QWidget):
         px_per_fu_x: float,
         px_per_fu_y: float,
         bbox_center_x_fu: float,
+        bitmap_top_px: int = 0,
+        bbox_y_top_fu: float = 0.0,
     ) -> None:
         self._glyph_qimage = qimage
         self._ox = ox
@@ -344,6 +349,8 @@ class TaginimEditorCanvas(QWidget):
         self._px_per_fu_x = max(px_per_fu_x, 1e-6)
         self._px_per_fu_y = max(px_per_fu_y, 1e-6)
         self._bbox_center_x_fu = bbox_center_x_fu
+        self._bitmap_top_px = int(bitmap_top_px)
+        self._bbox_y_top_fu = float(bbox_y_top_fu)
         self.update()
 
     def set_geometry(
@@ -374,14 +381,15 @@ class TaginimEditorCanvas(QWidget):
         self.update()
 
     def _fu_to_px(self, slot_x: float) -> Tuple[float, float]:
-        """בסיס התג בפיקסלים (שפת התחתית של הקו מול האות), תואם ל־y_stem_bottom בהטמעה.
+        """בסיס התג בפיקסלים (כמו y_stem_bottom בהטמעה: קצה תחתון של הקו על y=y1+dy).
 
-        oy הוא קצה עליון הביטמאפ; מיפוי לינארי: קו y=y1 (ראש תיבת הדיו) יושב על oy.
-        נקודה ב־y = y1 + group_dy → מסך: oy + (y1 - (y1+dy))*sy = oy - dy*sy.
-        כך נמנעים מאי־התאמה בין bitmap_top לבין y1*sy בגופנים עם hinting / bbox.
+        קו הבסיס בפיקסלים: oy + bitmap_top (FreeType). נקודה בגובה y ביחידות גופן:
+        baseline_px - y * py. py מגיע מ־y_ppem/unitsPerEm — לא מ־h/ink_h (נוטה לשבור בגופנים עם bbox מול ביטמאפ).
         """
         cx_px = self._ox + (self._bbox_center_x_fu + slot_x) * self._px_per_fu_x
-        base_y_px = self._oy - self._group_dy_fu * self._px_per_fu_y
+        baseline_px = float(self._oy + self._bitmap_top_px)
+        y_anchor_fu = self._bbox_y_top_fu + self._group_dy_fu
+        base_y_px = baseline_px - y_anchor_fu * self._px_per_fu_y
         return cx_px, base_y_px
 
     def _hit_package(self, mx: float, my: float) -> bool:
@@ -422,23 +430,15 @@ class TaginimEditorCanvas(QWidget):
             stem_h = self._stem_h_list_fu[i] if i < len(self._stem_h_list_fu) else self._stem_h_list_fu[0]
             half_w = max(1.0, self._stem_w_fu * self._px_per_fu_x * 0.5)
             top_y = base_y - stem_h * self._px_per_fu_y
-            p.fillRect(
-                int(round(cx - half_w)),
-                int(round(top_y)),
-                int(round(half_w * 2)),
-                int(round(stem_h * self._px_per_fu_y)),
-                QColor(30, 30, 30),
-            )
-            dot_r_px = self._dot_r_fu * self._px_per_fu_y
+            rw = max(1, int(round(half_w * 2)))
+            rh = max(1, int(round(stem_h * self._px_per_fu_y)))
+            p.fillRect(int(round(cx - half_w)), int(round(top_y)), rw, rh, QColor(30, 30, 30))
+            dot_r_px = max(1.0, self._dot_r_fu * self._px_per_fu_y)
             cy_dot = top_y - dot_r_px
+            dr = max(1, int(round(dot_r_px * 2)))
             p.setPen(Qt.NoPen)
             p.setBrush(QBrush(QColor(30, 30, 30)))
-            p.drawEllipse(
-                int(round(cx - dot_r_px)),
-                int(round(cy_dot - dot_r_px)),
-                int(round(dot_r_px * 2)),
-                int(round(dot_r_px * 2)),
-            )
+            p.drawEllipse(int(round(cx - dot_r_px)), int(round(cy_dot - dot_r_px)), dr, dr)
             p.setPen(pen_line)
 
     def mousePressEvent(self, e) -> None:
@@ -989,25 +989,42 @@ class MainWindow(QMainWindow):
         img_rgb.paste((0, 0, 0), mask=img)
         qimg = _pil_rgb_to_qimage(img_rgb)
         w, h = bw, bh
+        upem_ft = float(face.units_per_EM)
+        y_ppem = float(getattr(face.size, "y_ppem", 0) or 0)
+        x_ppem = float(getattr(face.size, "x_ppem", 0) or 0)
+        if y_ppem <= 0:
+            y_ppem = 280.0
+        if x_ppem <= 0:
+            x_ppem = y_ppem
+        # אנכי: תמיד קנה מידה מהרינדור (PPEM/UPEM). h/ink_h שובר כש־bbox ≠ ביטמאפ (התגין נעלם).
+        px_per_fu_y = y_ppem / max(upem_ft, 1.0)
         upem = float(self._upem)
         asc = float(self._ascender)
         gname = self._glyph_name(self._current_cp)
         bbox_cx = upem * 0.35
-        px_per_fu_x = float(w) / asc if asc > 0 else 1.0
-        px_per_fu_y = float(h) / asc if asc > 0 else 1.0
+        bbox_y_top = asc
+        px_per_fu_x = float(w) / asc if asc > 0 else (x_ppem / max(upem_ft, 1.0))
         if gname:
             b = self._glyph_bounds_fu(gname)
             if b:
                 x0, y0, x1, y1 = map(float, b)
                 bbox_cx = (x0 + x1) * 0.5
+                bbox_y_top = y1
                 ink_w = max(1.0, x1 - x0)
-                ink_h = max(1.0, y1 - y0)
-                # קריטי: מיפוי לפי תיבת הדיו של הגליף — לא ascender כללי (אחרת group_dy שגוי מול הטמעה)
+                # אופקי: יחס רוחב ביטמאפ לתיבת דיו — נשאר כדי ליישר מול הפיקסלים
                 px_per_fu_x = float(w) / ink_w
-                px_per_fu_y = float(h) / ink_h
         ox = int((400 - w) // 2 - left)
         oy = int(320 - top)
-        self._canvas.set_render_state(qimg, ox, oy, px_per_fu_x, px_per_fu_y, bbox_cx)
+        self._canvas.set_render_state(
+            qimg,
+            ox,
+            oy,
+            px_per_fu_x,
+            px_per_fu_y,
+            bbox_cx,
+            bitmap_top_px=top,
+            bbox_y_top_fu=bbox_y_top,
+        )
 
     def _update_canvas_geometry(self) -> None:
         ls = self._current_letter_settings()
