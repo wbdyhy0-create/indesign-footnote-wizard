@@ -644,8 +644,9 @@ class MainWindow(QMainWindow):
 
         self._chk_embed_in_font = QCheckBox("להטמיע תגין לאות זו בקובץ הגופן בעת «שמור גופן חדש»")
         self._chk_embed_in_font.setToolTip(
-            "לכל אות ברשימה יש צ׳קבוקס נפרד — רק מה שמסומן נכנס לקובץ ה־_taginim בשמירה. "
-            "כבוי: תגין רק בתצוגת העורך, בלי לשנות את הגליף בגופן."
+            "הצ׳קבוקס משפיע רק על האות שבחרת ברשימה משמאל. "
+            "עוברים לשין — מסמנים; עוברים לעיין — צריך לסמן שוב לעיין. "
+            "ללא סימון: התגין רק בעורך, בלי לשנות את הגליף בקובץ."
         )
         self._chk_embed_in_font.pressed.connect(self._push_undo)
         self._chk_embed_in_font.stateChanged.connect(self._on_embed_in_font_changed)
@@ -653,6 +654,10 @@ class MainWindow(QMainWindow):
         settings_box = QGroupBox("הגדרות תג")
         form = QFormLayout()
         form.addRow(self._chk_embed_in_font)
+        self._lbl_embed_status = QLabel("")
+        self._lbl_embed_status.setWordWrap(True)
+        self._lbl_embed_status.setStyleSheet("color: #333; font-size: 11px;")
+        form.addRow(self._lbl_embed_status)
         self._lbl_mm_hint = QLabel(
             f"ליד כל סליידר מוצגים ערכים מדויקים ומ״מ משוערים (הדפסה @{int(REFERENCE_PT_FOR_MM_LABEL)}pt, לפי UPEM ומידות האות הנוכחית)."
         )
@@ -787,6 +792,7 @@ class MainWindow(QMainWindow):
         self._by_cp.clear()
         for cp in list(THREE_TAGINIM_CP) + list(ONE_TAG_CP):
             self._by_cp[cp] = _default_letter_for_cp(cp)
+        self._update_embed_indicators()
 
     def _glyph_name(self, cp: int) -> Optional[str]:
         if self._ttfont is None:
@@ -887,6 +893,7 @@ class MainWindow(QMainWindow):
         for cp in list(THREE_TAGINIM_CP) + list(ONE_TAG_CP):
             if cp not in self._by_cp:
                 self._by_cp[cp] = _default_letter_for_cp(cp)
+        self._update_embed_indicators()
 
         file_ver = int(data.get("version", 1))
         # קבצי הגדרות ישנים: כש־embed_in_font חסר ב־JSON נטען True לכולן → שמירת גופן הטמיעה הכול.
@@ -896,6 +903,7 @@ class MainWindow(QMainWindow):
                 for ls in tracked:
                     ls.embed_in_font = False
                 self._save_settings_file()
+                self._update_embed_indicators()
 
     def _save_settings_file(self) -> None:
         if not self._settings_path:
@@ -1135,6 +1143,35 @@ class MainWindow(QMainWindow):
             return
         ls.embed_in_font = state == Qt.Checked
         self._save_settings_file()
+        self._update_embed_indicators()
+
+    def _update_embed_indicators(self) -> None:
+        """רשימת אותיות + שורת סטטוס — כמה אותיות ייכנסו לקובץ בשמירה."""
+        n_three = len(THREE_TAGINIM_CP)
+        for i, cp in enumerate(THREE_TAGINIM_CP):
+            ls = self._by_cp.get(cp)
+            on = ls is not None and ls.embed_in_font
+            suf = "  ● להטמעה" if on else ""
+            self._letters_list.item(i).setText(f"שלושה — {_cp_label(cp)}{suf}")
+        for j, cp in enumerate(ONE_TAG_CP):
+            row = n_three + j
+            ls = self._by_cp.get(cp)
+            on = ls is not None and ls.embed_in_font
+            suf = "  ● להטמעה" if on else ""
+            self._letters_list.item(row).setText(f"אחד — {_cp_label(cp)}{suf}")
+        ordered = list(THREE_TAGINIM_CP) + list(ONE_TAG_CP)
+        marked = [cp for cp in ordered if self._by_cp.get(cp) is not None and self._by_cp[cp].embed_in_font]
+        if not self._by_cp:
+            self._lbl_embed_status.setText("")
+        elif not marked:
+            self._lbl_embed_status.setText(
+                "בשמירה: לא יוטבע תגין באף גליף — סמנו «להטמיע» לכל אות שצריך בקובץ ה־_taginim."
+            )
+        else:
+            chs = " ".join(chr(cp) for cp in marked)
+            self._lbl_embed_status.setText(
+                f"בשמירה יוטבע תגין רק על: {chs}  ({len(marked)} אותיות)"
+            )
 
     def _sync_embed_checkbox(self, ls: LetterSettings) -> None:
         self._undo_suspend += 1
@@ -1213,6 +1250,7 @@ class MainWindow(QMainWindow):
         self._lbl_slider_gdy.setText(self._fmt_mm_fu_signed(float(ls.group_dy_fu)))
 
     def _refresh_letter_ui(self) -> None:
+        self._update_embed_indicators()
         ls = self._current_letter_settings()
         if ls is None:
             return
