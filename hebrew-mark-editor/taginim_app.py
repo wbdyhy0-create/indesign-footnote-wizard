@@ -325,7 +325,8 @@ class LetterSettings:
             group_dx_fu=float(d.get("group_dx_fu", 0.0)),
             group_dy_fu=float(d.get("group_dy_fu", 0.0)),
             package_scale=float(d.get("package_scale", 1.0)),
-            embed_in_font=bool(d.get("embed_in_font", True)),
+            # חסר ב־JSON = לא להטמיע (אחרת כל שעטנז״גץ/בד״ח נשמרו בגופן בלי שסימנו במפורש)
+            embed_in_font=bool(d.get("embed_in_font", False)),
             tags=tags,
         )
         ls.ensure_tags()
@@ -638,8 +639,8 @@ class MainWindow(QMainWindow):
 
         self._chk_embed_in_font = QCheckBox("להטמיע תגין לאות זו בקובץ הגופן בעת «שמור גופן חדש»")
         self._chk_embed_in_font.setToolTip(
-            "כבוי: התגין מוצג רק בעורך — האות לא תשתנה בקובץ ה־_taginim. "
-            "סמן רק את האותיות שבאמת רוצים לשמור עם תגין."
+            "לכל אות ברשימה יש צ׳קבוקס נפרד — רק מה שמסומן נכנס לקובץ ה־_taginim בשמירה. "
+            "כבוי: תגין רק בתצוגת העורך, בלי לשנות את הגליף בגופן."
         )
         self._chk_embed_in_font.pressed.connect(self._push_undo)
         self._chk_embed_in_font.stateChanged.connect(self._on_embed_in_font_changed)
@@ -882,11 +883,20 @@ class MainWindow(QMainWindow):
             if cp not in self._by_cp:
                 self._by_cp[cp] = _default_letter_for_cp(cp)
 
+        file_ver = int(data.get("version", 1))
+        # קבצי הגדרות ישנים: כש־embed_in_font חסר ב־JSON נטען True לכולן → שמירת גופן הטמיעה הכול.
+        if file_ver < 2:
+            tracked = [self._by_cp[cp] for cp in list(THREE_TAGINIM_CP) + list(ONE_TAG_CP)]
+            if tracked and all(ls.embed_in_font for ls in tracked):
+                for ls in tracked:
+                    ls.embed_in_font = False
+                self._save_settings_file()
+
     def _save_settings_file(self) -> None:
         if not self._settings_path:
             return
         letters = [self._by_cp[cp].to_json() for cp in list(THREE_TAGINIM_CP) + list(ONE_TAG_CP)]
-        payload = {"version": 1, "font_path": self._font_path, "letters": letters}
+        payload = {"version": 2, "font_path": self._font_path, "letters": letters}
         with open(self._settings_path, "w", encoding="utf-8") as f:
             json.dump(payload, f, ensure_ascii=False, indent=2)
 
