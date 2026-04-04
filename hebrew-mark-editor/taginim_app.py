@@ -24,7 +24,12 @@ from fontTools.ttLib import TTFont
 
 from PIL import Image
 
-from windows_font_dirs import default_font_open_dir, launch_windows_font_search
+from windows_font_dirs import (
+    default_font_open_dir,
+    default_taginim_export_directory,
+    is_windows_font_install_directory,
+    launch_windows_font_search,
+)
 
 from PyQt5.QtCore import QPoint, Qt, pyqtSignal
 from PyQt5.QtGui import QBrush, QColor, QFont, QImage, QKeySequence, QPainter, QPen
@@ -1039,9 +1044,20 @@ class MainWindow(QMainWindow):
         if self._ttfont is None or not self._font_path:
             return
         self._save_settings_file()
-        out_dir = os.path.dirname(self._font_path)
         base = os.path.splitext(os.path.basename(self._font_path))[0]
-        out_path = os.path.join(out_dir, f"{base}_taginim.ttf")
+        out_name = f"{base}_taginim.ttf"
+        src_dir = os.path.dirname(self._font_path)
+        export_note: Optional[str] = None
+        if is_windows_font_install_directory(src_dir):
+            out_dir = default_taginim_export_directory()
+            out_path = os.path.join(out_dir, out_name)
+            export_note = (
+                "הגופן המקורי נטען מתיקיית הגופנים של Windows — שם אין הרשאת כתיבה. "
+                f"הקובץ נשמר בתיקייה:\n{out_dir}\n\n"
+                "להתקנה: לחיצה ימנית על הקובץ → התקנה למשתמש."
+            )
+        else:
+            out_path = os.path.join(src_dir, out_name)
         # תמיד מטעינים מקובץ המקור מחדש כדי שלא יושמו תגין פעמיים בשמירות חוזרות.
         font = TTFont(self._font_path, fontNumber=0)
         if "glyf" not in font:
@@ -1072,9 +1088,26 @@ class MainWindow(QMainWindow):
                     continue
                 self._embed_taginim_in_glyph(font, glyph_set, gname, ls)
             _suffix_export_font_name_table(font)
-            font.save(out_path)
+            try:
+                font.save(out_path)
+            except PermissionError:
+                fb = default_taginim_export_directory()
+                alt = os.path.join(fb, out_name)
+                font.save(alt)
+                out_path = alt
+                export_note = (
+                    "אין הרשאת כתיבה לתיקיית המקור. "
+                    f"הקובץ נשמר ב־\n{out_path}"
+                )
         except Exception as e:
-            QMessageBox.critical(self, "שגיאה", f"שמירה נכשלה:\n{e}")
+            QMessageBox.critical(
+                self,
+                "שגיאה",
+                "שמירה נכשלה.\n\n"
+                f"{type(e).__name__}: {e}\n\n"
+                "אם זו שגיאת הרשאות — שמור את קובץ ה־TTF המקורי בתיקייה רגילה (למשל שולחן עבודה) "
+                "ופתח משם, או התקן את הגופן המיוצא דרך לחיצה ימנית → התקנה למשתמש.",
+            )
             return
         finally:
             font.close()
@@ -1082,10 +1115,13 @@ class MainWindow(QMainWindow):
         box.setIcon(QMessageBox.Information)
         box.setWindowTitle("נשמר")
         box.setText("הגופן עם התגין נשמר.")
+        info_extra = (export_note + "\n\n") if export_note else ""
         box.setInformativeText(
+            f"{info_extra}"
             f"מיקום הקובץ:\n{out_path}\n\n"
-            "זו תמיד אותה תיקייה שממנה פתחת את קובץ הגופן המקורי ב־«פתח גופן». "
-            "שם הקובץ החדש מסתיים ב־_taginim.ttf\n\n"
+            "כשהמקור בתיקייה רגילה — השמירה ליד קובץ המקור; "
+            "מתיקיית גופני Windows — השמירה ל־Downloads / שולחן עבודה / מסמכים (לפי מה שקיים). "
+            "שם הקובץ מסתיים ב־_taginim.ttf\n\n"
             "להתקנה בווינדוס: לחיצה ימנית על הקובץ → התקנה למשתמש.\n"
             "ב־InDesign: בחר גופן עם הסיומת Taginim ברשימת המשפחות."
         )

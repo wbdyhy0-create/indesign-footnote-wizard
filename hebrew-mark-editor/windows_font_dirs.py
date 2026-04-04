@@ -77,6 +77,43 @@ def default_font_open_dir() -> str:
     return os.path.expanduser("~")
 
 
+def is_windows_font_install_directory(dir_path: str) -> bool:
+    """נתיב שבו מותקנים גופנים בווינדוס — לרוב אין לאפליקציות הרשאת כתיבה ישירה."""
+    if sys.platform != "win32":
+        return False
+    try:
+        norm = os.path.normcase(os.path.abspath(_norm_dir(dir_path)))
+    except OSError:
+        return False
+    for fd in iter_windows_font_directories():
+        try:
+            fn = os.path.normcase(os.path.abspath(fd))
+        except OSError:
+            continue
+        if norm == fn or norm.startswith(fn + os.sep):
+            return True
+    return False
+
+
+def default_taginim_export_directory() -> str:
+    """תיקיית יעד לשמירת גופן מיוצא (כתיבה למשתמש, לא תיקיית מערכת)."""
+    home = os.path.expanduser("~")
+    for sub in (
+        "Downloads",
+        "הורדות",
+        "Desktop",
+        "שולחן עבודה",
+        "Documents",
+        "מסמכים",
+    ):
+        p = os.path.join(home, sub)
+        if os.path.isdir(p):
+            return p
+    ed = os.path.join(home, ".taginim_editor", "exports")
+    os.makedirs(ed, exist_ok=True)
+    return ed
+
+
 def font_search_ms_uri() -> str:
     """חיפוש Windows במיקום C:\\Fonts.
 
