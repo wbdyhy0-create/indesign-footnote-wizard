@@ -302,7 +302,8 @@ class TaginimEditorCanvas(QWidget):
         self._glyph_qimage: Optional[Any] = None
         self._ox: int = 0
         self._oy: int = 0
-        self._px_per_fu: float = 1.0
+        self._px_per_fu_x: float = 1.0
+        self._px_per_fu_y: float = 1.0
         self._bbox_center_x_fu: float = 0.0
         self._bbox_top_fu: float = 0.0
         self._tag_count: int = 1
@@ -324,14 +325,16 @@ class TaginimEditorCanvas(QWidget):
         qimage: Any,
         ox: int,
         oy: int,
-        px_per_fu: float,
+        px_per_fu_x: float,
+        px_per_fu_y: float,
         bbox_center_x_fu: float,
         bbox_top_fu: float,
     ) -> None:
         self._glyph_qimage = qimage
         self._ox = ox
         self._oy = oy
-        self._px_per_fu = max(px_per_fu, 1e-6)
+        self._px_per_fu_x = max(px_per_fu_x, 1e-6)
+        self._px_per_fu_y = max(px_per_fu_y, 1e-6)
         self._bbox_center_x_fu = bbox_center_x_fu
         self._bbox_top_fu = bbox_top_fu
         self.update()
@@ -364,22 +367,22 @@ class TaginimEditorCanvas(QWidget):
         self.update()
 
     def _fu_to_px(self, slot_x: float) -> Tuple[float, float]:
-        """בסיס תחתית הקו לתג (פיקסלים). group כלול ב-slot_x או נפרד — כאן slot+group."""
-        cx_px = self._ox + (self._bbox_center_x_fu + slot_x) * self._px_per_fu
-        top_px = self._oy - self._bbox_top_fu * self._px_per_fu
-        base_y_px = top_px - self._group_dy_fu * self._px_per_fu
+        """בסיס תחתית הקו לתג (פיקסלים). אנכי: y_max מהגליף × px_per_fu_y — כמו בהטמעה לגופן."""
+        cx_px = self._ox + (self._bbox_center_x_fu + slot_x) * self._px_per_fu_x
+        top_px = self._oy - self._bbox_top_fu * self._px_per_fu_y
+        base_y_px = top_px - self._group_dy_fu * self._px_per_fu_y
         return cx_px, base_y_px
 
     def _hit_package(self, mx: float, my: float) -> bool:
-        hit_pad = max(14.0, self._stem_w_fu * self._px_per_fu * 2.0)
+        hit_pad = max(14.0, self._stem_w_fu * self._px_per_fu_x * 2.0)
         for i in range(self._tag_count):
             slot = self._slot_x_fu[i] if i < len(self._slot_x_fu) else 0.0
             slot_x = slot + self._group_dx_fu
             cx, base_y = self._fu_to_px(slot_x)
             stem_h = self._stem_h_list_fu[i] if i < len(self._stem_h_list_fu) else self._stem_h_list_fu[0]
-            half_w = max(2.0, self._stem_w_fu * self._px_per_fu * 0.5)
-            top_y = base_y - stem_h * self._px_per_fu
-            dot_r_px = self._dot_r_fu * self._px_per_fu
+            half_w = max(2.0, self._stem_w_fu * self._px_per_fu_x * 0.5)
+            top_y = base_y - stem_h * self._px_per_fu_y
+            dot_r_px = self._dot_r_fu * self._px_per_fu_y
             # מלבן גס סביב קו+נקודה
             left = cx - half_w - hit_pad * 0.3
             right = cx + half_w + hit_pad * 0.3
@@ -394,7 +397,10 @@ class TaginimEditorCanvas(QWidget):
         p.fillRect(self.rect(), QBrush(QColor(255, 255, 255)))
         if self._glyph_qimage is not None:
             p.drawImage(self._ox, self._oy, self._glyph_qimage)
-        pen_line = QPen(QColor(30, 30, 30), max(1, int(round(self._stem_w_fu * self._px_per_fu))))
+        pen_line = QPen(
+            QColor(30, 30, 30),
+            max(1, int(round(self._stem_w_fu * self._px_per_fu_x))),
+        )
         pen_line.setCapStyle(Qt.RoundCap)
         p.setPen(pen_line)
         p.setBrush(QBrush(QColor(30, 30, 30)))
@@ -403,16 +409,16 @@ class TaginimEditorCanvas(QWidget):
             slot_x = slot + self._group_dx_fu
             cx, base_y = self._fu_to_px(slot_x)
             stem_h = self._stem_h_list_fu[i] if i < len(self._stem_h_list_fu) else self._stem_h_list_fu[0]
-            half_w = max(1.0, self._stem_w_fu * self._px_per_fu * 0.5)
-            top_y = base_y - stem_h * self._px_per_fu
+            half_w = max(1.0, self._stem_w_fu * self._px_per_fu_x * 0.5)
+            top_y = base_y - stem_h * self._px_per_fu_y
             p.fillRect(
                 int(round(cx - half_w)),
                 int(round(top_y)),
                 int(round(half_w * 2)),
-                int(round(stem_h * self._px_per_fu)),
+                int(round(stem_h * self._px_per_fu_y)),
                 QColor(30, 30, 30),
             )
-            dot_r_px = self._dot_r_fu * self._px_per_fu
+            dot_r_px = self._dot_r_fu * self._px_per_fu_y
             cy_dot = top_y - dot_r_px
             p.setPen(Qt.NoPen)
             p.setBrush(QBrush(QColor(30, 30, 30)))
@@ -436,8 +442,8 @@ class TaginimEditorCanvas(QWidget):
             if self._last_mouse is not None and self._drag_delta_cb is not None:
                 dx_px = e.x() - self._last_mouse.x()
                 dy_px = e.y() - self._last_mouse.y()
-                ddx = dx_px / self._px_per_fu
-                ddy = -dy_px / self._px_per_fu
+                ddx = dx_px / self._px_per_fu_x
+                ddy = -dy_px / self._px_per_fu_y
                 self._drag_delta_cb(ddx, ddy)
                 self.tagDragged.emit()
             self._last_mouse = e.pos()
@@ -948,18 +954,25 @@ class MainWindow(QMainWindow):
         w, h = bw, bh
         upem = float(self._upem)
         asc = float(self._ascender)
-        px_per_fu = float(h) / asc if asc > 0 else 1.0
         gname = self._glyph_name(self._current_cp)
         bbox_cx = upem * 0.35
         bbox_top = asc
+        px_per_fu_x = float(w) / asc if asc > 0 else 1.0
+        px_per_fu_y = float(h) / asc if asc > 0 else 1.0
         if gname:
             b = self._glyph_bounds_fu(gname)
             if b:
-                bbox_cx = (b[0] + b[2]) * 0.5
-                bbox_top = b[3]
+                x0, y0, x1, y1 = map(float, b)
+                bbox_cx = (x0 + x1) * 0.5
+                bbox_top = y1
+                ink_w = max(1.0, x1 - x0)
+                ink_h = max(1.0, y1 - y0)
+                # קריטי: מיפוי לפי תיבת הדיו של הגליף — לא ascender כללי (אחרת group_dy שגוי מול הטמעה)
+                px_per_fu_x = float(w) / ink_w
+                px_per_fu_y = float(h) / ink_h
         ox = int((400 - w) // 2 - left)
         oy = int(320 - top)
-        self._canvas.set_render_state(qimg, ox, oy, px_per_fu, bbox_cx, bbox_top)
+        self._canvas.set_render_state(qimg, ox, oy, px_per_fu_x, px_per_fu_y, bbox_cx, bbox_top)
 
     def _update_canvas_geometry(self) -> None:
         ls = self._current_letter_settings()
