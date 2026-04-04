@@ -315,9 +315,6 @@ class TaginimEditorCanvas(QWidget):
         self._px_per_fu_x: float = 1.0
         self._px_per_fu_y: float = 1.0
         self._bbox_center_x_fu: float = 0.0
-        self._bbox_top_fu: float = 0.0
-        # מרחק בפיקסלים מראש הביטמאפ לקו הבסיס (FreeType bitmap_top); מתאים ל־oy.
-        self._bitmap_top_px: int = 0
         self._tag_count: int = 1
         self._group_dx_fu: float = 0.0
         self._group_dy_fu: float = 0.0
@@ -340,8 +337,6 @@ class TaginimEditorCanvas(QWidget):
         px_per_fu_x: float,
         px_per_fu_y: float,
         bbox_center_x_fu: float,
-        bbox_top_fu: float,
-        bitmap_top_px: int = 0,
     ) -> None:
         self._glyph_qimage = qimage
         self._ox = ox
@@ -349,8 +344,6 @@ class TaginimEditorCanvas(QWidget):
         self._px_per_fu_x = max(px_per_fu_x, 1e-6)
         self._px_per_fu_y = max(px_per_fu_y, 1e-6)
         self._bbox_center_x_fu = bbox_center_x_fu
-        self._bbox_top_fu = bbox_top_fu
-        self._bitmap_top_px = max(0, int(bitmap_top_px))
         self.update()
 
     def set_geometry(
@@ -381,18 +374,14 @@ class TaginimEditorCanvas(QWidget):
         self.update()
 
     def _fu_to_px(self, slot_x: float) -> Tuple[float, float]:
-        """בסיס התג בפיקסלים (שפת התחתית של הקו מול האות), כמו y_stem_bottom בהטמעה.
+        """בסיס התג בפיקסלים (שפת התחתית של הקו מול האות), תואם ל־y_stem_bottom בהטמעה.
 
-        FreeType: bitmap_top = מרחק מהבסיס לראש הביטמאפ; oy הוא y של ראש הביטמאפ ב־Qt.
-        קו הבסיס בפיקסלים = oy + bitmap_top. ביחידות גופן Y עולה — ב־Qt יורד.
+        oy הוא קצה עליון הביטמאפ; מיפוי לינארי: קו y=y1 (ראש תיבת הדיו) יושב על oy.
+        נקודה ב־y = y1 + group_dy → מסך: oy + (y1 - (y1+dy))*sy = oy - dy*sy.
+        כך נמנעים מאי־התאמה בין bitmap_top לבין y1*sy בגופנים עם hinting / bbox.
         """
         cx_px = self._ox + (self._bbox_center_x_fu + slot_x) * self._px_per_fu_x
-        baseline_px = float(self._oy + self._bitmap_top_px)
-        base_y_px = (
-            baseline_px
-            - self._bbox_top_fu * self._px_per_fu_y
-            - self._group_dy_fu * self._px_per_fu_y
-        )
+        base_y_px = self._oy - self._group_dy_fu * self._px_per_fu_y
         return cx_px, base_y_px
 
     def _hit_package(self, mx: float, my: float) -> bool:
@@ -1004,7 +993,6 @@ class MainWindow(QMainWindow):
         asc = float(self._ascender)
         gname = self._glyph_name(self._current_cp)
         bbox_cx = upem * 0.35
-        bbox_top = asc
         px_per_fu_x = float(w) / asc if asc > 0 else 1.0
         px_per_fu_y = float(h) / asc if asc > 0 else 1.0
         if gname:
@@ -1012,7 +1000,6 @@ class MainWindow(QMainWindow):
             if b:
                 x0, y0, x1, y1 = map(float, b)
                 bbox_cx = (x0 + x1) * 0.5
-                bbox_top = y1
                 ink_w = max(1.0, x1 - x0)
                 ink_h = max(1.0, y1 - y0)
                 # קריטי: מיפוי לפי תיבת הדיו של הגליף — לא ascender כללי (אחרת group_dy שגוי מול הטמעה)
@@ -1020,9 +1007,7 @@ class MainWindow(QMainWindow):
                 px_per_fu_y = float(h) / ink_h
         ox = int((400 - w) // 2 - left)
         oy = int(320 - top)
-        self._canvas.set_render_state(
-            qimg, ox, oy, px_per_fu_x, px_per_fu_y, bbox_cx, bbox_top, bitmap_top_px=top
-        )
+        self._canvas.set_render_state(qimg, ox, oy, px_per_fu_x, px_per_fu_y, bbox_cx)
 
     def _update_canvas_geometry(self) -> None:
         ls = self._current_letter_settings()
