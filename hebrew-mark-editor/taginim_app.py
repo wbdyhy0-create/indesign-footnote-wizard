@@ -70,8 +70,23 @@ def _pil_rgb_to_qimage(pil_rgb: Image.Image) -> QImage:
     return q.copy()
 
 
-THREE_TAGINIM_CP: Tuple[int, ...] = (0x05E9, 0x05E2, 0x05D8, 0x05E0, 0x05D6, 0x05D2, 0x05E6)
+# שעטנז״גץ + נון סופית וצדי סופית (אותו מספר תגין כמו נ״ץ רגילות ב־STaM)
+THREE_TAGINIM_CP: Tuple[int, ...] = (
+    0x05E9,
+    0x05E2,
+    0x05D8,
+    0x05E0,
+    0x05DF,
+    0x05D6,
+    0x05D2,
+    0x05E6,
+    0x05E5,
+)
 ONE_TAG_CP: Tuple[int, ...] = (0x05D1, 0x05D3, 0x05E7, 0x05D7, 0x05D9, 0x05D4)
+
+SHIN_CP = 0x05E9
+# InDesign ויישומים אחרים לעיתים ממפים שין לגליפים אלו (נקודות משולבות)
+SHIN_VARIANT_CPS: Tuple[int, ...] = (0xFB2C, 0xFB2D)
 
 
 def _cmap_cp_to_glyph_name(font: TTFont, cp: int) -> Optional[str]:
@@ -316,6 +331,38 @@ class LetterSettings:
             ls.tags[0].dx_fu = 0.0
             ls.tags[0].dy_fu = 0.0
         return ls
+
+
+def _glyph_embed_job_list(
+    font: TTFont,
+    by_cp: Dict[int, LetterSettings],
+    letter_cps: List[int],
+) -> List[Tuple[str, LetterSettings]]:
+    """רשימת (שם גליף, הגדרות) ללא כפילויות — כולל וריאנטי שין ל־InDesign."""
+    cmap = font.getBestCmap() or {}
+    gs = font.getGlyphSet()
+    seen: set[str] = set()
+    out: List[Tuple[str, LetterSettings]] = []
+
+    def try_add(cp: int, ls: Optional[LetterSettings]) -> None:
+        if ls is None or not ls.embed_in_font:
+            return
+        gname = _cmap_cp_to_glyph_name(font, cp)
+        if not gname or gname not in gs:
+            return
+        if gname in seen:
+            return
+        seen.add(gname)
+        out.append((gname, ls))
+
+    for cp in letter_cps:
+        try_add(cp, by_cp.get(cp))
+    shin_ls = by_cp.get(SHIN_CP)
+    if shin_ls is not None and shin_ls.embed_in_font:
+        for vcp in SHIN_VARIANT_CPS:
+            if vcp in cmap:
+                try_add(vcp, shin_ls)
+    return out
 
 
 class TaginimEditorCanvas(QWidget):
@@ -1177,13 +1224,7 @@ class MainWindow(QMainWindow):
             return
         try:
             glyph_set = font.getGlyphSet()
-            for cp in all_cp:
-                ls = self._by_cp.get(cp)
-                if ls is None or not ls.embed_in_font:
-                    continue
-                gname = _cmap_cp_to_glyph_name(font, cp)
-                if not gname or gname not in glyph_set:
-                    continue
+            for gname, ls in _glyph_embed_job_list(font, self._by_cp, all_cp):
                 self._embed_taginim_in_glyph(font, glyph_set, gname, ls)
             _suffix_export_font_name_table(font)
             try:
@@ -1221,7 +1262,8 @@ class MainWindow(QMainWindow):
             "מתיקיית גופני Windows — השמירה ל־Downloads / שולחן עבודה / מסמכים (לפי מה שקיים). "
             "שם הקובץ מסתיים ב־_taginim.ttf\n\n"
             "להתקנה בווינדוס: לחיצה ימנית על הקובץ → התקנה למשתמש.\n"
-            "ב־InDesign: בחר גופן עם הסיומת Taginim ברשימת המשפחות."
+            "ב־InDesign: בחר גופן עם הסיומת Taginim ברשימת המשפחות.\n"
+            "אם שין בלי תגין: הטמעה כוללת גם גליפי שין עם נקודה (U+FB2C/U+FB2D) כשקיימים בגופן."
         )
         btn_open = box.addButton("פתח תיקייה ב־Explorer", QMessageBox.ActionRole)
         btn_close = box.addButton("סגור", QMessageBox.RejectRole)
