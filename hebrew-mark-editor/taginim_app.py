@@ -29,6 +29,7 @@ from windows_font_dirs import (
     default_taginim_export_directory,
     is_windows_font_install_directory,
     launch_windows_font_search,
+    tagin_save_candidate_paths,
 )
 
 from PyQt5.QtCore import QPoint, Qt, pyqtSignal
@@ -54,6 +55,18 @@ from PyQt5.QtWidgets import (
 )
 
 # --- אותיות ותגין ---
+
+
+def _is_save_access_denied(err: BaseException) -> bool:
+    """כשל כתיבה / קובץ נעול / הרשאות — ממשיכים לנתיב חלופי או דיאלוג שמירה."""
+    if isinstance(err, PermissionError):
+        return True
+    if isinstance(err, OSError):
+        if err.errno in (13, 1):  # EACCES / EPERM
+            return True
+        if getattr(err, "winerror", None) == 5:
+            return True
+    return False
 
 
 def _pil_rgb_to_qimage(pil_rgb: Image.Image) -> QImage:
@@ -1326,16 +1339,66 @@ class MainWindow(QMainWindow):
             for gname, ls in _glyph_embed_job_list(font, self._by_cp, all_cp):
                 self._embed_taginim_in_glyph(font, glyph_set, gname, ls)
             _suffix_export_font_name_table(font)
-            try:
-                font.save(out_path)
-            except PermissionError:
-                fb = default_taginim_export_directory()
-                alt = os.path.join(fb, out_name)
-                font.save(alt)
-                out_path = alt
+
+            candidates = tagin_save_candidate_paths(out_name, out_path)
+            primary_target = candidates[0]
+            saved_to: Optional[str] = None
+            saved_via_dialog = False
+            for cand in candidates:
+                try:
+                    par = os.path.dirname(cand)
+                    if par and not os.path.isdir(par):
+                        os.makedirs(par, exist_ok=True)
+                    font.save(cand)
+                    saved_to = cand
+                    break
+                except (PermissionError, OSError) as e:
+                    if _is_save_access_denied(e):
+                        continue
+                    raise
+
+            if saved_to is None:
+                start_dir = default_taginim_export_directory()
+                fd_opts = QFileDialog.Options()
+                fd_opts |= QFileDialog.DontUseNativeDialog
+                picked, _ = QFileDialog.getSaveFileName(
+                    self,
+                    "שמור גופן בשם",
+                    os.path.join(start_dir, out_name),
+                    "TrueType (*.ttf)",
+                    options=fd_opts,
+                )
+                if not picked:
+                    return
+                if not picked.lower().endswith(".ttf"):
+                    picked += ".ttf"
+                try:
+                    pdir = os.path.dirname(picked)
+                    if pdir and not os.path.isdir(pdir):
+                        os.makedirs(pdir, exist_ok=True)
+                    font.save(picked)
+                    saved_to = picked
+                    saved_via_dialog = True
+                    export_note = "נשמר לנתיב שבחרתם בדיאלוג."
+                except (PermissionError, OSError) as e2:
+                    QMessageBox.critical(
+                        self,
+                        "שגיאה",
+                        "שמירה נכשלה גם אחרי בחירת נתיב.\n\n"
+                        f"{type(e2).__name__}: {e2}\n\n"
+                        "סגרו יישומים שעשויים לנעול את הקובץ (למשל תצוגה מקדימה של גופן), "
+                        "או שמרו לשם קובץ אחר / תיקייה אחרת.",
+                    )
+                    return
+
+            out_path = saved_to
+            if not saved_via_dialog and os.path.normcase(os.path.abspath(saved_to)) != os.path.normcase(
+                os.path.abspath(primary_target)
+            ):
                 export_note = (
-                    "אין הרשאת כתיבה לתיקיית המקור. "
-                    f"הקובץ נשמר ב־\n{out_path}"
+                    "הנתיב הראשון לשמירה לא זמין לכתיבה (הרשאות, קובץ בשימוש או סנכרון תיקייה). "
+                    f"הקובץ נשמר בפועל ב־\n{saved_to}\n\n"
+                    "להתקנה: לחיצה ימנית על הקובץ → התקנה למשתמש."
                 )
         except Exception as e:
             QMessageBox.critical(
@@ -1343,8 +1406,9 @@ class MainWindow(QMainWindow):
                 "שגיאה",
                 "שמירה נכשלה.\n\n"
                 f"{type(e).__name__}: {e}\n\n"
-                "אם זו שגיאת הרשאות — שמור את קובץ ה־TTF המקורי בתיקייה רגילה (למשל שולחן עבודה) "
-                "ופתח משם, או התקן את הגופן המיוצא דרך לחיצה ימנית → התקנה למשתמש.",
+                "אם זו שגיאת הרשאות או קובץ נעול — נסו שוב אחרי סגירת תצוגת גופן / יישום שמשתמש בקובץ, "
+                "או שמרו דרך הדיאלוג לתיקייה אחרת (למשל שולחן עבודה או "
+                f"{os.path.join(os.path.expanduser('~'), '.taginim_editor', 'exports')}).",
             )
             return
         finally:

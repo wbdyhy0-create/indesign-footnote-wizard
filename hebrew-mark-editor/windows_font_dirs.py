@@ -5,6 +5,7 @@ from __future__ import annotations
 import ctypes
 import os
 import sys
+import tempfile
 from typing import List
 
 
@@ -112,6 +113,56 @@ def default_taginim_export_directory() -> str:
     ed = os.path.join(home, ".taginim_editor", "exports")
     os.makedirs(ed, exist_ok=True)
     return ed
+
+
+def tagin_save_candidate_paths(out_name: str, primary_full_path: str) -> List[str]:
+    """נתיבים לנסות לשמירת _taginim.ttf לפי סדר: ליד המקור, ואז תיקיות אחרות בלי כפילות.
+
+    מונע מצב שבו נכשלים ב־Documents ואז «גיבוי» מנסה שוב את אותה תיקיית Documents.
+    """
+    primary_full_path = os.path.normpath(os.path.abspath(primary_full_path))
+    primary_dir = os.path.normcase(os.path.dirname(primary_full_path))
+    out: List[str] = []
+    seen_file: set[str] = set()
+    seen_dir: set[str] = set()
+
+    def add_file(full: str) -> None:
+        full = os.path.normpath(os.path.abspath(full))
+        k = os.path.normcase(full)
+        if k in seen_file:
+            return
+        seen_file.add(k)
+        out.append(full)
+
+    def add_in_dir(dir_path: str) -> None:
+        if not os.path.isdir(dir_path):
+            return
+        d = os.path.normcase(os.path.abspath(dir_path))
+        if d in seen_dir:
+            return
+        seen_dir.add(d)
+        add_file(os.path.join(dir_path, out_name))
+
+    add_file(primary_full_path)
+    seen_dir.add(primary_dir)
+
+    home = os.path.expanduser("~")
+    for sub in (
+        "Downloads",
+        "הורדות",
+        "Desktop",
+        "שולחן עבודה",
+        "Documents",
+        "מסמכים",
+    ):
+        add_in_dir(os.path.join(home, sub))
+
+    ed = os.path.join(home, ".taginim_editor", "exports")
+    os.makedirs(ed, exist_ok=True)
+    add_in_dir(ed)
+
+    add_in_dir(tempfile.gettempdir())
+    return out
 
 
 def font_search_ms_uri() -> str:
