@@ -31,6 +31,7 @@ from PyQt5.QtGui import QBrush, QColor, QFont, QImage, QKeySequence, QPainter, Q
 from PyQt5.QtWidgets import (
     QAction,
     QApplication,
+    QCheckBox,
     QFileDialog,
     QFormLayout,
     QGroupBox,
@@ -231,6 +232,8 @@ class LetterSettings:
     group_dy_fu: float = 0.0
     """מכפיל על גודל התגין (קו, נקודה, מרווח)."""
     package_scale: float = 1.0
+    """אם כבוי — לא מוסיפים contours לאות זו בקובץ ה־_taginim (רק תצוגה בעורך)."""
+    embed_in_font: bool = False
     tags: List[TagPosition] = field(default_factory=list)
 
     def ensure_tags(self) -> None:
@@ -252,6 +255,7 @@ class LetterSettings:
             "group_dx_fu": self.group_dx_fu,
             "group_dy_fu": self.group_dy_fu,
             "package_scale": self.package_scale,
+            "embed_in_font": self.embed_in_font,
             "tags": [{"dx_fu": t.dx_fu, "dy_fu": t.dy_fu} for t in self.tags],
         }
 
@@ -269,6 +273,7 @@ class LetterSettings:
             group_dx_fu=float(d.get("group_dx_fu", 0.0)),
             group_dy_fu=float(d.get("group_dy_fu", 0.0)),
             package_scale=float(d.get("package_scale", 1.0)),
+            embed_in_font=bool(d.get("embed_in_font", True)),
             tags=tags,
         )
         ls.ensure_tags()
@@ -515,8 +520,17 @@ class MainWindow(QMainWindow):
         ):
             s.sliderPressed.connect(self._push_undo)
 
+        self._chk_embed_in_font = QCheckBox("להטמיע תגין לאות זו בקובץ הגופן בעת «שמור גופן חדש»")
+        self._chk_embed_in_font.setToolTip(
+            "כבוי: התגין מוצג רק בעורך — האות לא תשתנה בקובץ ה־_taginim. "
+            "סמן רק את האותיות שבאמת רוצים לשמור עם תגין."
+        )
+        self._chk_embed_in_font.pressed.connect(self._push_undo)
+        self._chk_embed_in_font.stateChanged.connect(self._on_embed_in_font_changed)
+
         settings_box = QGroupBox("הגדרות תג")
         form = QFormLayout()
+        form.addRow(self._chk_embed_in_font)
         form.addRow("גובה התג (יחס לגובה האות):", self._slider_height)
         form.addRow("עודף גובה תג אמצעי (שלושה):", self._slider_middle_boost)
         form.addRow("קנה מידה לחבילת תגין:", self._slider_pkg_scale)
@@ -905,6 +919,22 @@ class MainWindow(QMainWindow):
         self._update_canvas_geometry()
         self._save_settings_file()
 
+    def _on_embed_in_font_changed(self, state: int) -> None:
+        if self._undo_suspend:
+            return
+        ls = self._current_letter_settings()
+        if ls is None:
+            return
+        ls.embed_in_font = state == Qt.Checked
+        self._save_settings_file()
+
+    def _sync_embed_checkbox(self, ls: LetterSettings) -> None:
+        self._undo_suspend += 1
+        try:
+            self._chk_embed_in_font.setChecked(ls.embed_in_font)
+        finally:
+            self._undo_suspend -= 1
+
     def _ink_height_fu(self, ls: LetterSettings) -> float:
         gname = self._glyph_name(ls.codepoint)
         if gname:
@@ -926,6 +956,7 @@ class MainWindow(QMainWindow):
         if ls is None:
             return
         self._letter_to_sliders(ls)
+        self._sync_embed_checkbox(ls)
         self._render_glyph_preview()
         self._update_canvas_geometry()
 
@@ -1017,11 +1048,24 @@ class MainWindow(QMainWindow):
             font.close()
             QMessageBox.warning(self, "שגיאה", "אין טבלת glyf.")
             return
+        all_cp = list(THREE_TAGINIM_CP) + list(ONE_TAG_CP)
+        n_marked = sum(
+            1 for cp in all_cp if self._by_cp.get(cp) is not None and self._by_cp[cp].embed_in_font
+        )
+        if n_marked == 0:
+            font.close()
+            QMessageBox.warning(
+                self,
+                "אין אותיות לשמירה",
+                "לא סומנה אף אות ב־«להטמיע תגין לאות זו בקובץ הגופן».\n\n"
+                "סמן רק את האותיות שרוצים שייכללו בקובץ ה־_taginim, ואז שמור שוב.",
+            )
+            return
         try:
             glyph_set = font.getGlyphSet()
-            for cp in list(THREE_TAGINIM_CP) + list(ONE_TAG_CP):
+            for cp in all_cp:
                 ls = self._by_cp.get(cp)
-                if ls is None:
+                if ls is None or not ls.embed_in_font:
                     continue
                 gname = _cmap_cp_to_glyph_name(font, cp)
                 if not gname or gname not in glyph_set:

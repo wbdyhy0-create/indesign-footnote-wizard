@@ -90,7 +90,7 @@
 
 ## Hebrew mark editor (local tool)
 - Folder `hebrew-mark-editor/`: Python + tkinter + fonttools GUI to adjust Hebrew mark positions via GPOS Mark-to-Base (`editor.py`, `pip install -r hebrew-mark-editor/requirements.txt`).
-- Same folder: `taginim_app.py` — PyQt5 + fonttools + freetype + Pillow to draw and embed classical תגין on Hebrew letters (TrueType `glyf` only); run `run_taginim.bat` or `python taginim_app.py`; settings per font in `<font>.taginim.json`; global Shaatnez preset in `~/.taginim_editor/shaatnez_preset.json` (save/apply in UI).
+- Same folder: `taginim_app.py` — PyQt5 + fonttools + freetype + Pillow to draw and embed classical תגין on Hebrew letters (TrueType `glyf` only); run `run_taginim.bat` or `python taginim_app.py`; settings per font in `<font>.taginim.json`; per-letter checkbox **«להטמיע תגין…»** controls which letters are written into the exported `_taginim` font (default off for new letters; JSON without `embed_in_font` still defaults to on for backward compatibility); global Shaatnez preset in `~/.taginim_editor/shaatnez_preset.json` (save/apply in UI).
 
 ## Notes for Next Agent
 - Read this file first before making changes.
