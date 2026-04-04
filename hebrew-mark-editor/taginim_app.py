@@ -316,6 +316,8 @@ class TaginimEditorCanvas(QWidget):
         self._px_per_fu_y: float = 1.0
         self._bbox_center_x_fu: float = 0.0
         self._bbox_top_fu: float = 0.0
+        # מרחק בפיקסלים מראש הביטמאפ לקו הבסיס (FreeType bitmap_top); מתאים ל־oy.
+        self._bitmap_top_px: int = 0
         self._tag_count: int = 1
         self._group_dx_fu: float = 0.0
         self._group_dy_fu: float = 0.0
@@ -339,6 +341,7 @@ class TaginimEditorCanvas(QWidget):
         px_per_fu_y: float,
         bbox_center_x_fu: float,
         bbox_top_fu: float,
+        bitmap_top_px: int = 0,
     ) -> None:
         self._glyph_qimage = qimage
         self._ox = ox
@@ -347,6 +350,7 @@ class TaginimEditorCanvas(QWidget):
         self._px_per_fu_y = max(px_per_fu_y, 1e-6)
         self._bbox_center_x_fu = bbox_center_x_fu
         self._bbox_top_fu = bbox_top_fu
+        self._bitmap_top_px = max(0, int(bitmap_top_px))
         self.update()
 
     def set_geometry(
@@ -377,10 +381,18 @@ class TaginimEditorCanvas(QWidget):
         self.update()
 
     def _fu_to_px(self, slot_x: float) -> Tuple[float, float]:
-        """בסיס תחתית הקו לתג (פיקסלים). אנכי: y_max מהגליף × px_per_fu_y — כמו בהטמעה לגופן."""
+        """בסיס התג בפיקסלים (שפת התחתית של הקו מול האות), כמו y_stem_bottom בהטמעה.
+
+        FreeType: bitmap_top = מרחק מהבסיס לראש הביטמאפ; oy הוא y של ראש הביטמאפ ב־Qt.
+        קו הבסיס בפיקסלים = oy + bitmap_top. ביחידות גופן Y עולה — ב־Qt יורד.
+        """
         cx_px = self._ox + (self._bbox_center_x_fu + slot_x) * self._px_per_fu_x
-        top_px = self._oy - self._bbox_top_fu * self._px_per_fu_y
-        base_y_px = top_px - self._group_dy_fu * self._px_per_fu_y
+        baseline_px = float(self._oy + self._bitmap_top_px)
+        base_y_px = (
+            baseline_px
+            - self._bbox_top_fu * self._px_per_fu_y
+            - self._group_dy_fu * self._px_per_fu_y
+        )
         return cx_px, base_y_px
 
     def _hit_package(self, mx: float, my: float) -> bool:
@@ -1008,7 +1020,9 @@ class MainWindow(QMainWindow):
                 px_per_fu_y = float(h) / ink_h
         ox = int((400 - w) // 2 - left)
         oy = int(320 - top)
-        self._canvas.set_render_state(qimg, ox, oy, px_per_fu_x, px_per_fu_y, bbox_cx, bbox_top)
+        self._canvas.set_render_state(
+            qimg, ox, oy, px_per_fu_x, px_per_fu_y, bbox_cx, bbox_top, bitmap_top_px=top
+        )
 
     def _update_canvas_geometry(self) -> None:
         ls = self._current_letter_settings()
