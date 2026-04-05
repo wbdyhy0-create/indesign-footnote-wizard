@@ -1,4 +1,5 @@
 @echo off
+REM זה מפעיל את editor.py (העורך הישן). לעורך GPOS החדש: לחץ פעמיים על run_gpos_editor.bat
 setlocal EnableExtensions
 cd /d "%~dp0"
 
