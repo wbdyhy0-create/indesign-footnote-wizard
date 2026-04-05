@@ -1186,6 +1186,10 @@ class MainWindow(QMainWindow):
             self._undo_suspend -= 1
 
     def _on_sliders_changed(self) -> None:
+        # בזמן _letter_to_sliders (מעבר אות / רענון) setValue מפעיל valueChanged —
+        # בלי החזרה כאן נכתבים ל־ls של האות הנוכחית ערכים מעורבבים (חלק מהאות הקודמת).
+        if self._undo_suspend:
+            return
         ls = self._current_letter_settings()
         if ls is None:
             return
