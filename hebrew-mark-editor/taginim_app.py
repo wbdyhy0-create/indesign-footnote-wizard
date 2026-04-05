@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import io
 import json
 import math
 import os
@@ -116,13 +117,61 @@ SHIN_VARIANT_CPS: Tuple[int, ...] = (
 
 def _shin_variant_glyph_names(font: TTFont) -> set[str]:
     """שמות גליף לכל וריאנטי שין שמופיעים ב־cmap (לזיהוי בהטמעה)."""
-    cmap = font.getBestCmap() or {}
     out: set[str] = set()
     for cp in SHIN_VARIANT_CPS:
         g = _cmap_cp_to_glyph_name(font, cp)
         if g:
             out.add(g)
     return out
+
+
+def _glyph_names_for_codepoint(font: TTFont, cp: int) -> List[str]:
+    """כל שמות הגליף ב־cmap לאות (כולל וריאנטי שין) — ללא כפילויות."""
+    seen: set[str] = set()
+    out: List[str] = []
+    gs = font.getGlyphSet()
+
+    def add(code: int) -> None:
+        gn = _cmap_cp_to_glyph_name(font, code)
+        if gn and gn not in seen and gn in gs:
+            seen.add(gn)
+            out.append(gn)
+
+    add(cp)
+    if cp == SHIN_CP:
+        for v in SHIN_VARIANT_CPS:
+            add(v)
+    return out
+
+
+def _glyf_strip_last_contours(font: TTFont, gname: str, n_contours: int) -> bool:
+    """מסיר את n_contours הקונטורים האחרונים מגליף פשוט (לא מורכב). כל תג = 2 קונטורים (גזע + מעגל)."""
+    if n_contours <= 0:
+        return True
+    glyf = font["glyf"]
+    if gname not in glyf:
+        return False
+    g = glyf[gname]
+    nc = int(getattr(g, "numberOfContours", 0))
+    if nc < 0:
+        return False
+    if nc < n_contours:
+        return False
+    keep = nc - n_contours
+    if keep < 0:
+        return False
+    ends = list(g.endPtsOfContours)
+    last_keep_idx = int(ends[keep - 1])
+    g.coordinates = g.coordinates[: last_keep_idx + 1]
+    g.flags = g.flags[: last_keep_idx + 1]
+    g.endPtsOfContours = ends[:keep]
+    g.numberOfContours = keep
+    return True
+
+
+def _filename_looks_like_taginim_export(path: str) -> bool:
+    base = os.path.splitext(os.path.basename(path))[0].lower()
+    return "_taginim" in base
 
 
 def _cmap_cp_to_glyph_name(font: TTFont, cp: int) -> Optional[str]:
@@ -423,6 +472,8 @@ class LetterSettings:
     package_scale: float = 1.0
     """אם כבוי — לא מוסיפים contours לאות זו בקובץ ה־_taginim (רק תצוגה בעורך)."""
     embed_in_font: bool = False
+    """כמה תגין הוטמעו בשמירה האחרונה (לכל תג 2 קונטורים). לפני הטמעה חוזרת מוסרים אותם כדי למנוע כפל."""
+    embedded_tag_pairs: int = 0
     tags: List[TagPosition] = field(default_factory=list)
 
     def ensure_tags(self) -> None:
@@ -430,6 +481,8 @@ class LetterSettings:
         while len(self.tags) < n:
             self.tags.append(TagPosition())
         self.tags = self.tags[:n]
+        if self.embedded_tag_pairs > self.tag_count:
+            self.embedded_tag_pairs = self.tag_count
 
     def to_json(self) -> Dict[str, Any]:
         self.ensure_tags()
@@ -445,6 +498,7 @@ class LetterSettings:
             "group_dy_fu": self.group_dy_fu,
             "package_scale": self.package_scale,
             "embed_in_font": self.embed_in_font,
+            "embedded_tag_pairs": self.embedded_tag_pairs,
             "tags": [{"dx_fu": t.dx_fu, "dy_fu": t.dy_fu} for t in self.tags],
         }
 
@@ -465,6 +519,9 @@ class LetterSettings:
             package_scale=float(d.get("package_scale", 1.0)),
             # חסר ב־JSON = לא להטמיע (אחרת כל שעטנז״גץ/בד״ח נשמרו בגופן בלי שסימנו במפורש)
             embed_in_font=bool(d.get("embed_in_font", False)),
+            embedded_tag_pairs=max(
+                0, min(MAX_TAGINIM_PER_LETTER, int(d.get("embedded_tag_pairs", 0)))
+            ),
             tags=tags,
         )
         ls.ensure_tags()
@@ -509,6 +566,7 @@ def _default_letter_for_cp(cp: int) -> LetterSettings:
         group_dy_fu=0.0,
         package_scale=1.0,
         embed_in_font=False,
+        embedded_tag_pairs=0,
     )
     n = 3 if cp in THREE_TAGINIM_CP else 1
     ls = replace(base, codepoint=cp, tag_count=n, tags=[])
@@ -741,6 +799,7 @@ class MainWindow(QMainWindow):
         self._font_path: Optional[str] = None
         self._ttfont: Optional[TTFont] = None
         self._ft_face: Optional[freetype.Face] = None
+        self._ft_face_io: Optional[io.BytesIO] = None
         self._upem: int = 1000
         self._ascender: int = 800
         self._settings_path: Optional[str] = None
@@ -811,19 +870,26 @@ class MainWindow(QMainWindow):
         form.addRow(self._lbl_embed_status)
         self._btn_add_tagin = QPushButton("הוסף תג…")
         self._btn_remove_tagin = QPushButton("הסר תג אחרון")
+        self._btn_strip_baked = QPushButton("הסר תגין מוטמעים מהאות")
         self._btn_add_tagin.setToolTip(
             f"מוסיף תג נוסף לחבילה (עד {MAX_TAGINIM_PER_LETTER}). מרווחים נקבעים לפי סליידר המרווח."
         )
         self._btn_remove_tagin.setToolTip(
             "מקטין את מספר התגין. ב־0 — אין תגין על האות בעורך (ולא יוטבע בגופן)."
         )
+        self._btn_strip_baked.setToolTip(
+            "מוחק מהגליף בזיכרון את קונטורי התגין מהשמירה הקודמת (לפי מונה פנימי או לפי מספר התגין). "
+            "אחרי פתיחת ‎*_taginim.ttf‎ כמקור — לפני שמירה חוזרת, כדי למנוע כפל תגין."
+        )
         self._btn_add_tagin.clicked.connect(self._on_add_tagin)
         self._btn_remove_tagin.clicked.connect(self._on_remove_tagin)
+        self._btn_strip_baked.clicked.connect(self._on_strip_baked_taginim)
         tag_btn_row = QWidget()
         tbr = QHBoxLayout(tag_btn_row)
         tbr.setContentsMargins(0, 0, 0, 0)
         tbr.addWidget(self._btn_add_tagin)
         tbr.addWidget(self._btn_remove_tagin)
+        tbr.addWidget(self._btn_strip_baked)
         tbr.addStretch()
         form.addRow("חבילת תגין:", tag_btn_row)
         self._lbl_mm_hint = QLabel(
@@ -1097,12 +1163,31 @@ class MainWindow(QMainWindow):
             self._ttfont.close()
         self._ttfont = font
         self._ft_face = ft_face
+        self._ft_face_io = None
         self._font_path = path
         self._upem = int(font["head"].unitsPerEm)
         hhea = font.get("hhea")
         self._ascender = int(hhea.ascender) if hhea is not None else int(round(self._upem * 0.8))
         self._settings_path = path + ".taginim.json"
+        had_settings_json = os.path.isfile(self._settings_path)
         self._load_settings_file()
+        if had_settings_json and _filename_looks_like_taginim_export(path):
+            touched = False
+            for cp in list(THREE_TAGINIM_CP) + list(ONE_TAG_CP):
+                ls = self._by_cp[cp]
+                if ls.embed_in_font and ls.tag_count > 0 and ls.embedded_tag_pairs == 0:
+                    ls.embedded_tag_pairs = ls.tag_count
+                    touched = True
+            if touched:
+                self._save_settings_file()
+        elif not had_settings_json and _filename_looks_like_taginim_export(path):
+            QMessageBox.information(
+                self,
+                "גופן ייצוא ללא קובץ הגדרות",
+                "נטען קובץ ששמו מרמז על ייצוא תגין (‎*_taginim‎) אך לא נמצא לצדו ‎.taginim.json‎.\n\n"
+                "אם האותיות כבר כוללות תגין בקובץ — לפני שמירה חוזרת לחצו «הסר תגין מוטמעים מהאות» "
+                "על כל אות רלוונטית, או טענו את קובץ המקור לפני הטמעת התגין.",
+            )
         self._btn_save.setEnabled(True)
         try:
             self._refresh_letter_ui()
@@ -1479,11 +1564,14 @@ class MainWindow(QMainWindow):
         if ls is None:
             self._btn_add_tagin.setEnabled(False)
             self._btn_remove_tagin.setEnabled(False)
+            self._btn_strip_baked.setEnabled(False)
             self._slider_middle_boost.setEnabled(False)
             return
         n = ls.tag_count
+        tt_ok = self._ttfont is not None
         self._btn_add_tagin.setEnabled(n < MAX_TAGINIM_PER_LETTER)
         self._btn_remove_tagin.setEnabled(n > 0)
+        self._btn_strip_baked.setEnabled(tt_ok and n > 0)
         self._slider_middle_boost.setEnabled(n == 3)
 
     def _on_add_tagin(self) -> None:
@@ -1511,6 +1599,59 @@ class MainWindow(QMainWindow):
         ls.tag_count -= 1
         ls.ensure_tags()
         self._save_settings_file()
+        self._refresh_letter_ui()
+
+    def _reload_ft_face_from_memory(self) -> None:
+        """אחרי שינוי glyf ב־TTFont — טעינת freetype מזיכרון (הנתיב על הדיסק לא מתעדכן)."""
+        if self._ttfont is None:
+            return
+        bio = io.BytesIO()
+        self._ttfont.save(bio)
+        bio.seek(0)
+        self._ft_face_io = bio
+        if self._ft_face is not None:
+            try:
+                self._ft_face.close()
+            except Exception:
+                pass
+        self._ft_face = freetype.Face(bio, index=0)
+
+    def _on_strip_baked_taginim(self) -> None:
+        if self._ttfont is None or self._current_cp is None:
+            return
+        ls = self._by_cp.get(self._current_cp)
+        if ls is None or ls.tag_count <= 0:
+            return
+        pairs = ls.embedded_tag_pairs if ls.embedded_tag_pairs > 0 else ls.tag_count
+        n_strip = 2 * pairs
+        if n_strip <= 0:
+            return
+        r = QMessageBox.question(
+            self,
+            "הסרת תגין מוטמעים",
+            f"יוסרו {n_strip} קונטורים אחרונים מכל גליף של האות הנוכחית (לפי {pairs} תגין). "
+            "המתאר המקורי לפני ההטמעה לא נשמר בעורך — לשחזור מלא צריך לטעון מחדש את קובץ הגופן הבסיסי.\n\n"
+            "להמשיך?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        if r != QMessageBox.Yes:
+            return
+        failed: List[str] = []
+        for gname in _glyph_names_for_codepoint(self._ttfont, self._current_cp):
+            if not _glyf_strip_last_contours(self._ttfont, gname, n_strip):
+                failed.append(gname)
+        if failed:
+            QMessageBox.warning(
+                self,
+                "הסרה חלקית",
+                "לא ניתן להסיר (גליף מורכב או אין מספיק קונטורים):\n"
+                + ", ".join(failed[:14])
+                + ("\n…" if len(failed) > 14 else ""),
+            )
+        ls.embedded_tag_pairs = 0
+        self._save_settings_file()
+        self._reload_ft_face_from_memory()
         self._refresh_letter_ui()
 
     def _ink_height_fu(self, ls: LetterSettings) -> float:
@@ -1716,6 +1857,13 @@ class MainWindow(QMainWindow):
             per_tag_roof_y_fu=per_roof,
         )
 
+    def _record_embedded_pairs_after_save(self, all_cp: List[int]) -> None:
+        """אחרי שמירת גופן מוצלחת — מעדכן כמה זוגות קונטורים (תגין) יוסרו בשמירה הבאה."""
+        for cp in all_cp:
+            ls = self._by_cp[cp]
+            if ls.embed_in_font and ls.tag_count > 0:
+                ls.embedded_tag_pairs = ls.tag_count
+
     def _save_font(self) -> None:
         if self._ttfont is None or not self._font_path:
             return
@@ -1734,7 +1882,7 @@ class MainWindow(QMainWindow):
             )
         else:
             out_path = os.path.join(src_dir, out_name)
-        # תמיד מטעינים מקובץ המקור מחדש כדי שלא יושמו תגין פעמיים בשמירות חוזרות.
+        # טעינה מחדש מהנתיב: לפני הטמעה מוסרים קונטורים לפי embedded_tag_pairs (מניעת כפל כשהמקור הוא ‎*_taginim‎).
         font = TTFont(self._font_path, fontNumber=0)
         if "glyf" not in font:
             font.close()
@@ -1775,6 +1923,8 @@ class MainWindow(QMainWindow):
                         os.makedirs(par, exist_ok=True)
                     font.save(cand)
                     saved_to = cand
+                    self._record_embedded_pairs_after_save(all_cp)
+                    self._save_settings_file()
                     break
                 except (PermissionError, OSError) as e:
                     if _is_save_access_denied(e):
@@ -1803,6 +1953,8 @@ class MainWindow(QMainWindow):
                     font.save(picked)
                     saved_to = picked
                     saved_via_dialog = True
+                    self._record_embedded_pairs_after_save(all_cp)
+                    self._save_settings_file()
                     export_note = "נשמר לנתיב שבחרתם בדיאלוג."
                 except (PermissionError, OSError) as e2:
                     QMessageBox.critical(
@@ -1871,6 +2023,9 @@ class MainWindow(QMainWindow):
         ls: LetterSettings,
     ) -> None:
         ls.ensure_tags()
+        if ls.embedded_tag_pairs > 0:
+            n_strip = 2 * ls.embedded_tag_pairs
+            _glyf_strip_last_contours(font, gname, n_strip)
         upem = float(font["head"].unitsPerEm)
         hhea = font.get("hhea")
         _asc = float(hhea.ascender) if hhea is not None else upem * 0.8
