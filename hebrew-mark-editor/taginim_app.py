@@ -904,6 +904,7 @@ class TaginimEditorCanvas(QWidget):
 
     @staticmethod
     def _path_curved_stem_right_px(tcx: float, yb: float, yt: float, hw: float, bend: float) -> QPainterPath:
+        path = QPainterPath()
         H = abs(yb - yt)
         xl, xr = tcx - hw, tcx + hw
         lam = 0.13
