@@ -139,6 +139,20 @@ def _shin_variant_glyph_names(font: TTFont) -> set[str]:
     return out
 
 
+def _tagin_geometry_glyph_name(font: TTFont, gname: str) -> str:
+    """לחישוב גובה/עמודות תגין: וריאנטי שין משתמשים בגליף שין הבסיסי (U+05E9) כדי שלא נקודת סין/ניקוד תזניק את הגג."""
+    try:
+        gs = font.getGlyphSet()
+    except Exception:
+        return gname
+    base = _cmap_cp_to_glyph_name(font, SHIN_CP)
+    if not base or gname == base or base not in gs:
+        return gname
+    if gname in _shin_variant_glyph_names(font):
+        return base
+    return gname
+
+
 def _glyph_names_for_codepoint(font: TTFont, cp: int) -> List[str]:
     """כל שמות הגליף ב־cmap לאות (כולל וריאנטי שין) — ללא כפילויות."""
     seen: set[str] = set()
@@ -238,15 +252,33 @@ def _glyph_xy_points_for_band_search(font: TTFont, glyph_set: Any, gname: str) -
     return [(float(c[0]), float(c[1])) for c in coords]
 
 
+def _y_span_from_pts(pts: List[Tuple[float, float]]) -> float:
+    if len(pts) < 2:
+        return 1.0
+    ys = [y for _, y in pts]
+    return max(1.0, max(ys) - min(ys))
+
+
 def _max_y_in_vertical_band(
     pts: List[Tuple[float, float]],
     x_center: float,
     half_width: float,
     fallback_y: float,
 ) -> float:
+    """מקסימום Y בפס אנכי; אם יש נקודת ניקוד בודדת גבוהה מעל גוף האות — מתעלמים ממנה."""
     lo, hi = x_center - half_width, x_center + half_width
-    ys = [y for x, y in pts if lo <= x <= hi]
-    return max(ys) if ys else fallback_y
+    ys = sorted({y for x, y in pts if lo <= x <= hi})
+    if not ys:
+        return fallback_y
+    if len(ys) == 1:
+        return ys[0]
+    span = _y_span_from_pts(pts)
+    y_hi = ys[-1]
+    y_next = ys[-2]
+    jump = y_hi - y_next
+    if jump > max(28.0, 0.11 * span):
+        return y_next
+    return y_hi
 
 
 def _bundle_top_y_fu_for_taginim(
@@ -269,7 +301,7 @@ def _bundle_top_y_fu_for_taginim(
         tcx = cx + group_dx
         half_band = max(ink_w * 0.11, half_w * 2.5, 22.0)
         return _max_y_in_vertical_band(pts, tcx, half_band, y_fallback)
-    if n_tags >= 2 and len(pts) >= 8:
+    if n_tags >= 2 and len(pts) >= 4:
         half_band = max(spacing * 0.5, ink_w * 0.09, half_w * 2.2, 24.0)
         mid = (n_tags - 1) / 2.0
         roofs = [
@@ -1948,12 +1980,17 @@ class MainWindow(QMainWindow):
         upem = float(self._upem)
         asc = float(self._ascender)
         gname = self._glyph_name(self._current_cp)
+        geom_gn = (
+            _tagin_geometry_glyph_name(self._ttfont, gname)
+            if self._ttfont is not None and gname
+            else gname
+        )
         bbox_cx = upem * 0.35
         bbox_y_top = asc
         px_per_fu_x = float(w) / asc if asc > 0 else (x_ppem / max(upem_ft, 1.0))
         ink_x0 = 0.0
-        if gname:
-            b = self._glyph_bounds_fu(gname)
+        if geom_gn:
+            b = self._glyph_bounds_fu(geom_gn)
             if b:
                 x0, y0, x1, y1 = map(float, b)
                 ink_x0 = x0
@@ -2004,13 +2041,14 @@ class MainWindow(QMainWindow):
         spacing_fu = ls.spacing_frac * ink_w * sc
         gname_ed = self._glyph_name(ls.codepoint)
         if n > 0 and gname_ed and self._ttfont is not None:
-            bb = self._glyph_bounds_fu(gname_ed)
+            geom_gn = _tagin_geometry_glyph_name(self._ttfont, gname_ed)
+            bb = self._glyph_bounds_fu(geom_gn)
             if bb:
                 x0b, _y0b, x1b, y1b = map(float, bb)
                 cxb = (x0b + x1b) * 0.5
                 yfb = y1b
                 gs = self._ttfont.getGlyphSet()
-                ptlist = _glyph_xy_points_for_band_search(self._ttfont, gs, gname_ed)
+                ptlist = _glyph_xy_points_for_band_search(self._ttfont, gs, geom_gn)
                 yb = _bundle_top_y_fu_for_taginim(
                     ptlist,
                     n,
@@ -2236,16 +2274,7 @@ class MainWindow(QMainWindow):
         upem = float(font["head"].unitsPerEm)
         hhea = font.get("hhea")
         _asc = float(hhea.ascender) if hhea is not None else upem * 0.8
-        gs_names = font.getGlyphSet()
-        base_shin_gn = _cmap_cp_to_glyph_name(font, SHIN_CP)
-        variant_names = _shin_variant_glyph_names(font)
-        use_base_shin_geometry = (
-            base_shin_gn is not None
-            and gname != base_shin_gn
-            and gname in variant_names
-            and base_shin_gn in gs_names
-        )
-        geom_gn = base_shin_gn if use_base_shin_geometry else gname
+        geom_gn = _tagin_geometry_glyph_name(font, gname)
         b = _glyph_bounds_from_font(font, geom_gn)
         if b is None:
             y_max = _asc
