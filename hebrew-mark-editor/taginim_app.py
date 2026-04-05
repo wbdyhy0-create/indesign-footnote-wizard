@@ -407,7 +407,9 @@ def _tagin_style_preset_path() -> str:
     return os.path.join(d, "tagin_style_preset.json")
 
 
-# שדות ויזואליים משותפים: שמירת סגנון בודד + תבנית שעטנז״גץ (ללא embed_in_font)
+# שדות ויזואליים משותפים: שמירת סגנון בודד + תבנית שעטנז״גץ (ללא embed_in_font).
+# היסט חבילה (group_dx_fu / group_dy_fu) לא כלול — נשמר כ־group_dx_frac / group_dy_frac יחסית לרוחב/גובה תיבת הדיו של האות,
+# כדי שהחלה על אות אחרת לא תזיז את התגין לפי יחידות מוחלטות של האות המקורית.
 TAGIN_STYLE_PRESET_KEYS: Tuple[str, ...] = (
     "height_frac",
     "line_width_frac",
@@ -415,8 +417,6 @@ TAGIN_STYLE_PRESET_KEYS: Tuple[str, ...] = (
     "spacing_frac",
     "middle_boost_frac",
     "package_scale",
-    "group_dx_fu",
-    "group_dy_fu",
 )
 
 
@@ -918,14 +918,13 @@ class MainWindow(QMainWindow):
         sv = QVBoxLayout()
         self._btn_style_save = QPushButton("שמור סגנון מהאות הנוכחית…")
         self._btn_style_save.setToolTip(
-            "שומר את כל הסליידרים וההיסטים (גובה, עובי, מרווחים, היסט חבילה) מהאות שבחרת. "
-            "עוברים לאות אחרת ברשימה ולוחצים «החל סגנון על אות זו» — בלי לאבד צביון אחיד."
+            "שומר יחסי גודל (גובה תג, עובי, נקודה, מרווח, קנה מידה) ואת מיקום החבילה כיחס לרוחב/גובה האות — "
+            "כך שהחלה על עין/טית וכו׳ לא מעתיקה יחידות גופן מוחלטות משין."
         )
         self._btn_style_save.clicked.connect(self._save_tagin_style_preset)
         self._btn_style_apply = QPushButton("החל סגנון על אות זו")
         self._btn_style_apply.setToolTip(
-            "מעתיק את הערכים שנשמרו ב־«שמור סגנון» לאות הנוכחית בלבד. "
-            "לא משנה אם להטמיע בגופן — רק מראה התגין."
+            "מחיל את הסגנון השמור על האות הנוכחית; היסט החבילה מחושב מחדש לפי תיבת הדיו של האות הזו."
         )
         self._btn_style_apply.clicked.connect(self._apply_tagin_style_to_current_letter)
         sv.addWidget(self._btn_style_save)
@@ -935,7 +934,9 @@ class MainWindow(QMainWindow):
         preset_box = QGroupBox("תבנית שעטנז״גץ (לכל הגופנים)")
         pv = QVBoxLayout()
         self._btn_preset_save = QPushButton("שמור תבנית מהאות הנוכחית…")
-        self._btn_preset_save.setToolTip("שומר גודל, מיקום, עובי וכו׳ — להחלה על כל אות שעטנז״גץ בגופן חדש.")
+        self._btn_preset_save.setToolTip(
+            "כמו «שמור סגנון» אך לכל שבע אותות שעטנז״גץ: יחסים + מיקום חבילה יחסי לתיבת הדיו של האות שנבחרה."
+        )
         self._btn_preset_save.clicked.connect(self._save_shaatnez_preset)
         self._btn_preset_apply = QPushButton("החל תבנית על כל שעטנז״גץ")
         self._btn_preset_apply.clicked.connect(self._apply_shaatnez_preset)
@@ -1049,6 +1050,18 @@ class MainWindow(QMainWindow):
         if self._ttfont is None:
             return None
         return _glyph_bounds_from_font(self._ttfont, gname)
+
+    def _ink_dimensions_for_cp(self, cp: int) -> Tuple[float, float]:
+        """רוחב וגובה תיבת דיו של האות ביחידות גופן (לחישוב היסט יחסי בסגנון)."""
+        if self._ttfont is None:
+            return max(1.0, float(self._upem) * 0.6), max(1.0, float(self._ascender))
+        gn = self._glyph_name(cp)
+        if gn:
+            b = self._glyph_bounds_fu(gn)
+            if b:
+                x0, y0, x1, y1 = map(float, b)
+                return max(1.0, x1 - x0), max(1.0, y1 - y0)
+        return max(1.0, float(self._upem) * 0.6), max(1.0, float(self._ascender))
 
     def _explorer_font_search(self) -> None:
         if sys.platform != "win32":
@@ -1368,7 +1381,14 @@ class MainWindow(QMainWindow):
                 "בחר אות משורת «שלושה תגין» (שעטנז״גץ) כדי לשמור תבנית.",
             )
             return
-        payload = {"version": 2, **{k: getattr(ls, k) for k in TAGIN_STYLE_PRESET_KEYS}}
+        iw, ih = self._ink_dimensions_for_cp(ls.codepoint)
+        payload = {
+            "version": 4,
+            "saved_from_cp": ls.codepoint,
+            **{k: getattr(ls, k) for k in TAGIN_STYLE_PRESET_KEYS},
+            "group_dx_frac": ls.group_dx_fu / max(iw, 1e-6),
+            "group_dy_frac": ls.group_dy_fu / max(ih, 1e-6),
+        }
         path = _shaatnez_preset_path()
         try:
             with open(path, "w", encoding="utf-8") as f:
@@ -1407,6 +1427,21 @@ class MainWindow(QMainWindow):
         for k in TAGIN_STYLE_PRESET_KEYS:
             if k in data:
                 setattr(ls, k, float(data[k]))
+        tw, th = self._ink_dimensions_for_cp(ls.codepoint)
+        if "group_dx_frac" in data and "group_dy_frac" in data:
+            dx_frac = float(data["group_dx_frac"])
+            dy_frac = float(data["group_dy_frac"])
+        else:
+            ref_cp = data.get("saved_from_cp")
+            if isinstance(ref_cp, int):
+                rw, rh = self._ink_dimensions_for_cp(ref_cp)
+            else:
+                # תבניות ישנות בלי saved_from_cp — מניחים שה־FU נמדדו לעומת שין (אות ראשונה בשעטנז״גץ)
+                rw, rh = self._ink_dimensions_for_cp(THREE_TAGINIM_CP[0])
+            dx_frac = float(data.get("group_dx_fu", 0.0)) / max(rw, 1e-6)
+            dy_frac = float(data.get("group_dy_fu", 0.0)) / max(rh, 1e-6)
+        ls.group_dx_fu = dx_frac * tw
+        ls.group_dy_fu = dy_frac * th
         ls.ensure_tags()
         for t in ls.tags:
             t.dx_fu = 0.0
@@ -1417,10 +1452,13 @@ class MainWindow(QMainWindow):
         if ls is None:
             return
         self._slider_values_to_letter(ls)
+        iw, ih = self._ink_dimensions_for_cp(ls.codepoint)
         payload = {
-            "version": 3,
+            "version": 4,
             "saved_from_cp": ls.codepoint,
             **{k: getattr(ls, k) for k in TAGIN_STYLE_PRESET_KEYS},
+            "group_dx_frac": ls.group_dx_fu / max(iw, 1e-6),
+            "group_dy_frac": ls.group_dy_fu / max(ih, 1e-6),
         }
         path = _tagin_style_preset_path()
         try:
@@ -1456,17 +1494,17 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "שגיאה", f"לא ניתן לטעון סגנון:\n{e}")
             return
         self._push_undo()
-        self._slider_values_to_letter(ls)
         self._apply_tagin_style_data_to_letter(ls, data)
         self._save_settings_file()
         self._refresh_letter_ui()
         ref = data.get("saved_from_cp")
-        ref_txt = f" (מיוחס מ־{_cp_label(int(ref))})" if isinstance(ref, int) else ""
+        ref_txt = f" (מאות {_cp_label(int(ref))})" if isinstance(ref, int) else ""
         QMessageBox.information(
             self,
             "הוחל",
             f"הסגנון הוחל על {_cp_label(ls.codepoint)}{ref_txt}.\n"
-            "בדקו בעורך; לעיתים נדרש היסט אופקי קטן לאות ספציפית.",
+            "מיקום החבילה מותאם לרוחב ולגובה של האות הנוכחית (יחסית לאות המקור). "
+            "אם צריך — עדיין אפשר לגרור או לכוון את סליידרי ההיסט.",
         )
 
     def _slot_offsets_fu(self, ls: LetterSettings, ink_w: float) -> List[float]:
