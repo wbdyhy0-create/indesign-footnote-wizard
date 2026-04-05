@@ -28,6 +28,7 @@ from windows_font_dirs import (
     default_font_open_dir,
     default_taginim_export_directory,
     is_windows_font_install_directory,
+    iter_windows_font_directories,
     launch_windows_font_search,
     tagin_save_candidate_paths,
 )
@@ -43,6 +44,7 @@ from PyQt5.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QListWidget,
     QListWidgetItem,
     QMainWindow,
@@ -766,8 +768,17 @@ class MainWindow(QMainWindow):
         pv.addWidget(self._btn_preset_apply)
         preset_box.setLayout(pv)
 
+        self._line_font_query = QLineEdit()
+        self._line_font_query.setPlaceholderText("חיפוש שם קובץ גופן (אופציונלי)…")
+        self._line_font_query.setToolTip(
+            "הקלידו חלק משם הקובץ (למשל Achenel) בלי סיומת.\n"
+            "התאמה יחידה — הגופן נטען מיד.\n"
+            "כמה התאמות — נפתח חלון קבצים על ההתאמה הראשונה.\n"
+            "אין התאמה — נפתח דיאלוג רגיל לבחירת קובץ."
+        )
         self._btn_open = QPushButton("פתח גופן…")
         self._btn_open.clicked.connect(self._open_font)
+        self._line_font_query.returnPressed.connect(self._open_font)
         self._btn_explorer_search = QPushButton("חיפוש גופנים ב־Explorer…")
         self._btn_explorer_search.setToolTip(
             "פותח חיפוש Windows (אופציונלי). לבחירת קובץ השתמש ב־«פתח גופן»."
@@ -784,6 +795,7 @@ class MainWindow(QMainWindow):
 
         right_panel = QWidget()
         rv = QVBoxLayout(right_panel)
+        rv.addWidget(self._line_font_query)
         rv.addWidget(self._btn_open)
         rv.addWidget(self._btn_explorer_search)
         rv.addWidget(self._btn_save)
@@ -874,26 +886,92 @@ class MainWindow(QMainWindow):
                 "לא ניתן לפתוח את חיפוש Windows. נסה לפתוח גופן דרך «פתח גופן…».",
             )
 
-    def _open_font(self) -> None:
-        start_dir = default_font_open_dir()
-        # הדיאלוג המובנה של Windows לעיתים לא מציג קבצים ב־C:\Windows\Fonts (תיקיית מעטפת).
-        # דיאלוג Qt רושם את התיקייה דרך מערכת הקבצים ומציג את ה־ttf/otf כרגיל.
-        fd_opts = QFileDialog.Options()
-        fd_opts |= QFileDialog.DontUseNativeDialog
-        path, _ = QFileDialog.getOpenFileName(
-            self,
-            "בחר קובץ גופן",
-            start_dir,
-            "גופנים (*.ttf *.otf *.ttc *.TTF *.OTF *.TTC);;כל הקבצים (*.*)",
-            options=fd_opts,
-        )
+    def _candidate_font_search_dirs(self) -> List[str]:
+        """תיקיות לחיפוש לפי שם קובץ (גופני מערכת + תיקיות נפוצות למשתמש)."""
+        out: List[str] = []
+        seen: set[str] = set()
+
+        def add(p: str) -> None:
+            if not p:
+                return
+            try:
+                ap = os.path.normcase(os.path.abspath(p))
+            except OSError:
+                return
+            if ap in seen or not os.path.isdir(p):
+                return
+            seen.add(ap)
+            out.append(p)
+
+        try:
+            add(default_font_open_dir())
+        except OSError:
+            pass
+        if sys.platform == "win32":
+            for d in iter_windows_font_directories():
+                add(d)
+        home = os.path.expanduser("~")
+        for sub in (
+            "Downloads",
+            "הורדות",
+            "Desktop",
+            "שולחן עבודה",
+            "Documents",
+            "מסמכים",
+        ):
+            add(os.path.join(home, sub))
+        return out
+
+    def _find_font_files_matching(self, needle: str) -> List[str]:
+        """מחזיר נתיבים ממוינים לפי רלוונטיות: שם בסיס מדויק, התחלה, מכיל."""
+        q = needle.strip().lower()
+        for ext in (".ttf", ".otf", ".ttc"):
+            if q.endswith(ext):
+                q = q[: -len(ext)].strip()
+                break
+        if not q:
+            return []
+        exts = (".ttf", ".otf", ".ttc")
+        ranked: List[Tuple[int, str]] = []
+        for d in self._candidate_font_search_dirs():
+            try:
+                names = os.listdir(d)
+            except OSError:
+                continue
+            for name in names:
+                low = name.lower()
+                if not low.endswith(exts):
+                    continue
+                full = os.path.join(d, name)
+                if not os.path.isfile(full):
+                    continue
+                base = os.path.splitext(low)[0]
+                if q == base:
+                    ranked.append((0, full))
+                elif base.startswith(q):
+                    ranked.append((1, full))
+                elif q in base:
+                    ranked.append((2, full))
+        ranked.sort(key=lambda x: (x[0], os.path.basename(x[1]).lower()))
+        uniq: List[str] = []
+        got: set[str] = set()
+        for _, p in ranked:
+            k = os.path.normcase(os.path.abspath(p))
+            if k in got:
+                continue
+            got.add(k)
+            uniq.append(p)
+        return uniq
+
+    def _load_font_from_path(self, path: str) -> bool:
+        """טוען גופן מנתיב. מחזיר True אם הצליח."""
         if not path:
-            return
+            return False
         try:
             font = TTFont(path, fontNumber=0)
         except Exception as e:
             QMessageBox.critical(self, "שגיאה", f"לא ניתן לטעון גופן:\n{e}")
-            return
+            return False
         if "glyf" not in font:
             QMessageBox.warning(
                 self,
@@ -901,14 +979,13 @@ class MainWindow(QMainWindow):
                 "גופן זה ללא טבלת glyf (למשל CFF בלבד). נדרש גופן עם מתארי TrueType.",
             )
             font.close()
-            return
+            return False
         try:
-            # אותו אינדקס כמו ב־TTFont (חשוב ל־TTC)
             ft_face = freetype.Face(path, index=0)
         except Exception as e:
             font.close()
             QMessageBox.critical(self, "שגיאה", f"freetype לא טען את הקובץ:\n{e}")
-            return
+            return False
         if self._ttfont is not None:
             self._ttfont.close()
         self._ttfont = font
@@ -930,6 +1007,49 @@ class MainWindow(QMainWindow):
                 f"{e}\n\n"
                 f"{traceback.format_exc()}",
             )
+        return True
+
+    def _open_font(self) -> None:
+        fd_opts = QFileDialog.Options()
+        fd_opts |= QFileDialog.DontUseNativeDialog
+        filt = "גופנים (*.ttf *.otf *.ttc *.TTF *.OTF *.TTC);;כל הקבצים (*.*)"
+
+        needle = self._line_font_query.text().strip()
+        matches = self._find_font_files_matching(needle) if needle else []
+
+        if needle and len(matches) == 1:
+            self._load_font_from_path(matches[0])
+            return
+        if needle and len(matches) > 1:
+            start_path = matches[0]
+            path, _ = QFileDialog.getOpenFileName(
+                self,
+                f"נמצאו {len(matches)} קבצים — בחרו קובץ",
+                start_path,
+                filt,
+                options=fd_opts,
+            )
+            if path:
+                self._load_font_from_path(path)
+            return
+        if needle and not matches:
+            QMessageBox.information(
+                self,
+                "לא נמצא בשטח החיפוש",
+                f"לא נמצא קובץ שמתאים ל־«{needle}» בתיקיות הגופנים והתיקיות הנפוצות.\n\n"
+                "ייפתח דיאלוג לבחירת קובץ ידנית.",
+            )
+
+        start_dir = default_font_open_dir()
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            "בחר קובץ גופן",
+            start_dir,
+            filt,
+            options=fd_opts,
+        )
+        if path:
+            self._load_font_from_path(path)
 
     def _load_settings_file(self) -> None:
         if not self._settings_path or not os.path.isfile(self._settings_path):
