@@ -99,6 +99,9 @@ THREE_TAGINIM_CP: Tuple[int, ...] = (
 )
 ONE_TAG_CP: Tuple[int, ...] = (0x05D1, 0x05D3, 0x05E7, 0x05D7, 0x05D9, 0x05D4)
 
+# מקסימום תגין לאות (כולל 0 = ללא תגין)
+MAX_TAGINIM_PER_LETTER = 9
+
 SHIN_CP = 0x05E9
 # InDesign / עריכה: שין עם נקודות/דגוש כגליף נפרד — חייבים הטמעה גם שם אחרת אין תגין בטקסט
 SHIN_VARIANT_CPS: Tuple[int, ...] = (0xFB2C, 0xFB2D, 0xFB49)
@@ -162,6 +165,37 @@ def _max_y_in_vertical_band(
     lo, hi = x_center - half_width, x_center + half_width
     ys = [y for x, y in pts if lo <= x <= hi]
     return max(ys) if ys else fallback_y
+
+
+def _bundle_top_y_fu_for_taginim(
+    pts: List[Tuple[float, float]],
+    n_tags: int,
+    cx: float,
+    spacing: float,
+    group_dx: float,
+    ink_w: float,
+    half_w: float,
+    y_fallback: float,
+) -> float:
+    """גובה אחד לבסיס כל החבילה: מינימום גגות מקומיים בין עמודות התגין.
+
+    כך נמנעים ממדרג אנכי (כל תג על גג שונה) וגם מטעמים/ניקוד גבוהים שדוחפים את כל החבילה למעלה.
+    """
+    if n_tags <= 0:
+        return y_fallback
+    if n_tags == 1 and len(pts) >= 4:
+        tcx = cx + group_dx
+        half_band = max(ink_w * 0.11, half_w * 2.5, 22.0)
+        return _max_y_in_vertical_band(pts, tcx, half_band, y_fallback)
+    if n_tags >= 2 and len(pts) >= 8:
+        half_band = max(spacing * 0.5, ink_w * 0.09, half_w * 2.2, 24.0)
+        mid = (n_tags - 1) / 2.0
+        roofs = [
+            _max_y_in_vertical_band(pts, cx + (i - mid) * spacing + group_dx, half_band, y_fallback)
+            for i in range(n_tags)
+        ]
+        return min(roofs)
+    return y_fallback
 
 
 def _suffix_export_font_name_table(font: TTFont) -> None:
@@ -399,9 +433,10 @@ class LetterSettings:
     @staticmethod
     def from_json(d: Dict[str, Any]) -> "LetterSettings":
         tags = [TagPosition(float(t["dx_fu"]), float(t["dy_fu"])) for t in d.get("tags", [])]
+        tc_raw = int(d.get("tag_count", 1))
         ls = LetterSettings(
             codepoint=int(d["codepoint"]),
-            tag_count=int(d["tag_count"]),
+            tag_count=max(0, min(MAX_TAGINIM_PER_LETTER, tc_raw)),
             height_frac=float(d.get("height_frac", 0.15)),
             line_width_frac=float(d.get("line_width_frac", 0.02)),
             dot_frac=float(d.get("dot_frac", 0.03)),
@@ -475,7 +510,7 @@ def _glyph_embed_job_list(
     out: List[Tuple[str, LetterSettings]] = []
 
     def try_add(cp: int, ls: Optional[LetterSettings]) -> None:
-        if ls is None or not ls.embed_in_font:
+        if ls is None or not ls.embed_in_font or ls.tag_count <= 0:
             return
         gname = _cmap_cp_to_glyph_name(font, cp)
         if not gname or gname not in gs:
@@ -756,6 +791,23 @@ class MainWindow(QMainWindow):
         self._lbl_embed_status.setWordWrap(True)
         self._lbl_embed_status.setStyleSheet("color: #333; font-size: 11px;")
         form.addRow(self._lbl_embed_status)
+        self._btn_add_tagin = QPushButton("הוסף תג…")
+        self._btn_remove_tagin = QPushButton("הסר תג אחרון")
+        self._btn_add_tagin.setToolTip(
+            f"מוסיף תג נוסף לחבילה (עד {MAX_TAGINIM_PER_LETTER}). מרווחים נקבעים לפי סליידר המרווח."
+        )
+        self._btn_remove_tagin.setToolTip(
+            "מקטין את מספר התגין. ב־0 — אין תגין על האות בעורך (ולא יוטבע בגופן)."
+        )
+        self._btn_add_tagin.clicked.connect(self._on_add_tagin)
+        self._btn_remove_tagin.clicked.connect(self._on_remove_tagin)
+        tag_btn_row = QWidget()
+        tbr = QHBoxLayout(tag_btn_row)
+        tbr.setContentsMargins(0, 0, 0, 0)
+        tbr.addWidget(self._btn_add_tagin)
+        tbr.addWidget(self._btn_remove_tagin)
+        tbr.addStretch()
+        form.addRow("חבילת תגין:", tag_btn_row)
         self._lbl_mm_hint = QLabel(
             f"ליד כל סליידר מוצגים ערכים מדויקים ומ״מ משוערים (הדפסה @{int(REFERENCE_PT_FOR_MM_LABEL)}pt, לפי UPEM ומידות האות הנוכחית)."
         )
@@ -1314,9 +1366,13 @@ class MainWindow(QMainWindow):
 
     def _slot_offsets_fu(self, ls: LetterSettings, ink_w: float) -> List[float]:
         spacing = ls.spacing_frac * ink_w
-        if ls.tag_count == 3:
-            return [(i - 1) * spacing for i in range(3)]
-        return [0.0]
+        n = ls.tag_count
+        if n <= 0:
+            return []
+        if n == 1:
+            return [0.0]
+        mid = (n - 1) / 2.0
+        return [(i - mid) * spacing for i in range(n)]
 
     def _slider_values_to_letter(self, ls: LetterSettings) -> None:
         ls.height_frac = self._slider_height.value() / 100.0
@@ -1400,6 +1456,45 @@ class MainWindow(QMainWindow):
         finally:
             self._undo_suspend -= 1
 
+    def _sync_tagin_count_ui(self) -> None:
+        ls = self._current_letter_settings()
+        if ls is None:
+            self._btn_add_tagin.setEnabled(False)
+            self._btn_remove_tagin.setEnabled(False)
+            self._slider_middle_boost.setEnabled(False)
+            return
+        n = ls.tag_count
+        self._btn_add_tagin.setEnabled(n < MAX_TAGINIM_PER_LETTER)
+        self._btn_remove_tagin.setEnabled(n > 0)
+        self._slider_middle_boost.setEnabled(n == 3)
+
+    def _on_add_tagin(self) -> None:
+        ls = self._current_letter_settings()
+        if ls is None:
+            return
+        if ls.tag_count >= MAX_TAGINIM_PER_LETTER:
+            QMessageBox.information(
+                self,
+                "מגבלה",
+                f"ניתן להוסיף עד {MAX_TAGINIM_PER_LETTER} תגין לאות.",
+            )
+            return
+        self._push_undo()
+        ls.tag_count += 1
+        ls.ensure_tags()
+        self._save_settings_file()
+        self._refresh_letter_ui()
+
+    def _on_remove_tagin(self) -> None:
+        ls = self._current_letter_settings()
+        if ls is None or ls.tag_count <= 0:
+            return
+        self._push_undo()
+        ls.tag_count -= 1
+        ls.ensure_tags()
+        self._save_settings_file()
+        self._refresh_letter_ui()
+
     def _ink_height_fu(self, ls: LetterSettings) -> float:
         gname = self._glyph_name(ls.codepoint)
         if gname:
@@ -1449,7 +1544,7 @@ class MainWindow(QMainWindow):
             extra_mid = stem_side * max(0.0, ls.middle_boost_frac)
             self._lbl_slider_middle.setText(f"+{mid_pct}% → {self._fmt_mm_fu_line(extra_mid)}")
         else:
-            self._lbl_slider_middle.setText("— (תו אחד)")
+            self._lbl_slider_middle.setText("— (רק בדיוק 3 תגין)")
 
         pkg_v = self._slider_pkg_scale.value() / 100.0
         self._lbl_slider_pkg.setText(f"×{pkg_v:.2f} (קנה מידה; ללא מ״מ)")
@@ -1461,10 +1556,10 @@ class MainWindow(QMainWindow):
         self._lbl_slider_dot.setText(f"{dot_k / 10:.1f}‰ → {self._fmt_mm_fu_line(dot_d)}")
 
         sp_pct = self._slider_spacing.value()
-        if ls.tag_count == 3:
+        if ls.tag_count >= 2:
             self._lbl_slider_spacing.setText(f"{sp_pct}% → {self._fmt_mm_fu_line(spacing_fu)}")
         else:
-            self._lbl_slider_spacing.setText("— (תו אחד)")
+            self._lbl_slider_spacing.setText("— (פחות משתי תגין)")
 
         self._lbl_slider_gdx.setText(self._fmt_mm_fu_signed(float(ls.group_dx_fu)))
         self._lbl_slider_gdy.setText(self._fmt_mm_fu_signed(float(ls.group_dy_fu)))
@@ -1473,12 +1568,14 @@ class MainWindow(QMainWindow):
         self._update_embed_indicators()
         ls = self._current_letter_settings()
         if ls is None:
+            self._sync_tagin_count_ui()
             return
         self._letter_to_sliders(ls)
         self._sync_embed_checkbox(ls)
         self._render_glyph_preview()
         self._update_canvas_geometry()
         self._update_slider_metric_labels()
+        self._sync_tagin_count_ui()
 
     def _render_glyph_preview(self) -> None:
         if self._ft_face is None or self._current_cp is None:
@@ -1555,18 +1652,21 @@ class MainWindow(QMainWindow):
         stem_w = max(8.0, ls.line_width_frac * ink_w * 0.5) * sc
         dot_r = max(10.0, ls.dot_frac * ink_h * 0.5) * sc
         slots = self._slot_offsets_fu(ls, ink_w * sc)
-        if ls.tag_count == 3:
+        n = ls.tag_count
+        if n == 0:
+            stem_heights = []
+        elif n == 3:
             stem_heights = [
                 stem_side,
                 stem_side * (1.0 + max(0.0, ls.middle_boost_frac)),
                 stem_side,
             ]
         else:
-            stem_heights = [stem_side]
+            stem_heights = [stem_side] * n
 
         per_roof: Optional[List[float]] = None
         gname_ed = self._glyph_name(ls.codepoint)
-        if gname_ed and self._ttfont is not None:
+        if n > 0 and gname_ed and self._ttfont is not None:
             bb = self._glyph_bounds_fu(gname_ed)
             if bb:
                 x0b, _y0b, x1b, y1b = map(float, bb)
@@ -1575,27 +1675,17 @@ class MainWindow(QMainWindow):
                 spacing_fu = ls.spacing_frac * ink_w * sc
                 gs = self._ttfont.getGlyphSet()
                 ptlist = _glyph_xy_points_for_band_search(self._ttfont, gs, gname_ed)
-                if ls.tag_count == 3 and len(ptlist) >= 8:
-                    hb = max(spacing_fu * 0.5, ink_w * 0.09, stem_w * 2.2, 24.0)
-                    per_roof = [
-                        _max_y_in_vertical_band(
-                            ptlist,
-                            cxb + (k - 1) * spacing_fu + ls.group_dx_fu,
-                            hb,
-                            yfb,
-                        )
-                        for k in range(3)
-                    ]
-                elif ls.tag_count == 1 and len(ptlist) >= 4:
-                    hb = max(ink_w * 0.11, stem_w * 2.5, 22.0)
-                    per_roof = [
-                        _max_y_in_vertical_band(
-                            ptlist,
-                            cxb + ls.group_dx_fu,
-                            hb,
-                            yfb,
-                        )
-                    ]
+                yb = _bundle_top_y_fu_for_taginim(
+                    ptlist,
+                    n,
+                    cxb,
+                    spacing_fu,
+                    ls.group_dx_fu,
+                    ink_w * sc,
+                    stem_w,
+                    yfb,
+                )
+                per_roof = [yb] * n
 
         self._canvas.set_geometry(
             ls.tag_count,
@@ -1634,15 +1724,19 @@ class MainWindow(QMainWindow):
             return
         all_cp = list(THREE_TAGINIM_CP) + list(ONE_TAG_CP)
         n_marked = sum(
-            1 for cp in all_cp if self._by_cp.get(cp) is not None and self._by_cp[cp].embed_in_font
+            1
+            for cp in all_cp
+            if self._by_cp.get(cp) is not None
+            and self._by_cp[cp].embed_in_font
+            and self._by_cp[cp].tag_count > 0
         )
         if n_marked == 0:
             font.close()
             QMessageBox.warning(
                 self,
                 "אין אותיות לשמירה",
-                "לא סומנה אף אות ב־«להטמיע תגין לאות זו בקובץ הגופן».\n\n"
-                "סמן רק את האותיות שרוצים שייכללו בקובץ ה־_taginim, ואז שמור שוב.",
+                "לא סומנה אף אות עם תגין לשמירה (צ׳קבוקס הטמעה + לפחות תג אחד).\n\n"
+                "סמנו «להטמיע» וודאו שמספר התגין גדול מאפס, ואז שמור שוב.",
             )
             return
         try:
@@ -1781,32 +1875,26 @@ class MainWindow(QMainWindow):
         spacing = ls.spacing_frac * ink_w * sc
 
         pts = _glyph_xy_points_for_band_search(font, glyph_set, gname)
+        y_bundle = _bundle_top_y_fu_for_taginim(
+            pts, ls.tag_count, cx, spacing, ls.group_dx_fu, ink_w, half_w, y_max
+        )
+        y_stem_bottom_all = y_bundle + ls.group_dy_fu
 
         rec = DecomposingRecordingPen(glyph_set)
         glyph_set[gname].draw(rec)
         pen = TTGlyphPen(glyph_set)
         rec.replay(pen)
 
+        mid_i = (ls.tag_count - 1) / 2.0
         for i in range(ls.tag_count):
-            if ls.tag_count == 3:
-                base_dx = (i - 1) * spacing
-            else:
-                base_dx = 0.0
+            base_dx = (i - mid_i) * spacing
             stem_hi = (
                 stem_side * (1.0 + max(0.0, ls.middle_boost_frac))
                 if ls.tag_count == 3 and i == 1
                 else stem_side
             )
             tcx = cx + base_dx + ls.group_dx_fu
-            if ls.tag_count == 3 and len(pts) >= 8:
-                half_band = max(spacing * 0.5, ink_w * 0.09, half_w * 2.2, 24.0)
-                y_roof = _max_y_in_vertical_band(pts, tcx, half_band, y_max)
-            elif ls.tag_count == 1 and len(pts) >= 4:
-                half_band = max(ink_w * 0.11, half_w * 2.5, 22.0)
-                y_roof = _max_y_in_vertical_band(pts, tcx, half_band, y_max)
-            else:
-                y_roof = y_max
-            y_stem_bottom = y_roof + ls.group_dy_fu
+            y_stem_bottom = y_stem_bottom_all
             y_stem_top = y_stem_bottom + stem_hi
             _add_rect_stem(pen, tcx, y_stem_bottom, y_stem_top, half_w)
             cy_dot = y_stem_top + dot_r
