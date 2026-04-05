@@ -484,9 +484,16 @@ def _add_rotated_square_contour(
     pen.closePath()
 
 
-# מנפה: גזע דק יחסית, ראש מרובע בולט; עקמומיות אחידה (לא מצולעת).
+# מנפה: גזע דק יחסית רק בדיוק 3 תגין (מנפה); ב־1–2 תגין גזע ישר באותו עובי כמו עגול + ראש מרובע.
 SQUARE_FAN_STEM_WIDTH_SCALE = 0.50
 SQUARE_FAN_CAP_HALF_SCALE = 1.22
+
+
+def _square_fan_stem_half_w(half_w: float, tag_count: int) -> float:
+    """רוחב גזע במצב מנפה: דק רק בחבילת שלושה; אחרת כמו round."""
+    if tag_count == 3:
+        return half_w * SQUARE_FAN_STEM_WIDTH_SCALE
+    return half_w
 
 
 def _square_fan_side_geometry_left(
@@ -575,11 +582,13 @@ def _embed_single_tag_contours(
     spacing: float,
 ) -> None:
     stem_hi = max(1.0, y_stem_top - y_stem_bottom)
-    hw_sf = (
-        half_w * SQUARE_FAN_STEM_WIDTH_SCALE if mode == TAG_SHAPE_SQUARE_FAN else half_w
-    )
     cap_r = (
         dot_r * SQUARE_FAN_CAP_HALF_SCALE if mode == TAG_SHAPE_SQUARE_FAN else dot_r
+    )
+    hw_sf = (
+        _square_fan_stem_half_w(half_w, tag_count)
+        if mode == TAG_SHAPE_SQUARE_FAN
+        else half_w
     )
     if mode == TAG_SHAPE_SQUARE_FAN and tag_count == 3 and tag_index in (0, 2):
         bend = _tag_bend_amount(stem_hi, spacing)
@@ -969,7 +978,7 @@ class TaginimEditorCanvas(QWidget):
             stem_h_px = stem_h_fu * self._px_per_fu_y
             half_w = max(2.0, self._stem_w_fu * self._px_per_fu_x * 0.5)
             if self._tag_shape_mode == TAG_SHAPE_SQUARE_FAN:
-                half_w *= SQUARE_FAN_STEM_WIDTH_SCALE
+                half_w = _square_fan_stem_half_w(half_w, self._tag_count)
             top_y = base_y - stem_h_px
             dot_r_px = max(1.0, self._dot_r_fu * self._px_per_fu_y)
             left = cx - half_w - hit_pad * 0.3
@@ -1012,7 +1021,7 @@ class TaginimEditorCanvas(QWidget):
             half_w = max(1.0, self._stem_w_fu * self._px_per_fu_x * 0.5)
             mode = self._tag_shape_mode
             if mode == TAG_SHAPE_SQUARE_FAN:
-                half_w *= SQUARE_FAN_STEM_WIDTH_SCALE
+                half_w = _square_fan_stem_half_w(half_w, self._tag_count)
             top_y = base_y - stem_h_px
             rw = max(1, int(round(half_w * 2)))
             rh = max(1, int(round(stem_h_px)))
