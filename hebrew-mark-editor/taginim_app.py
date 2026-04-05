@@ -43,7 +43,6 @@ from PyQt5.QtGui import (
     QImage,
     QKeySequence,
     QPainter,
-    QPainterPath,
     QPen,
     QPolygonF,
 )
@@ -484,119 +483,23 @@ def _add_rotated_square_contour(
     pen.closePath()
 
 
-# מנפה: גזע דק יחסית רק בדיוק 3 תגין (מנפה); ב־1–2 תגין גזע ישר באותו עובי כמו עגול + ראש מרובע.
-SQUARE_FAN_STEM_WIDTH_SCALE = 0.50
-SQUARE_FAN_CAP_HALF_SCALE = 1.22
-
-
-def _square_fan_stem_half_w(half_w: float, tag_count: int) -> float:
-    """רוחב גזע במצב מנפה: דק רק בחבילת שלושה; אחרת כמו round."""
-    if tag_count == 3:
-        return half_w * SQUARE_FAN_STEM_WIDTH_SCALE
-    return half_w
-
-
-def _square_fan_side_geometry_left(
-    tcx: float, y_bottom: float, y_top: float, half_w: float, bend: float
-) -> Tuple[float, float, float, float]:
-    """מחזיר (xo_top, xi_top, mid_x_top, tilt_rad) לתג שמאלי; tilt_rad = סיבוב ראש מרובע (CCW חיובי)."""
-    H = max(1e-6, y_top - y_bottom)
-    B = max(0.0, bend)
-    xl, xr = tcx - half_w, tcx + half_w
-    lam = 0.13
-    xi_top = xr - lam * B
-    xo_top = xl - B
-    mid_x_top = 0.5 * (xi_top + xo_top)
-    tilt = math.atan2(mid_x_top - tcx, H)
-    return xo_top, xi_top, mid_x_top, tilt
-
-
-def _square_fan_side_geometry_right(
-    tcx: float, y_bottom: float, y_top: float, half_w: float, bend: float
-) -> Tuple[float, float, float, float]:
-    """(xo_top, xi_top, mid_x_top, tilt_rad) — חוץ ב־+X, פנים לכיוון המרכז."""
-    H = max(1e-6, y_top - y_bottom)
-    B = max(0.0, bend)
-    xl, xr = tcx - half_w, tcx + half_w
-    lam = 0.13
-    xi_top = xl + lam * B
-    xo_top = xr + B
-    mid_x_top = 0.5 * (xi_top + xo_top)
-    tilt = math.atan2(mid_x_top - tcx, H)
-    return xo_top, xi_top, mid_x_top, tilt
-
-
-def _add_curved_side_stem_left(
-    pen: TTGlyphPen, tcx: float, y_bottom: float, y_top: float, half_w: float, bend: float
-) -> None:
-    """מנפה שמאל: משולש חד — קודקוד למטה, שני אלכסונים ישרים (בלי עיקום)."""
-    xo_top, xi_top, _, _ = _square_fan_side_geometry_left(tcx, y_bottom, y_top, half_w, bend)
-    pen.moveTo((tcx, y_bottom))
-    pen.lineTo((xi_top, y_top))
-    pen.lineTo((xo_top, y_top))
-    pen.closePath()
-
-
-def _add_curved_side_stem_right(
-    pen: TTGlyphPen, tcx: float, y_bottom: float, y_top: float, half_w: float, bend: float
-) -> None:
-    """גזע ימני — מראה מראה, אלכסונים ישרים בלבד."""
-    xo_top, xi_top, _, _ = _square_fan_side_geometry_right(tcx, y_bottom, y_top, half_w, bend)
-    pen.moveTo((tcx, y_bottom))
-    pen.lineTo((xi_top, y_top))
-    pen.lineTo((xo_top, y_top))
-    pen.closePath()
-
-
-def _tag_bend_amount(stem_hi: float, spacing: float) -> float:
-    """פיזור צדדיים — אלכסון ישר מול האמצעי האנכי."""
-    return max(9.0, min(abs(spacing) * 0.40, stem_hi * 0.32))
-
-
 def _embed_single_tag_contours(
     pen: TTGlyphPen,
     mode: str,
-    tag_index: int,
-    tag_count: int,
+    _tag_index: int,
+    _tag_count: int,
     tcx: float,
     y_stem_bottom: float,
     y_stem_top: float,
     half_w: float,
     dot_r: float,
-    spacing: float,
+    _spacing: float,
 ) -> None:
-    stem_hi = max(1.0, y_stem_top - y_stem_bottom)
-    cap_r = (
-        dot_r * SQUARE_FAN_CAP_HALF_SCALE if mode == TAG_SHAPE_SQUARE_FAN else dot_r
-    )
-    hw_sf = (
-        _square_fan_stem_half_w(half_w, tag_count)
-        if mode == TAG_SHAPE_SQUARE_FAN
-        else half_w
-    )
-    if mode == TAG_SHAPE_SQUARE_FAN and tag_count == 3 and tag_index in (0, 2):
-        bend = _tag_bend_amount(stem_hi, spacing)
-        if tag_index == 0:
-            _add_curved_side_stem_left(
-                pen, tcx, y_stem_bottom, y_stem_top, hw_sf, bend
-            )
-            _, _, cap_cx, _ = _square_fan_side_geometry_left(
-                tcx, y_stem_bottom, y_stem_top, hw_sf, bend
-            )
-        else:
-            _add_curved_side_stem_right(
-                pen, tcx, y_stem_bottom, y_stem_top, hw_sf, bend
-            )
-            _, _, cap_cx, _ = _square_fan_side_geometry_right(
-                tcx, y_stem_bottom, y_stem_top, hw_sf, bend
-            )
-        cap_cy = y_stem_top + cap_r
-        _add_rotated_square_contour(pen, cap_cx, cap_cy, cap_r, 0.0)
-    elif mode == TAG_SHAPE_SQUARE_FAN:
-        _add_rect_stem(pen, tcx, y_stem_bottom, y_stem_top, hw_sf)
-        _add_rotated_square_contour(pen, tcx, y_stem_top + cap_r, cap_r, 0.0)
+    """גזע מלבני זהה בשני המצבים; round = עיגול, square_fan = ריבוע (מפתח JSON: square_fan)."""
+    _add_rect_stem(pen, tcx, y_stem_bottom, y_stem_top, half_w)
+    if mode == TAG_SHAPE_SQUARE_FAN:
+        _add_rotated_square_contour(pen, tcx, y_stem_top + dot_r, dot_r, 0.0)
     else:
-        _add_rect_stem(pen, tcx, y_stem_bottom, y_stem_top, half_w)
         _add_circle_contour(pen, tcx, y_stem_top + dot_r, dot_r)
 
 
@@ -623,7 +526,7 @@ class LetterSettings:
     group_dy_fu: float = 0.0
     """מכפיל על גודל התגין (קו, נקודה, מרווח)."""
     package_scale: float = 1.0
-    """round = גזע ישר + עיגול; square_fan = ראש מרובע, בשלושה תגין הצדדיים מעוקלים והאמצעי ישר."""
+    """round = גזע ישר + עיגול; square_fan = אותו גזע, ראש מרובע במקום עיגול."""
     tag_shape_mode: str = TAG_SHAPE_ROUND
     """אם כבוי — לא מוסיפים contours לאות זו בקובץ ה־_taginim (רק תצוגה בעורך)."""
     embed_in_font: bool = False
@@ -872,33 +775,6 @@ class TaginimEditorCanvas(QWidget):
         self.update()
 
     @staticmethod
-    def _path_curved_stem_left_px(tcx: float, yb: float, yt: float, hw: float, bend: float) -> QPainterPath:
-        """yb > yt (Qt); משולש חד, אלכסונים ישרים."""
-        path = QPainterPath()
-        xl, xr = tcx - hw, tcx + hw
-        lam = 0.13
-        xi_top = xr - lam * bend
-        xo_top = xl - bend
-        path.moveTo(tcx, yb)
-        path.lineTo(xi_top, yt)
-        path.lineTo(xo_top, yt)
-        path.closeSubpath()
-        return path
-
-    @staticmethod
-    def _path_curved_stem_right_px(tcx: float, yb: float, yt: float, hw: float, bend: float) -> QPainterPath:
-        path = QPainterPath()
-        xl, xr = tcx - hw, tcx + hw
-        lam = 0.13
-        xi_top = xl + lam * bend
-        xo_top = xr + bend
-        path.moveTo(tcx, yb)
-        path.lineTo(xi_top, yt)
-        path.lineTo(xo_top, yt)
-        path.closeSubpath()
-        return path
-
-    @staticmethod
     def _fill_rot_square_px(
         p: QPainter, cx: float, cy: float, half_s: float, angle_rad: float, col: QColor
     ) -> None:
@@ -941,26 +817,12 @@ class TaginimEditorCanvas(QWidget):
             stem_h_fu = self._stem_h_list_fu[i] if i < len(self._stem_h_list_fu) else self._stem_h_list_fu[0]
             stem_h_px = stem_h_fu * self._px_per_fu_y
             half_w = max(2.0, self._stem_w_fu * self._px_per_fu_x * 0.5)
-            if self._tag_shape_mode == TAG_SHAPE_SQUARE_FAN:
-                half_w = _square_fan_stem_half_w(half_w, self._tag_count)
             top_y = base_y - stem_h_px
             dot_r_px = max(1.0, self._dot_r_fu * self._px_per_fu_y)
             left = cx - half_w - hit_pad * 0.3
             right = cx + half_w + hit_pad * 0.3
-            if self._tag_shape_mode == TAG_SHAPE_SQUARE_FAN and self._tag_count == 3 and i in (0, 2):
-                bend_fu = _tag_bend_amount(stem_h_fu, self._spacing_fu)
-                bend_px = bend_fu * self._px_per_fu_x
-                if i == 0:
-                    left -= bend_px * 1.25
-                else:
-                    right += bend_px * 1.25
             bottom = base_y + hit_pad * 0.2
-            cap_ext = (
-                dot_r_px * SQUARE_FAN_CAP_HALF_SCALE * 2
-                if self._tag_shape_mode == TAG_SHAPE_SQUARE_FAN
-                else dot_r_px * 2
-            )
-            top = top_y - cap_ext - hit_pad * 0.3
+            top = top_y - dot_r_px * 2 - hit_pad * 0.3
             if left <= mx <= right and top <= my <= bottom:
                 return True
         return False
@@ -984,41 +846,17 @@ class TaginimEditorCanvas(QWidget):
             stem_h_px = stem_h_fu * self._px_per_fu_y
             half_w = max(1.0, self._stem_w_fu * self._px_per_fu_x * 0.5)
             mode = self._tag_shape_mode
-            if mode == TAG_SHAPE_SQUARE_FAN:
-                half_w = _square_fan_stem_half_w(half_w, self._tag_count)
             top_y = base_y - stem_h_px
             rw = max(1, int(round(half_w * 2)))
             rh = max(1, int(round(stem_h_px)))
             dot_r_px = max(1.0, self._dot_r_fu * self._px_per_fu_y)
-            cap_half_px = (
-                dot_r_px * SQUARE_FAN_CAP_HALF_SCALE
-                if mode == TAG_SHAPE_SQUARE_FAN
-                else dot_r_px
-            )
-            if mode == TAG_SHAPE_SQUARE_FAN and self._tag_count == 3 and i in (0, 2):
-                bend_fu = _tag_bend_amount(stem_h_fu, self._spacing_fu)
-                bend_px = bend_fu * self._px_per_fu_x
-                if i == 0:
-                    stem_path = self._path_curved_stem_left_px(cx, base_y, top_y, half_w, bend_px)
-                    _, _, cap_cx, _ = _square_fan_side_geometry_left(
-                        cx, top_y, base_y, half_w, bend_px
-                    )
-                else:
-                    stem_path = self._path_curved_stem_right_px(cx, base_y, top_y, half_w, bend_px)
-                    _, _, cap_cx, _ = _square_fan_side_geometry_right(
-                        cx, top_y, base_y, half_w, bend_px
-                    )
-                p.fillPath(stem_path, col)
-                cap_cy = top_y - cap_half_px
-                self._fill_rot_square_px(p, cap_cx, cap_cy, cap_half_px, 0.0, col)
-            elif mode == TAG_SHAPE_SQUARE_FAN:
-                p.fillRect(int(round(cx - half_w)), int(round(top_y)), rw, rh, col)
-                cap_cy = top_y - cap_half_px
-                self._fill_rot_square_px(p, cx, cap_cy, cap_half_px, 0.0, col)
+            p.setPen(pen_line)
+            p.setBrush(QBrush(col))
+            p.fillRect(int(round(cx - half_w)), int(round(top_y)), rw, rh, col)
+            if mode == TAG_SHAPE_SQUARE_FAN:
+                cap_cy = top_y - dot_r_px
+                self._fill_rot_square_px(p, cx, cap_cy, dot_r_px, 0.0, col)
             else:
-                p.setPen(pen_line)
-                p.setBrush(QBrush(col))
-                p.fillRect(int(round(cx - half_w)), int(round(top_y)), rw, rh, col)
                 cy_dot = top_y - dot_r_px
                 dr = max(1, int(round(dot_r_px * 2)))
                 p.setPen(Qt.NoPen)
@@ -1160,10 +998,9 @@ class MainWindow(QMainWindow):
         form.addRow(self._lbl_mm_hint)
         self._combo_tag_shape = QComboBox()
         self._combo_tag_shape.addItem("קו ישר + נקודה עגולה", TAG_SHAPE_ROUND)
-        self._combo_tag_shape.addItem("מנפה: ראש מרובע, צדדיים מעוקלים", TAG_SHAPE_SQUARE_FAN)
+        self._combo_tag_shape.addItem("קו ישר + ראש מרובע", TAG_SHAPE_SQUARE_FAN)
         self._combo_tag_shape.setToolTip(
-            "מנפה (לרוב בשלושה תגין): האמצעי ישר עם ראש מרובע; הימני והשמאלי נוטים החוצה עם ראש מוטה. "
-            "בתג יחיד/שניים: גזע ישר וראש מרובע."
+            "אותו גזע ישר בשני המצבים; בוחרים בין ראש עגול לראש מרובע (ערך הסליידר «קוטר הנקודה» = רדיוס או חצי צלע)."
         )
         self._combo_tag_shape.currentIndexChanged.connect(self._on_tag_shape_changed)
         form.addRow("צורת תגין:", self._combo_tag_shape)
@@ -1185,7 +1022,7 @@ class MainWindow(QMainWindow):
         sv = QVBoxLayout()
         self._btn_style_save = QPushButton("שמור סגנון מהאות הנוכחית…")
         self._btn_style_save.setToolTip(
-            "שומר יחסי גודל, צורת תגין (עגול / מנפה), מרווח, קנה מידה ומיקום חבילה יחסי לתיבת הדיו."
+            "שומר יחסי גודל, צורת תגין (עגול / מרובע), מרווח, קנה מידה ומיקום חבילה יחסי לתיבת הדיו."
         )
         self._btn_style_save.clicked.connect(self._save_tagin_style_preset)
         self._btn_style_apply = QPushButton("החל סגנון על אות זו")
