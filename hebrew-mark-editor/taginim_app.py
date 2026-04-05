@@ -100,8 +100,8 @@ THREE_TAGINIM_CP: Tuple[int, ...] = (
 ONE_TAG_CP: Tuple[int, ...] = (0x05D1, 0x05D3, 0x05E7, 0x05D7, 0x05D9, 0x05D4)
 
 SHIN_CP = 0x05E9
-# InDesign ויישומים אחרים לעיתים ממפים שין לגליפים אלו (נקודות משולבות)
-SHIN_VARIANT_CPS: Tuple[int, ...] = (0xFB2C, 0xFB2D)
+# InDesign / עריכה: שין עם נקודות/דגוש כגליף נפרד — חייבים הטמעה גם שם אחרת אין תגין בטקסט
+SHIN_VARIANT_CPS: Tuple[int, ...] = (0xFB2C, 0xFB2D, 0xFB49)
 
 
 def _cmap_cp_to_glyph_name(font: TTFont, cp: int) -> Optional[str]:
@@ -138,6 +138,30 @@ def _glyph_bounds_from_font(font: TTFont, gname: str) -> Optional[Tuple[float, f
     if bb is None:
         return None
     return float(bb[0]), float(bb[1]), float(bb[2]), float(bb[3])
+
+
+def _glyph_xy_points_for_band_search(font: TTFont, glyph_set: Any, gname: str) -> List[Tuple[float, float]]:
+    """נקודות מתאר TTF (כולל רכיבים מורכבים) — לחישוב גג מקומי מעל כל תג."""
+    try:
+        g = font["glyf"][gname]
+    except KeyError:
+        return []
+    try:
+        coords, _end, _flags = g.getCoordinates(glyph_set)
+    except Exception:
+        return []
+    return [(float(c[0]), float(c[1])) for c in coords]
+
+
+def _max_y_in_vertical_band(
+    pts: List[Tuple[float, float]],
+    x_center: float,
+    half_width: float,
+    fallback_y: float,
+) -> float:
+    lo, hi = x_center - half_width, x_center + half_width
+    ys = [y for x, y in pts if lo <= x <= hi]
+    return max(ys) if ys else fallback_y
 
 
 def _suffix_export_font_name_table(font: TTFont) -> None:
@@ -499,6 +523,7 @@ class TaginimEditorCanvas(QWidget):
         self._stem_w_fu: float = 25.0
         self._dot_r_fu: float = 20.0
         self._slot_x_fu: List[float] = []
+        self._per_tag_roof_y_fu: Optional[List[float]] = None
         self._drag_package: bool = False
         self._last_mouse: Optional[QPoint] = None
         self._drag_delta_cb: Optional[Callable[[float, float], None]] = None
@@ -538,10 +563,15 @@ class TaginimEditorCanvas(QWidget):
         stem_h_fu_list: List[float],
         stem_w_fu: float,
         dot_r_fu: float,
+        per_tag_roof_y_fu: Optional[List[float]] = None,
     ) -> None:
         self._tag_count = tag_count
         self._group_dx_fu = group_dx_fu
         self._group_dy_fu = group_dy_fu
+        if per_tag_roof_y_fu is not None and len(per_tag_roof_y_fu) >= tag_count:
+            self._per_tag_roof_y_fu = list(per_tag_roof_y_fu[:tag_count])
+        else:
+            self._per_tag_roof_y_fu = None
         self._slot_x_fu = (
             slot_x_fu[:tag_count]
             if len(slot_x_fu) >= tag_count
@@ -556,7 +586,7 @@ class TaginimEditorCanvas(QWidget):
         self._dot_r_fu = dot_r_fu
         self.update()
 
-    def _fu_to_px(self, slot_x: float) -> Tuple[float, float]:
+    def _fu_to_px(self, slot_x: float, tag_index: int = 0) -> Tuple[float, float]:
         """בסיס התג בפיקסלים (כמו y_stem_bottom בהטמעה: קצה תחתון של הקו על y=y1+dy).
 
         קו הבסיס בפיקסלים: oy + bitmap_top (FreeType). נקודה בגובה y ביחידות גופן:
@@ -565,7 +595,14 @@ class TaginimEditorCanvas(QWidget):
         x_abs_fu = self._bbox_center_x_fu + slot_x
         cx_px = self._ox + (x_abs_fu - self._ink_x0_fu) * self._px_per_fu_x
         baseline_px = float(self._oy + self._bitmap_top_px)
-        y_anchor_fu = self._bbox_y_top_fu + self._group_dy_fu
+        if (
+            self._per_tag_roof_y_fu is not None
+            and 0 <= tag_index < len(self._per_tag_roof_y_fu)
+        ):
+            y_roof = float(self._per_tag_roof_y_fu[tag_index])
+        else:
+            y_roof = self._bbox_y_top_fu
+        y_anchor_fu = y_roof + self._group_dy_fu
         base_y_px = baseline_px - y_anchor_fu * self._px_per_fu_y
         return cx_px, base_y_px
 
@@ -574,7 +611,7 @@ class TaginimEditorCanvas(QWidget):
         for i in range(self._tag_count):
             slot = self._slot_x_fu[i] if i < len(self._slot_x_fu) else 0.0
             slot_x = slot + self._group_dx_fu
-            cx, base_y = self._fu_to_px(slot_x)
+            cx, base_y = self._fu_to_px(slot_x, i)
             stem_h = self._stem_h_list_fu[i] if i < len(self._stem_h_list_fu) else self._stem_h_list_fu[0]
             half_w = max(2.0, self._stem_w_fu * self._px_per_fu_x * 0.5)
             top_y = base_y - stem_h * self._px_per_fu_y
@@ -603,7 +640,7 @@ class TaginimEditorCanvas(QWidget):
         for i in range(self._tag_count):
             slot = self._slot_x_fu[i] if i < len(self._slot_x_fu) else 0.0
             slot_x = slot + self._group_dx_fu
-            cx, base_y = self._fu_to_px(slot_x)
+            cx, base_y = self._fu_to_px(slot_x, i)
             stem_h = self._stem_h_list_fu[i] if i < len(self._stem_h_list_fu) else self._stem_h_list_fu[0]
             half_w = max(1.0, self._stem_w_fu * self._px_per_fu_x * 0.5)
             top_y = base_y - stem_h * self._px_per_fu_y
@@ -1526,6 +1563,40 @@ class MainWindow(QMainWindow):
             ]
         else:
             stem_heights = [stem_side]
+
+        per_roof: Optional[List[float]] = None
+        gname_ed = self._glyph_name(ls.codepoint)
+        if gname_ed and self._ttfont is not None:
+            bb = self._glyph_bounds_fu(gname_ed)
+            if bb:
+                x0b, _y0b, x1b, y1b = map(float, bb)
+                cxb = (x0b + x1b) * 0.5
+                yfb = y1b
+                spacing_fu = ls.spacing_frac * ink_w * sc
+                gs = self._ttfont.getGlyphSet()
+                ptlist = _glyph_xy_points_for_band_search(self._ttfont, gs, gname_ed)
+                if ls.tag_count == 3 and len(ptlist) >= 8:
+                    hb = max(spacing_fu * 0.5, ink_w * 0.09, stem_w * 2.2, 24.0)
+                    per_roof = [
+                        _max_y_in_vertical_band(
+                            ptlist,
+                            cxb + (k - 1) * spacing_fu + ls.group_dx_fu,
+                            hb,
+                            yfb,
+                        )
+                        for k in range(3)
+                    ]
+                elif ls.tag_count == 1 and len(ptlist) >= 4:
+                    hb = max(ink_w * 0.11, stem_w * 2.5, 22.0)
+                    per_roof = [
+                        _max_y_in_vertical_band(
+                            ptlist,
+                            cxb + ls.group_dx_fu,
+                            hb,
+                            yfb,
+                        )
+                    ]
+
         self._canvas.set_geometry(
             ls.tag_count,
             ls.group_dx_fu,
@@ -1534,6 +1605,7 @@ class MainWindow(QMainWindow):
             stem_heights,
             stem_w * 2,
             dot_r,
+            per_tag_roof_y_fu=per_roof,
         )
 
     def _save_font(self) -> None:
@@ -1669,7 +1741,7 @@ class MainWindow(QMainWindow):
             "סגירה והפעלה מחדש של InDesign אחרי התקנה עוזרת אם נטען גרסה ישנה מהמטמון.\n"
             "עברית: מומלץ מחבר פסקה «World-Ready» (או מסגרת עמוד) ו־RTL. "
             "אם עדיין בלי תגין: בטלו זמנית OpenType (ליגטורות / חלופות) לבדיקה.\n"
-            "אם שין בלי תגין: הטמעה כוללת גם גליפי שין עם נקודה (U+FB2C/U+FB2D) כשקיימים בגופן."
+            "אם שין בלי תגין: הטמעה כוללת גם גליפי שין חלופיים (U+FB2C/FB2D/FB49 וכו׳) כשקיימים ב־cmap."
         )
         btn_open = box.addButton("פתח תיקייה ב־Explorer", QMessageBox.ActionRole)
         btn_close = box.addButton("סגור", QMessageBox.RejectRole)
@@ -1708,6 +1780,8 @@ class MainWindow(QMainWindow):
         dot_r = max(12.0, ls.dot_frac * ink_h * 0.5) * sc
         spacing = ls.spacing_frac * ink_w * sc
 
+        pts = _glyph_xy_points_for_band_search(font, glyph_set, gname)
+
         rec = DecomposingRecordingPen(glyph_set)
         glyph_set[gname].draw(rec)
         pen = TTGlyphPen(glyph_set)
@@ -1724,7 +1798,15 @@ class MainWindow(QMainWindow):
                 else stem_side
             )
             tcx = cx + base_dx + ls.group_dx_fu
-            y_stem_bottom = y_max + ls.group_dy_fu
+            if ls.tag_count == 3 and len(pts) >= 8:
+                half_band = max(spacing * 0.5, ink_w * 0.09, half_w * 2.2, 24.0)
+                y_roof = _max_y_in_vertical_band(pts, tcx, half_band, y_max)
+            elif ls.tag_count == 1 and len(pts) >= 4:
+                half_band = max(ink_w * 0.11, half_w * 2.5, 22.0)
+                y_roof = _max_y_in_vertical_band(pts, tcx, half_band, y_max)
+            else:
+                y_roof = y_max
+            y_stem_bottom = y_roof + ls.group_dy_fu
             y_stem_top = y_stem_bottom + stem_hi
             _add_rect_stem(pen, tcx, y_stem_bottom, y_stem_top, half_w)
             cy_dot = y_stem_top + dot_r
