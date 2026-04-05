@@ -880,8 +880,8 @@ class MainWindow(QMainWindow):
             "מקטין את מספר התגין. ב־0 — אין תגין על האות בעורך (ולא יוטבע בגופן)."
         )
         self._btn_strip_baked.setToolTip(
-            "מוחק מהגליף בזיכרון את קונטורי התגין מהשמירה הקודמת (לפי מונה פנימי או לפי מספר התגין). "
-            "אחרי פתיחת ‎*_taginim.ttf‎ כמקור — לפני שמירה חוזרת, כדי למנוע כפל תגין."
+            "מוחק מהגליף בזיכרון את קונטורי התגין מהשמירה הקודמת (לפי מונה פנימי או מספר התגין). "
+            "«שמור גופן» משתמש בזיכרון הזה — לא בקובץ המקורי על הדיסק — כדי שהייצוא ישקף את ההסרה."
         )
         self._btn_add_tagin.clicked.connect(self._on_add_tagin)
         self._btn_remove_tagin.clicked.connect(self._on_remove_tagin)
@@ -1904,6 +1904,28 @@ class MainWindow(QMainWindow):
             if ls.embed_in_font and ls.tag_count > 0:
                 ls.embedded_tag_pairs = ls.tag_count
 
+    def _font_copy_for_save(self) -> TTFont:
+        """עותק לשמירה והטמעה: מזיכרון (אחרי «הסר תגין מוטמעים» וכו׳) או מהדיסק אם אין TTFont."""
+        if self._ttfont is None:
+            return TTFont(self._font_path, fontNumber=0)
+        buf = io.BytesIO()
+        self._ttfont.save(buf)
+        buf.seek(0)
+        return TTFont(buf, fontNumber=0)
+
+    def _sync_editor_ttfont_after_save(self, font: TTFont) -> None:
+        """מעדכן את ה־TTFont הפתוח בעורך למה שנשמר (כולל תגין חדש) כדי ששמירה חוזרת לא תכפיל."""
+        buf = io.BytesIO()
+        font.save(buf)
+        raw = buf.getvalue()
+        if self._ttfont is not None:
+            try:
+                self._ttfont.close()
+            except Exception:
+                pass
+        self._ttfont = TTFont(io.BytesIO(raw), fontNumber=0)
+        self._reload_ft_face_from_memory()
+
     def _save_font(self) -> None:
         if self._ttfont is None or not self._font_path:
             return
@@ -1922,8 +1944,8 @@ class MainWindow(QMainWindow):
             )
         else:
             out_path = os.path.join(src_dir, out_name)
-        # טעינה מחדש מהנתיב: לפני הטמעה מוסרים קונטורים לפי embedded_tag_pairs (מניעת כפל כשהמקור הוא ‎*_taginim‎).
-        font = TTFont(self._font_path, fontNumber=0)
+        # עותק מהזיכרון אם נערך בעורך (הסרת תגין מוטמעים); אחרת מהדיסק. אחרת שמירה מתעלמת מהסרה.
+        font = self._font_copy_for_save()
         if "glyf" not in font:
             font.close()
             QMessageBox.warning(self, "שגיאה", "אין טבלת glyf.")
@@ -2016,6 +2038,7 @@ class MainWindow(QMainWindow):
                     f"הקובץ נשמר בפועל ב־\n{saved_to}\n\n"
                     "להתקנה: לחיצה ימנית על הקובץ → התקנה למשתמש."
                 )
+            self._sync_editor_ttfont_after_save(font)
         except Exception as e:
             QMessageBox.critical(
                 self,
