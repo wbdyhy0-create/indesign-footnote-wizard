@@ -22,6 +22,7 @@ from fontTools.pens.boundsPen import BoundsPen
 from fontTools.pens.recordingPen import DecomposingRecordingPen
 from fontTools.pens.ttGlyphPen import TTGlyphPen
 from fontTools.ttLib import TTFont
+from fontTools.ttLib.tables._g_l_y_f import GlyphCoordinates
 
 from PIL import Image
 
@@ -162,7 +163,8 @@ def _glyf_strip_last_contours(font: TTFont, gname: str, n_contours: int) -> bool
         return False
     ends = list(g.endPtsOfContours)
     last_keep_idx = int(ends[keep - 1])
-    g.coordinates = g.coordinates[: last_keep_idx + 1]
+    # fontTools: חיתוך coordinates מחזיר list — חייבים GlyphCoordinates ל־compile/recalcBounds
+    g.coordinates = GlyphCoordinates(g.coordinates[: last_keep_idx + 1])
     g.flags = g.flags[: last_keep_idx + 1]
     g.endPtsOfContours = ends[:keep]
     g.numberOfContours = keep
