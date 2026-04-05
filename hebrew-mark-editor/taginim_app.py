@@ -529,18 +529,16 @@ def _square_fan_side_geometry_right(
 def _add_curved_side_stem_left(
     pen: TTGlyphPen, tcx: float, y_bottom: float, y_top: float, half_w: float, bend: float
 ) -> None:
-    """רצועה חלקה: פנים כמעט אנכי, חוץ קוביית בזייה החוצה (−X)."""
+    """מנפה שמאל: טריז — קודקוד חד למטה במרכז המפתח, רוחב מלא למעלה, קשת חיצונית."""
     H = y_top - y_bottom
-    xl, xr = tcx - half_w, tcx + half_w
     xo_top, xi_top, _, _ = _square_fan_side_geometry_left(tcx, y_bottom, y_top, half_w, bend)
-    pen.moveTo((xl, y_bottom))
-    pen.lineTo((xr, y_bottom))
+    pen.moveTo((tcx, y_bottom))
     pen.lineTo((xi_top, y_top))
     pen.lineTo((xo_top, y_top))
     pen.curveTo(
         (xo_top - 0.42 * bend, y_top),
-        (xl + 0.06 * half_w, y_bottom + 0.52 * H),
-        (xl, y_bottom),
+        (tcx - 0.38 * bend, y_bottom + 0.52 * H),
+        (tcx, y_bottom),
     )
     pen.closePath()
 
@@ -548,18 +546,16 @@ def _add_curved_side_stem_left(
 def _add_curved_side_stem_right(
     pen: TTGlyphPen, tcx: float, y_bottom: float, y_top: float, half_w: float, bend: float
 ) -> None:
-    """גזע ימני — מראה מראה."""
+    """גזע ימני — מראה מראה (קודקוד למטה, טריז)."""
     H = y_top - y_bottom
-    xl, xr = tcx - half_w, tcx + half_w
     xo_top, xi_top, _, _ = _square_fan_side_geometry_right(tcx, y_bottom, y_top, half_w, bend)
-    pen.moveTo((xr, y_bottom))
-    pen.lineTo((xl, y_bottom))
+    pen.moveTo((tcx, y_bottom))
     pen.lineTo((xi_top, y_top))
     pen.lineTo((xo_top, y_top))
     pen.curveTo(
         (xo_top + 0.42 * bend, y_top),
-        (xr - 0.06 * half_w, y_bottom + 0.52 * H),
-        (xr, y_bottom),
+        (tcx + 0.38 * bend, y_bottom + 0.52 * H),
+        (tcx, y_bottom),
     )
     pen.closePath()
 
@@ -889,23 +885,22 @@ class TaginimEditorCanvas(QWidget):
 
     @staticmethod
     def _path_curved_stem_left_px(tcx: float, yb: float, yt: float, hw: float, bend: float) -> QPainterPath:
-        """yb > yt (קואורדינטות Qt); אותה לוגיקת X כמו בהטמעה."""
+        """yb > yt (קואורדינטות Qt); טריז עם קודקוד ב־tcx."""
         path = QPainterPath()
         H = abs(yb - yt)
         xl, xr = tcx - hw, tcx + hw
         lam = 0.13
         xi_top = xr - lam * bend
         xo_top = xl - bend
-        path.moveTo(xl, yb)
-        path.lineTo(xr, yb)
+        path.moveTo(tcx, yb)
         path.lineTo(xi_top, yt)
         path.lineTo(xo_top, yt)
         path.cubicTo(
             xo_top - 0.42 * bend,
             yt,
-            xl + 0.06 * hw,
+            tcx - 0.38 * bend,
             yb - 0.52 * H,
-            xl,
+            tcx,
             yb,
         )
         path.closeSubpath()
@@ -919,16 +914,15 @@ class TaginimEditorCanvas(QWidget):
         lam = 0.13
         xi_top = xl + lam * bend
         xo_top = xr + bend
-        path.moveTo(xr, yb)
-        path.lineTo(xl, yb)
+        path.moveTo(tcx, yb)
         path.lineTo(xi_top, yt)
         path.lineTo(xo_top, yt)
         path.cubicTo(
             xo_top + 0.42 * bend,
             yt,
-            xr - 0.06 * hw,
+            tcx + 0.38 * bend,
             yb - 0.52 * H,
-            xr,
+            tcx,
             yb,
         )
         path.closeSubpath()
