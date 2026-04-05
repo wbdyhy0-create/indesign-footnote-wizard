@@ -16,13 +16,16 @@ _APP_DIR = os.path.dirname(os.path.abspath(__file__))
 if _APP_DIR not in sys.path:
     sys.path.insert(0, _APP_DIR)
 
-from typing import List, Optional, Tuple
+from typing import Callable, List, Optional, Tuple
 
 from fontTools.ttLib import TTFont
 from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QColor
 from PyQt5.QtWidgets import (
     QAction,
     QApplication,
+    QCheckBox,
+    QDialog,
     QFileDialog,
     QGridLayout,
     QGroupBox,
@@ -30,18 +33,27 @@ from PyQt5.QtWidgets import (
     QLabel,
     QLineEdit,
     QListWidget,
+    QListWidgetItem,
     QMainWindow,
     QMessageBox,
     QPushButton,
     QSpinBox,
     QSplitter,
     QTabWidget,
+    QTextEdit,
     QVBoxLayout,
     QWidget,
 )
 
 from editor_widget import AnchorEditorCanvas, MarkToMarkPanel, NudgeButtons, pil_to_qpixmap
 from font_loader import FontLoader, _anchor_xy
+from glyph_importer import (
+    TAAMIM_ROWS,
+    copy_gpos_and_scale_for_upem,
+    import_taamim,
+    upem_pair_message,
+)
+from gpos_profile import apply_profile_to_font, load_profile_json, save_profile_json
 from glyph_renderer import GlyphRenderer
 
 # --- Unicode (כמו editor.py) ---
@@ -68,6 +80,310 @@ def _cp_label(cp: int) -> str:
     return f"U+{cp:04X}  {chr(cp)}"
 
 
+class CalibrationTab(QWidget):
+    """MarkToBase + MarkToMark כלשוניות פנימיות."""
+
+    def __init__(self, mtb: QWidget, mtm: QWidget, parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent)
+        tw = QTabWidget()
+        tw.addTab(mtb, "MarkToBase")
+        tw.addTab(mtm, "MarkToMark")
+        QVBoxLayout(self).addWidget(tw)
+
+
+class ImportTab(QWidget):
+    """ייבוא טעמים מגופן מקור לגופן היעד הטעון."""
+
+    def __init__(
+        self,
+        get_loader: Callable[[], Optional[FontLoader]],
+        get_target_path: Callable[[], str],
+        on_import_done: Callable[[int, bool, List[str], str], None],
+        parent: Optional[QWidget] = None,
+    ) -> None:
+        super().__init__(parent)
+        self._get_loader = get_loader
+        self._get_target_path = get_target_path
+        self._on_import_done = on_import_done
+
+        v = QVBoxLayout(self)
+        v.addWidget(
+            QLabel(
+                "מעתיקים גליפי טעמים (טבלת טעמים למטה) מגופן שכבר כולל אותם "
+                "(למשל Guttman Frank, Ezra SIL, SBL Hebrew)."
+            )
+        )
+        row = QHBoxLayout()
+        row.addWidget(QLabel("גופן מקור:"))
+        self._src = QLineEdit()
+        row.addWidget(self._src)
+        b_src = QPushButton("…")
+        b_src.clicked.connect(self._browse_src)
+        row.addWidget(b_src)
+        v.addLayout(row)
+
+        self._tgt_lbl = QLabel("גופן יעד: לא נטען — פתחו מקובץ ← פתח גופן.")
+        self._tgt_lbl.setWordWrap(True)
+        v.addWidget(self._tgt_lbl)
+        self._upem_lbl = QLabel("")
+        v.addWidget(self._upem_lbl)
+
+        self._chk_gpos = QCheckBox(
+            "לאחר הייבוא: להעתיק את טבלת GPOS מהמקור ולסקייל עוגני Mark אם ה-UPM שונה"
+        )
+        self._chk_gpos.setChecked(True)
+        v.addWidget(self._chk_gpos)
+
+        self._list = QListWidget()
+        self._list.setSelectionMode(QListWidget.MultiSelection)
+        v.addWidget(self._list)
+
+        h = QHBoxLayout()
+        b_ref = QPushButton("רענן רשימה")
+        b_ref.clicked.connect(self.refresh_list)
+        b_prev = QPushButton("תצוגה מקדימה (מהמקור)")
+        b_prev.clicked.connect(self._preview_selected_from_source)
+        h.addWidget(b_ref)
+        h.addWidget(b_prev)
+        v.addLayout(h)
+
+        h2 = QHBoxLayout()
+        b_all = QPushButton("ייבא הכל")
+        b_all.clicked.connect(lambda: self._run_import(all_rows=True))
+        b_sel = QPushButton("ייבא נבחרים")
+        b_sel.clicked.connect(lambda: self._run_import(all_rows=False))
+        h2.addWidget(b_all)
+        h2.addWidget(b_sel)
+        v.addLayout(h2)
+
+    def update_target_label(self) -> None:
+        p = self._get_target_path()
+        self._tgt_lbl.setText(f"גופן יעד: {p}" if p else "גופן יעד: לא נטען — פתחו מקובץ.")
+
+    def refresh_list(self) -> None:
+        self._list.clear()
+        loader = self._get_loader()
+        tgt_cmap = loader.cmap if loader else {}
+        for cp, he_name in TAAMIM_ROWS:
+            ok = cp in tgt_cmap
+            it = QListWidgetItem(f"{'✓' if ok else '✗'}  {_cp_label(cp)}  —  {he_name}")
+            it.setData(Qt.UserRole, cp)
+            it.setForeground(QColor(0, 130, 60) if ok else QColor(190, 30, 30))
+            self._list.addItem(it)
+
+        src_p = self._src.text().strip()
+        tgt_p = self._get_target_path()
+        if src_p and tgt_p:
+            try:
+                s = TTFont(src_p)
+                t = TTFont(tgt_p)
+                try:
+                    self._upem_lbl.setText(upem_pair_message(s, t))
+                finally:
+                    s.close()
+                    t.close()
+            except Exception as e:
+                self._upem_lbl.setText(f"בדיקת UPM נכשלה: {e}")
+        else:
+            self._upem_lbl.setText("")
+
+    def _browse_src(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            "גופן מקור (עם טעמים)",
+            "",
+            "Fonts (*.ttf *.TTF *.otf *.OTF);;All (*.*)",
+        )
+        if path:
+            self._src.setText(path)
+            self.refresh_list()
+
+    def _preview_selected_from_source(self) -> None:
+        src_p = self._src.text().strip()
+        if not src_p:
+            QMessageBox.information(self, "מקור", "בחרו קובץ גופן מקור.")
+            return
+        row = self._list.currentRow()
+        if row < 0:
+            QMessageBox.information(self, "בחירה", "בחרו שורה ברשימה.")
+            return
+        cp = self._list.item(row).data(Qt.UserRole)
+        try:
+            img = GlyphRenderer(src_p, 160).render_sample_text(chr(int(cp)))
+        except Exception as e:
+            QMessageBox.critical(self, "רינדור", str(e))
+            return
+        dlg = QDialog(self)
+        dlg.setWindowTitle("תצוגה מקדימה")
+        lv = QVBoxLayout(dlg)
+        lv.addWidget(QLabel(f"טעם U+{int(cp):04X} מגופן המקור"))
+        lbl = QLabel()
+        lbl.setPixmap(pil_to_qpixmap(img))
+        lv.addWidget(lbl)
+        dlg.exec_()
+
+    def _run_import(self, all_rows: bool) -> None:
+        loader = self._get_loader()
+        if not loader:
+            QMessageBox.warning(self, "יעד", "פתחו גופן יעד מתפריט «קובץ → פתח גופן».")
+            return
+        src_p = self._src.text().strip()
+        if not src_p:
+            QMessageBox.warning(self, "מקור", "בחרו גופן מקור.")
+            return
+        if all_rows:
+            cps = [cp for cp, _ in TAAMIM_ROWS]
+        else:
+            cps = []
+            for it in self._list.selectedItems():
+                cps.append(int(it.data(Qt.UserRole)))
+        if not cps:
+            QMessageBox.information(self, "בחירה", "בחרו שורות ברשימה.")
+            return
+
+        source = TTFont(src_p)
+        gpos_detail = ""
+        try:
+            n_ok, errs = import_taamim(source, loader.font, cps)
+            gpos_copied = False
+            if self._chk_gpos.isChecked():
+                gok, gpos_detail = copy_gpos_and_scale_for_upem(source, loader.font)
+                gpos_copied = gok
+        finally:
+            source.close()
+
+        loader.refresh_cmap()
+        self._on_import_done(n_ok, gpos_copied, errs, gpos_detail)
+        self.refresh_list()
+
+
+class ProfilesTab(QWidget):
+    """שמירה והחלה של פרופיל עוגני GPOS (JSON)."""
+
+    def __init__(
+        self,
+        get_loader: Callable[[], Optional[FontLoader]],
+        on_applied: Callable[[], None],
+        parent: Optional[QWidget] = None,
+    ) -> None:
+        super().__init__(parent)
+        self._get_loader = get_loader
+        self._on_applied = on_applied
+        self._path_edit = QLineEdit()
+        v = QVBoxLayout(self)
+        v.addWidget(
+            QLabel(
+                "לאחר כיול על משקל אחד (למשל Regular) — שמרו פרופיל, "
+                "ואז החילו על Bold/Light עם אותם גליפי טעמים."
+            )
+        )
+        row = QHBoxLayout()
+        row.addWidget(QLabel("קובץ פרופיל:"))
+        row.addWidget(self._path_edit)
+        b_browse = QPushButton("…")
+        b_browse.clicked.connect(self._browse)
+        row.addWidget(b_browse)
+        v.addLayout(row)
+
+        b_save = QPushButton("שמור פרופיל מגופן הטעון…")
+        b_save.clicked.connect(self._save_profile)
+        v.addWidget(b_save)
+        b_apply = QPushButton("החל פרופיל על הגופן הטעון")
+        b_apply.clicked.connect(self._apply_profile)
+        v.addWidget(b_apply)
+        self._log = QLabel("")
+        self._log.setWordWrap(True)
+        v.addWidget(self._log)
+
+    def _browse(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            "פרופיל GPOS",
+            "",
+            "JSON (*.json);;All (*.*)",
+        )
+        if path:
+            self._path_edit.setText(path)
+
+    def _save_profile(self) -> None:
+        loader = self._get_loader()
+        if not loader:
+            QMessageBox.warning(self, "גופן", "אין גופן טעון.")
+            return
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "שמירת פרופיל",
+            "my_font.gpos_profile.json",
+            "JSON (*.json);;All (*.*)",
+        )
+        if not path:
+            return
+        name = os.path.splitext(os.path.basename(path))[0]
+        try:
+            save_profile_json(loader.font, name, path)
+        except Exception as e:
+            QMessageBox.critical(self, "שגיאה", str(e))
+            return
+        self._path_edit.setText(path)
+        self._log.setText(f"נשמר: {path}")
+        QMessageBox.information(self, "פרופיל", f"נשמר: {path}")
+
+    def _apply_profile(self) -> None:
+        loader = self._get_loader()
+        p = self._path_edit.text().strip()
+        if not loader or not p:
+            QMessageBox.warning(self, "חסר", "טענו גופן ובחרו קובץ פרופיל.")
+            return
+        try:
+            data = load_profile_json(p)
+            mtb_ok, mtm_ok, sk1, sk2 = apply_profile_to_font(loader.font, data)
+        except Exception as e:
+            QMessageBox.critical(self, "שגיאה", str(e))
+            return
+        self._log.setText(
+            f"MarkToBase עודכן: {mtb_ok}, דולגו: {sk1}. "
+            f"MarkToMark עודכן: {mtm_ok}, דולגו: {sk2}."
+        )
+        self._on_applied()
+        QMessageBox.information(
+            self,
+            "הוחל",
+            f"סיום החלה. עודכנו זוגות MarkToBase: {mtb_ok}, MarkToMark: {mtm_ok}.",
+        )
+
+
+class SaveTab(QWidget):
+    """דוח סשן ושמירה עם שם מומלץ _with_taamim."""
+
+    def __init__(
+        self,
+        get_report_lines: Callable[[], List[str]],
+        save_with_suffix: Callable[[str], None],
+        parent: Optional[QWidget] = None,
+    ) -> None:
+        super().__init__(parent)
+        self._get_report_lines = get_report_lines
+        self._save_with_suffix = save_with_suffix
+        v = QVBoxLayout(self)
+        v.addWidget(QLabel("סיכום סשן (מאז פתיחת הגופן):"))
+        self._text = QTextEdit()
+        self._text.setReadOnly(True)
+        self._text.setMaximumHeight(220)
+        v.addWidget(self._text)
+        b = QPushButton('שמור גופן חדש (סיומת "_with_taamim")')
+        b.clicked.connect(lambda: self._save_with_suffix("_with_taamim"))
+        v.addWidget(b)
+        b2 = QPushButton('שמור כ־"_fixed" (כמו בתפריט)')
+        b2.clicked.connect(lambda: self._save_with_suffix("_fixed"))
+        v.addWidget(b2)
+        v.addWidget(
+            QLabel("הקובץ נשמר כטקסט מלא; ניתן להתקין ב-Windows ולהשתמש באינדיזיין.")
+        )
+
+    def refresh(self) -> None:
+        self._text.setPlainText("\n".join(self._get_report_lines()))
+
+
 class MarkToBaseTab(QWidget):
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -76,6 +392,8 @@ class MarkToBaseTab(QWidget):
         self._base_cp = 0x05D0
         self._mark_cp: Optional[int] = None
         self._dirty = False
+        self._use_memory = False
+        self._font_path = ""
 
         outer = QHBoxLayout(self)
         split = QSplitter(Qt.Horizontal)
@@ -151,11 +469,16 @@ class MarkToBaseTab(QWidget):
         split.addWidget(right)
         split.setSizes([300, 600, 300])
 
-    def set_font(self, loader: FontLoader, path: str) -> None:
-        if self._renderer:
-            pass
+    def set_font(
+        self, loader: FontLoader, path: str, use_memory_preview: bool = False
+    ) -> None:
         self._loader = loader
-        self._renderer = GlyphRenderer(path, size_px=220)
+        self._font_path = path
+        self._use_memory = use_memory_preview
+        if use_memory_preview:
+            self._renderer = GlyphRenderer.from_ttfont(loader.font, size_px=220)
+        else:
+            self._renderer = GlyphRenderer(path, size_px=220)
         self._dirty = False
         self._fill_marks()
         self._refresh_all()
@@ -171,6 +494,25 @@ class MarkToBaseTab(QWidget):
 
     def mark_dirty(self) -> None:
         self._dirty = True
+
+    def set_use_memory_preview(self, enabled: bool) -> None:
+        if not self._loader:
+            return
+        self._use_memory = enabled
+        if enabled:
+            self._renderer = GlyphRenderer.from_ttfont(self._loader.font, size_px=220)
+        else:
+            self._renderer = GlyphRenderer(self._font_path, size_px=220)
+        self._refresh_all()
+
+    def refresh_face_from_font(self) -> None:
+        if self._use_memory and self._loader and self._renderer:
+            self._renderer.refresh_from_ttfont(self._loader.font)
+
+    def refresh_after_cmap_change(self) -> None:
+        self._fill_marks()
+        self.refresh_face_from_font()
+        self._refresh_all()
 
     def _fill_marks(self) -> None:
         self._mark_list.clear()
@@ -292,32 +634,100 @@ class MarkToBaseTab(QWidget):
 
 
 class PreviewTab(QWidget):
+    SAMPLE = "בְּרֵאשִׁ֖ית בָּרָ֣א אֱלֹהִ֑ים"
+
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
-        self._renderer: Optional[GlyphRenderer] = None
+        self._loader: Optional[FontLoader] = None
+        self._disk_path = ""
+        self._use_memory = False
         v = QVBoxLayout(self)
-        v.addWidget(QLabel("טקסט לדוגמה (רינדור פשוט תו־תו — לא HarfBuzz):"))
-        self._edit = QLineEdit("שָׁלוֹם")
+        v.addWidget(
+            QLabel(
+                "טקסט לדוגמה (רינדור פשוט תו־תו — לא HarfBuzz). "
+                "«אחרי» = הגופן הטעון; «לפני» = קובץ אופציונלי להשוואה."
+            )
+        )
+        self._edit = QLineEdit(self.SAMPLE)
         self._edit.setLayoutDirection(Qt.RightToLeft)
         v.addWidget(self._edit)
+        row_b = QHBoxLayout()
+        row_b.addWidget(QLabel("גופן «לפני» (אופציונלי):"))
+        self._before_path = QLineEdit()
+        row_b.addWidget(self._before_path)
+        bb = QPushButton("…")
+        bb.clicked.connect(self._browse_before)
+        row_b.addWidget(bb)
+        v.addLayout(row_b)
         b = QPushButton("רענן תצוגה")
         b.clicked.connect(self._render)
         v.addWidget(b)
-        self._lbl = QLabel()
-        self._lbl.setMinimumHeight(400)
-        self._lbl.setAlignment(Qt.AlignCenter)
-        v.addWidget(self._lbl)
+        row = QHBoxLayout()
+        vb = QVBoxLayout()
+        vb.addWidget(QLabel("לפני (אופציונלי)"))
+        self._lbl_before = QLabel()
+        self._lbl_before.setMinimumHeight(300)
+        self._lbl_before.setAlignment(Qt.AlignCenter)
+        vb.addWidget(self._lbl_before)
+        va = QVBoxLayout()
+        va.addWidget(QLabel("אחרי (גופן טעון)"))
+        self._lbl_after = QLabel()
+        self._lbl_after.setMinimumHeight(300)
+        self._lbl_after.setAlignment(Qt.AlignCenter)
+        va.addWidget(self._lbl_after)
+        row.addLayout(vb, 1)
+        row.addLayout(va, 1)
+        v.addLayout(row)
 
-    def set_path(self, path: str) -> None:
-        self._renderer = GlyphRenderer(path, 200)
+    def _browse_before(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            "גופן לפני (השוואה)",
+            "",
+            "Fonts (*.ttf *.TTF *.otf *.OTF);;All (*.*)",
+        )
+        if path:
+            self._before_path.setText(path)
+            self._render()
+
+    def set_context(
+        self,
+        loader: Optional[FontLoader],
+        disk_path: str,
+        use_memory: bool,
+    ) -> None:
+        self._loader = loader
+        self._disk_path = disk_path
+        self._use_memory = use_memory
         self._render()
 
+    def _renderer_after(self) -> Optional[GlyphRenderer]:
+        if self._use_memory and self._loader:
+            return GlyphRenderer.from_ttfont(self._loader.font, 180)
+        if self._disk_path:
+            return GlyphRenderer(self._disk_path, 180)
+        return None
+
     def _render(self) -> None:
-        if not self._renderer:
-            self._lbl.setText("טען גופן בלשונית MarkToBase.")
-            return
-        img = self._renderer.render_sample_text(self._edit.text())
-        self._lbl.setPixmap(pil_to_qpixmap(img))
+        txt = self._edit.text() or self.SAMPLE
+        ra = self._renderer_after()
+        if ra:
+            try:
+                self._lbl_after.setPixmap(pil_to_qpixmap(ra.render_sample_text(txt)))
+            except Exception as e:
+                self._lbl_after.setText(str(e))
+        else:
+            self._lbl_after.setText("טענו גופן יעד.")
+
+        bp = self._before_path.text().strip()
+        if bp:
+            try:
+                rb = GlyphRenderer(bp, 180)
+                self._lbl_before.setPixmap(pil_to_qpixmap(rb.render_sample_text(txt)))
+            except Exception as e:
+                self._lbl_before.setText(str(e))
+        else:
+            self._lbl_before.setText("(ללא קובץ «לפני»)")
 
 
 class MainWindow(QMainWindow):
@@ -328,14 +738,30 @@ class MainWindow(QMainWindow):
         self._loader: Optional[FontLoader] = None
         self._font_path: Optional[str] = None
         self._dirty_font = False
+        self._import_count = 0
+        self._gpos_copied_session = False
+        self._use_memory_preview = False
 
         self._tabs = QTabWidget()
+        self._tab_import = ImportTab(
+            lambda: self._loader,
+            lambda: self._font_path or "",
+            self._after_import,
+        )
         self._tab_mtb = MarkToBaseTab()
         self._tab_mtm = MarkToMarkPanel()
+        self._tab_calibration = CalibrationTab(self._tab_mtb, self._tab_mtm)
+        self._tab_profiles = ProfilesTab(
+            lambda: self._loader, self._on_profile_applied
+        )
         self._tab_prev = PreviewTab()
-        self._tabs.addTab(self._tab_mtb, "MarkToBase")
-        self._tabs.addTab(self._tab_mtm, "MarkToMark")
+        self._tab_save = SaveTab(self._save_report_lines, self._save_with_suffix_choice)
+
+        self._tabs.addTab(self._tab_import, "ייבוא גליפים")
+        self._tabs.addTab(self._tab_calibration, "כיול GPOS")
+        self._tabs.addTab(self._tab_profiles, "פרופילים")
         self._tabs.addTab(self._tab_prev, "תצוגה מקדימה")
+        self._tabs.addTab(self._tab_save, "שמירה")
         self.setCentralWidget(self._tabs)
 
         m_file = self.menuBar().addMenu("קובץ")
@@ -361,14 +787,18 @@ class MainWindow(QMainWindow):
             return
         try:
             probe = TTFont(path)
-            if "GPOS" not in probe:
-                probe.close()
-                QMessageBox.warning(self, "GPOS", "לקובץ אין טבלת GPOS.")
-                return
+            has_gpos = "GPOS" in probe
             probe.close()
         except Exception as e:
             QMessageBox.critical(self, "שגיאה", str(e))
             return
+        if not has_gpos:
+            QMessageBox.information(
+                self,
+                "GPOS",
+                "לקובץ אין טבלת GPOS. אפשר לייבא טעמים ולהעתיק GPOS מגופן מקור, "
+                "או להמשיך אם תוסיפו כללים בנפרד.",
+            )
         if self._loader:
             self._loader.close()
         try:
@@ -378,9 +808,15 @@ class MainWindow(QMainWindow):
             return
         self._font_path = path
         self._dirty_font = False
-        self._tab_mtb.set_font(self._loader, path)
+        self._import_count = 0
+        self._gpos_copied_session = False
+        self._use_memory_preview = False
+        self._tab_mtb.set_font(self._loader, path, use_memory_preview=False)
         self._tab_mtm.set_loader(self._loader, self._on_any_gpos_edit)
-        self._tab_prev.set_path(path)
+        self._tab_prev.set_context(self._loader, path, False)
+        self._tab_import.update_target_label()
+        self._tab_import.refresh_list()
+        self._tab_save.refresh()
 
     def _save_font(self) -> None:
         if not self._loader or not self._font_path:
@@ -401,6 +837,79 @@ class MainWindow(QMainWindow):
         QMessageBox.information(self, "נשמר", path)
         self._tab_mtb._dirty = False
         self._dirty_font = False
+        self._tab_save.refresh()
+
+    def _save_report_lines(self) -> List[str]:
+        return [
+            f"נתיב גופן: {self._font_path or '—'}",
+            f"סה״כ ייבואי גליף מוצלחים בסשן: {self._import_count}",
+            f"הועתק GPOS מגופן מקור בייבוא: {'כן' if self._gpos_copied_session else 'לא'}",
+            f"תצוגה מזיכרון (אחרי ייבוא גליפים): {'כן' if self._use_memory_preview else 'לא'}",
+        ]
+
+    def _save_with_suffix_choice(self, suffix_key: str) -> None:
+        if not self._loader or not self._font_path:
+            QMessageBox.information(self, "שמירה", "אין גופן טעון.")
+            return
+        base, ext = os.path.splitext(self._font_path)
+        ext = ext or ".ttf"
+        if suffix_key == "_with_taamim":
+            default = f"{base}_with_taamim{ext}"
+            title = "שמור גופן (_with_taamim)"
+        else:
+            default = f"{base}_fixed{ext}"
+            title = "שמור גופן (_fixed)"
+        path, _ = QFileDialog.getSaveFileName(
+            self, title, default, "Fonts (*.ttf *.otf);;All (*.*)"
+        )
+        if not path:
+            return
+        try:
+            self._loader.save(path)
+        except Exception as e:
+            QMessageBox.critical(self, "שגיאה", str(e))
+            return
+        QMessageBox.information(self, "נשמר", path)
+        self._tab_mtb._dirty = False
+        self._dirty_font = False
+        self._tab_save.refresh()
+
+    def _after_import(
+        self, n_ok: int, gpos_copied: bool, errs: List[str], gpos_detail: str
+    ) -> None:
+        self._import_count += n_ok
+        if gpos_copied:
+            self._gpos_copied_session = True
+        self._use_memory_preview = True
+        if self._loader:
+            self._tab_mtb.set_use_memory_preview(True)
+            self._tab_mtb._fill_marks()
+            self._tab_mtb._refresh_all()
+            self._tab_mtm.set_loader(self._loader, self._on_any_gpos_edit)
+            self._tab_prev.set_context(
+                self._loader, self._font_path or "", True
+            )
+        self._tab_save.refresh()
+        self._on_any_gpos_edit()
+        msg = f"סיום ייבוא: {n_ok} גליפים הועתקו בהצלחה."
+        if gpos_detail:
+            msg += f"\n{gpos_detail}"
+        if errs:
+            msg += "\n\nדיווחים:\n" + "\n".join(errs[:10])
+            if len(errs) > 10:
+                msg += "\n…"
+        QMessageBox.information(self, "ייבוא", msg)
+
+    def _on_profile_applied(self) -> None:
+        if not self._loader:
+            return
+        self._tab_mtb._refresh_all()
+        self._tab_mtm.set_loader(self._loader, self._on_any_gpos_edit)
+        self._tab_prev.set_context(
+            self._loader, self._font_path or "", self._use_memory_preview
+        )
+        self._tab_save.refresh()
+        self._on_any_gpos_edit()
 
     def _on_any_gpos_edit(self) -> None:
         self._dirty_font = True
@@ -410,11 +919,13 @@ class MainWindow(QMainWindow):
         QMessageBox.information(
             self,
             "עזרה",
-            "• MarkToBase: בוחרים אות וסימון, גוררים או מזינים ערכי BaseAnchor.\n"
-            "• MarkToMark: מופיעים זוגות טעם/ניקוד מועמדים; ההחלה מזיזה עוגנים "
-            "רק אם כבר קיים כלל mkmk בגופן.\n"
-            "• כפתור «חלופה: BaseAnchor על כל האותיות» משפיע על כל הקונטקסטים.\n"
-            "• תצוגה מקדימה: רינדור גס ללא HarfBuzz.\n\n"
+            "• ייבוא גליפים: מעתיק טעמים מגופן מקור ליעד הטעון; אופציה להעתיק GPOS "
+            "ולסקייל עוגני Mark אם ה-UPM שונה.\n"
+            "• כיול GPOS: MarkToBase ו-MarkToMark כמו קודם.\n"
+            "• פרופילים: שמירת עוגנים ל-JSON והחלה על משקלים אחרים (דורש אותם "
+            "זוגות כללים ב-GPOS).\n"
+            "• תצוגה מקדימה: רינדור גס ללא HarfBuzz; אפשר השוואה לקובץ «לפני».\n"
+            "• שמירה: דוח סשן ושמירה עם סיומת _with_taamim או _fixed.\n\n"
             "ספריות: fonttools, freetype-py, Pillow, PyQt5.",
         )
 

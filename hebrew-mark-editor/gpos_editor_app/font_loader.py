@@ -179,6 +179,15 @@ class FontLoader:
         self.glyph_set = self.font.getGlyphSet()
         self.upem = float(self.font["head"].unitsPerEm)
 
+    def refresh_cmap(self) -> None:
+        """לאחר ייבוא גליפים / שינוי cmap בזיכרון — רענון מטמון."""
+        bc = self.font.getBestCmap()
+        self.cmap = {
+            int(k): v for k, v in bc.items() if isinstance(k, int)
+        } if bc else {}
+        self.glyph_set = self.font.getGlyphSet()
+        self.upem = float(self.font["head"].unitsPerEm)
+
     def close(self) -> None:
         self.font.close()
 

@@ -3,9 +3,13 @@
 
 from __future__ import annotations
 
-from typing import Optional, Tuple
+from io import BytesIO
+from typing import TYPE_CHECKING, Optional, Tuple
 
 import freetype
+
+if TYPE_CHECKING:
+    from fontTools.ttLib import TTFont
 from PIL import Image, ImageDraw
 
 # ערכי ברירת מחדל לקנבס
@@ -56,8 +60,30 @@ class GlyphRenderer:
     def __init__(self, font_path: str, size_px: int = 220) -> None:
         self.font_path = font_path
         self.size_px = size_px
+        self._stream: Optional[BytesIO] = None
         self.face = freetype.Face(font_path)
         self.face.set_pixel_sizes(0, size_px)
+
+    @classmethod
+    def from_ttfont(cls, font: "TTFont", size_px: int = 220) -> "GlyphRenderer":
+        """רינדור מזיכרון (אחרי ייבוא גליפים שלא נשמרו לדיסק)."""
+        self = object.__new__(cls)
+        self.font_path = ""
+        self.size_px = size_px
+        self._stream = BytesIO()
+        font.save(self._stream)
+        self._stream.seek(0)
+        self.face = freetype.Face(self._stream)
+        self.face.set_pixel_sizes(0, size_px)
+        return self
+
+    def refresh_from_ttfont(self, font: "TTFont") -> None:
+        """מעדכן את הזרם אחרי שינוי ב־TTFont (GPOS / גליפים)."""
+        self._stream = BytesIO()
+        font.save(self._stream)
+        self._stream.seek(0)
+        self.face = freetype.Face(self._stream)
+        self.face.set_pixel_sizes(0, self.size_px)
 
     def set_size(self, size_px: int) -> None:
         self.size_px = size_px
