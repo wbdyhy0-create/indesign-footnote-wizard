@@ -124,6 +124,13 @@ class MarkBaseIndex:
         br.BaseAnchor[self.mark_class] = anchor
 
 
+def _unwrap_gpos_subtable(sub: Any) -> Any:
+    """GPOS לעיתים עוטף MarkBasePos ב־ExtensionPos — חייבים לפתוח לפני חיפוש."""
+    while type(sub).__name__ == "ExtensionPos":
+        sub = sub.ExtSubTable
+    return sub
+
+
 def iter_mark_base_subtables(font: TTFont) -> List[Any]:
     if "GPOS" not in font:
         return []
@@ -132,9 +139,10 @@ def iter_mark_base_subtables(font: TTFont) -> List[Any]:
         return []
     out: List[Any] = []
     for lookup in gpos.LookupList.Lookup:
-        if lookup.LookupType != 4:
-            continue
-        for st in lookup.SubTable:
+        for raw in lookup.SubTable:
+            st = _unwrap_gpos_subtable(raw)
+            if type(st).__name__ != "MarkBasePos":
+                continue
             if getattr(st, "Format", None) == 1:
                 out.append(st)
     return out
