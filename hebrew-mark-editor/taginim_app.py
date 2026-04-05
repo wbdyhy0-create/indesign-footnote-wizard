@@ -103,8 +103,26 @@ ONE_TAG_CP: Tuple[int, ...] = (0x05D1, 0x05D3, 0x05E7, 0x05D7, 0x05D9, 0x05D4)
 MAX_TAGINIM_PER_LETTER = 9
 
 SHIN_CP = 0x05E9
-# InDesign / עריכה: שין עם נקודות/דגוש כגליף נפרד — חייבים הטמעה גם שם אחרת אין תגין בטקסט
-SHIN_VARIANT_CPS: Tuple[int, ...] = (0xFB2C, 0xFB2D, 0xFB49)
+# InDesign / עריכה / ניקוד: שין כגליף מורכב (נקודה/דגוש) — חייבים הטמעה בכל הווריאנטים ב־cmap,
+# אחרת המעבד בוחר גליף בלי תגין. FB2E/FB2F = שין+דגוש+נקודת שין/סין (לעיתים NFC).
+SHIN_VARIANT_CPS: Tuple[int, ...] = (
+    0xFB2C,
+    0xFB2D,
+    0xFB2E,
+    0xFB2F,
+    0xFB49,
+)
+
+
+def _shin_variant_glyph_names(font: TTFont) -> set[str]:
+    """שמות גליף לכל וריאנטי שין שמופיעים ב־cmap (לזיהוי בהטמעה)."""
+    cmap = font.getBestCmap() or {}
+    out: set[str] = set()
+    for cp in SHIN_VARIANT_CPS:
+        g = _cmap_cp_to_glyph_name(font, cp)
+        if g:
+            out.add(g)
+    return out
 
 
 def _cmap_cp_to_glyph_name(font: TTFont, cp: int) -> Optional[str]:
@@ -1835,7 +1853,7 @@ class MainWindow(QMainWindow):
             "סגירה והפעלה מחדש של InDesign אחרי התקנה עוזרת אם נטען גרסה ישנה מהמטמון.\n"
             "עברית: מומלץ מחבר פסקה «World-Ready» (או מסגרת עמוד) ו־RTL. "
             "אם עדיין בלי תגין: בטלו זמנית OpenType (ליגטורות / חלופות) לבדיקה.\n"
-            "אם שין בלי תגין: הטמעה כוללת גם גליפי שין חלופיים (U+FB2C/FB2D/FB49 וכו׳) כשקיימים ב־cmap."
+            "אם שין בלי תגין: הטמעה כוללת גם גליפי שין חלופיים (U+FB2C…FB2F, FB49 וכו׳) כשקיימים ב־cmap."
         )
         btn_open = box.addButton("פתח תיקייה ב־Explorer", QMessageBox.ActionRole)
         btn_close = box.addButton("סגור", QMessageBox.RejectRole)
@@ -1856,7 +1874,17 @@ class MainWindow(QMainWindow):
         upem = float(font["head"].unitsPerEm)
         hhea = font.get("hhea")
         _asc = float(hhea.ascender) if hhea is not None else upem * 0.8
-        b = _glyph_bounds_from_font(font, gname)
+        gs_names = font.getGlyphSet()
+        base_shin_gn = _cmap_cp_to_glyph_name(font, SHIN_CP)
+        variant_names = _shin_variant_glyph_names(font)
+        use_base_shin_geometry = (
+            base_shin_gn is not None
+            and gname != base_shin_gn
+            and gname in variant_names
+            and base_shin_gn in gs_names
+        )
+        geom_gn = base_shin_gn if use_base_shin_geometry else gname
+        b = _glyph_bounds_from_font(font, geom_gn)
         if b is None:
             y_max = _asc
             cx = upem * 0.35
@@ -1874,7 +1902,7 @@ class MainWindow(QMainWindow):
         dot_r = max(12.0, ls.dot_frac * ink_h * 0.5) * sc
         spacing = ls.spacing_frac * ink_w * sc
 
-        pts = _glyph_xy_points_for_band_search(font, glyph_set, gname)
+        pts = _glyph_xy_points_for_band_search(font, glyph_set, geom_gn)
         y_bundle = _bundle_top_y_fu_for_taginim(
             pts, ls.tag_count, cx, spacing, ls.group_dx_fu, ink_w, half_w, y_max
         )
