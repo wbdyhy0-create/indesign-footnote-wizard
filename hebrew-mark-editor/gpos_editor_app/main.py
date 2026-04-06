@@ -490,6 +490,7 @@ class MarkToBaseTab(QWidget):
         self._base_cp = 0x05D0
         self._mark_cp: Optional[int] = None
         self._pinned_mark_cp: Optional[int] = None
+        self._pinned_off_fu: Optional[Tuple[float, float]] = None
         self._last_mark_cp: Optional[int] = None
         self._dirty = False
         self._use_memory = False
@@ -665,12 +666,31 @@ class MarkToBaseTab(QWidget):
         cur = self._current_mark_cp()
         if self._chk_pin_prev.isChecked() and self._last_mark_cp is not None and cur != self._last_mark_cp:
             self._pinned_mark_cp = self._last_mark_cp
+            self._pinned_off_fu = self._compute_mark_to_base_offset_fu(self._pinned_mark_cp)
         self._last_mark_cp = cur
         self._refresh_all()
 
     def _clear_pin(self) -> None:
         self._pinned_mark_cp = None
+        self._pinned_off_fu = None
         self._refresh_all()
+
+    def _compute_mark_to_base_offset_fu(self, mark_cp: Optional[int]) -> Optional[Tuple[float, float]]:
+        if not self._loader or mark_cp is None:
+            return None
+        bg = self._loader.get_glyph_name(self._base_cp)
+        mg = self._loader.get_glyph_name(int(mark_cp))
+        if not bg or not mg:
+            return None
+        mbi = self._loader.find_mark_base(bg, mg)
+        if not mbi:
+            return None
+        ba = mbi.get_base_anchor()
+        if ba is None:
+            return None
+        bx, by = _anchor_xy(ba)
+        mx, my = _anchor_xy(mbi.get_mark_anchor())
+        return (bx - mx, by - my)
 
     def _glyph_names(self) -> Tuple[Optional[str], Optional[str]]:
         if not self._loader:
@@ -742,24 +762,18 @@ class MarkToBaseTab(QWidget):
         # Optional pinned (second) mark preview: render both marks at their own MarkToBase offsets.
         pin_cp = self._pinned_mark_cp
         if pin_cp is not None and pin_cp != self._current_mark_cp():
-            pin_g = self._loader.get_glyph_name(pin_cp)
-            if pin_g:
-                pin_mbi = self._loader.find_mark_base(bg, pin_g)
-                if pin_mbi and pin_mbi.get_base_anchor() is not None:
-                    pbx, pby = _anchor_xy(pin_mbi.get_base_anchor())
-                    pmx, pmy = _anchor_xy(pin_mbi.get_mark_anchor())
-                    pox, poy = pbx - pmx, pby - pmy
-                    img = self._renderer.render_char_with_two_marks(
-                        self._base_cp,
-                        self._current_mark_cp(),
-                        ox,
-                        oy,
-                        pin_cp,
-                        pox,
-                        poy,
-                    )
-                else:
-                    img = self._renderer.render_char_with_mark(self._base_cp, self._current_mark_cp(), ox, oy)
+            # Pin is a snapshot: use stored offsets so it stays as a reference while editing.
+            p = self._pinned_off_fu
+            if p is not None:
+                img = self._renderer.render_char_with_two_marks(
+                    self._base_cp,
+                    self._current_mark_cp(),
+                    ox,
+                    oy,
+                    pin_cp,
+                    p[0],
+                    p[1],
+                )
             else:
                 img = self._renderer.render_char_with_mark(self._base_cp, self._current_mark_cp(), ox, oy)
         else:
