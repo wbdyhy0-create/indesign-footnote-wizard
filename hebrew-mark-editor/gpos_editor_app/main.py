@@ -54,6 +54,7 @@ try:
         copy_gpos_and_scale_for_upem,
         import_niqqud,
         import_taamim,
+        scale_mark_glyphs_in_place,
         upem_pair_message,
     )
     from gpos_profile import apply_profile_to_font, load_profile_json, save_profile_json
@@ -209,6 +210,18 @@ class ImportTab(QWidget):
         self._chk_niqqud.setChecked(True)
         v.addWidget(self._chk_niqqud)
 
+        scale_row = QHBoxLayout()
+        self._chk_scale = QCheckBox("הקטן סימנים אחרי ייבוא")
+        self._chk_scale.setChecked(False)
+        self._sp_scale = QSpinBox()
+        self._sp_scale.setRange(50, 120)
+        self._sp_scale.setValue(85)
+        scale_row.addWidget(self._chk_scale)
+        scale_row.addWidget(QLabel("אחוז:"))
+        scale_row.addWidget(self._sp_scale)
+        scale_row.addStretch()
+        v.addLayout(scale_row)
+
         self._list = QListWidget()
         self._list.setSelectionMode(QListWidget.MultiSelection)
         v.addWidget(self._list)
@@ -358,6 +371,21 @@ class ImportTab(QWidget):
                 gpos_copied = gok
         finally:
             source.close()
+
+        if self._chk_scale.isChecked():
+            factor = float(self._sp_scale.value()) / 100.0
+            # Map imported codepoints to glyph names in target and scale those glyphs.
+            t_cmap = loader.font.getBestCmap() or {}
+            gnames = []
+            for cp in cps:
+                gn = t_cmap.get(int(cp))
+                if gn:
+                    gnames.append(str(gn))
+            n_scaled, scale_errs = scale_mark_glyphs_in_place(loader.font, sorted(set(gnames)), factor)
+            if n_scaled:
+                errs.append(f"הוקטנו {n_scaled} סימנים (×{factor:.2f}).")
+            if scale_errs:
+                errs.extend(["סקייל: " + s for s in scale_errs[:10]])
 
         loader.refresh_cmap()
         self._on_import_done(n_ok, gpos_copied, errs, gpos_detail)

@@ -185,6 +185,81 @@ def import_niqqud(
     return ok, errs
 
 
+def _mark_anchor_for_glyph(font: TTFont, glyph_name: str) -> Tuple[float, float]:
+    """Best-effort: locate MarkAnchor (FU) for this mark glyph (MarkToBase or MarkToMark Mark1)."""
+    # MarkToBase
+    for st in iter_mark_base_subtables(font):
+        try:
+            marks = st.MarkCoverage.glyphs
+        except Exception:
+            continue
+        if glyph_name in marks:
+            try:
+                mi = marks.index(glyph_name)
+                anch = st.MarkArray.MarkRecord[mi].MarkAnchor
+                return _anchor_xy(anch)
+            except Exception:
+                pass
+    # MarkToMark (mark1)
+    for st in iter_mark_mark_subtables(font):
+        try:
+            m1 = st.Mark1Coverage.glyphs
+        except Exception:
+            continue
+        if glyph_name in m1:
+            try:
+                i1 = m1.index(glyph_name)
+                anch = st.Mark1Array.MarkRecord[i1].MarkAnchor
+                return _anchor_xy(anch)
+            except Exception:
+                pass
+    return 0.0, 0.0
+
+
+def scale_mark_glyphs_in_place(
+    font: TTFont, glyph_names: List[str], factor: float
+) -> Tuple[int, List[str]]:
+    """
+    Scales mark glyph outlines in-place around their MarkAnchor (so attachment point stays put).
+    Returns (scaled_count, errs).
+
+    Limitations:
+    - TrueType glyf only
+    - Composite glyphs are skipped
+    """
+    if factor <= 0:
+        return 0, ["factor must be > 0"]
+    if "glyf" not in font:
+        return 0, ["target font has no glyf table"]
+    glyf = font["glyf"]
+    scaled = 0
+    errs: List[str] = []
+    for gname in glyph_names:
+        try:
+            if gname not in glyf.glyphs:
+                continue
+            g = glyf[gname]
+            if g.isComposite():
+                errs.append(f"{gname}: composite glyph not scaled")
+                continue
+            ax, ay = _mark_anchor_for_glyph(font, gname)
+            coords, end_pts, flags = g.getCoordinates(glyf)
+            if coords is None or len(coords) == 0:
+                continue
+            for i in range(len(coords)):
+                x, y = coords[i]
+                coords[i] = (ax + (x - ax) * factor, ay + (y - ay) * factor)
+            g.setCoordinates(coords, glyf)
+            try:
+                g.recalcBounds(glyf)
+            except Exception:
+                pass
+            scaled += 1
+        except Exception as e:
+            errs.append(f"{gname}: {e}")
+    return scaled, errs
+
+
 def copy_gpos_table(source: TTFont, target: TTFont) -> Tuple[bool, str]:
     if "GPOS" not in source:
         return False, "אין GPOS בגופן המקור."
