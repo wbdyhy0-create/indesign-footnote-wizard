@@ -242,16 +242,6 @@ def _build_mark_glyph_name_set(font: TTFont) -> set[str]:
     return out
 
 
-def _shin_variant_glyph_names(font: TTFont) -> set[str]:
-    """שמות גליף לכל וריאנטי שין שמופיעים ב־cmap (לזיהוי בהטמעה)."""
-    out: set[str] = set()
-    for cp in SHIN_VARIANT_CPS:
-        g = _cmap_cp_to_glyph_name(font, cp)
-        if g:
-            out.add(g)
-    return out
-
-
 def _unwrap_gsub_subtable(sub: Any) -> Any:
     while type(sub).__name__ == "ExtensionSubst" and hasattr(sub, "ExtSubTable"):
         sub = sub.ExtSubTable
@@ -353,13 +343,10 @@ def _tagin_geometry_glyph_name(font: TTFont, gname: str, cp: Optional[int] = Non
     except Exception:
         return gname
 
-    # 1) וריאנטי שין ידועים: תמיד משתמשים בשין הבסיסי (U+05E9).
-    base_shin = _cmap_cp_to_glyph_name(font, SHIN_CP)
-    if base_shin and base_shin in gs and gname in _shin_variant_glyph_names(font):
-        return base_shin
-
-    # 2) אם יש לנו codepoint של האות — נעדיף את גליף ה-cmap כגליף בסיס (לפני GSUB).
-    if isinstance(cp, int):
+    # 1) אם יש לנו codepoint של האות — נעדיף את גליף ה-cmap כגליף בסיס (לפני GSUB).
+    # לשין (U+05E9) לא ממפים ל־cmap הבסיסי: וריאנטי FB2x/FB49 וכו' חייבים גיאומטריה
+    # מהגליף האמיתי שנשמר — אחרת מרכז/רוחב מחושבים ממתאר אחר והדגש/מפיק "בורחים" יחסית.
+    if isinstance(cp, int) and cp != SHIN_CP:
         base = _cmap_cp_to_glyph_name(font, cp)
         if base and base in gs:
             n = (gname or "").lower()
@@ -378,8 +365,8 @@ def _tagin_geometry_glyph_name(font: TTFont, gname: str, cp: Optional[int] = Non
             ):
                 return base
 
-    # 3) Heuristic לפי שם: split על '.' (נפוץ: base.dagesh / base.mapiq).
-    if "." in gname:
+    # 2) Heuristic לפי שם: split על '.' (נפוץ: base.dagesh / base.mapiq).
+    if "." in gname and cp != SHIN_CP:
         base = gname.split(".", 1)[0]
         if base and base in gs:
             return base
