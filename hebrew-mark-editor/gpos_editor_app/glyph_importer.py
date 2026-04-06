@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""ייבוא גליפי טעמים (U+0591–U+05AF) מגופן TTF אחד לאחר + העתקת GPOS אופציונלי."""
+"""ייבוא גליפי סימני עברית (טעמים/ניקוד) מגופן TTF אחד לאחר + העתקת GPOS אופציונלי."""
 
 from __future__ import annotations
 
@@ -44,6 +44,31 @@ TAAMIM_ROWS: List[Tuple[int, str]] = [
 ]
 
 TAAMIM_CODEPOINTS = tuple(cp for cp, _ in TAAMIM_ROWS)
+
+# ניקוד/סימני עזר (עברית): U+05B0..U+05BD, U+05BF, U+05C1..U+05C2, U+05C4..U+05C7
+NIQQUD_ROWS: List[Tuple[int, str]] = [
+    (0x05B0, "שווא"),
+    (0x05B1, "חטף-סגול"),
+    (0x05B2, "חטף-פתח"),
+    (0x05B3, "חטף-קמץ"),
+    (0x05B4, "חיריק"),
+    (0x05B5, "צירי"),
+    (0x05B6, "סגול"),
+    (0x05B7, "פתח"),
+    (0x05B8, "קמץ"),
+    (0x05B9, "חולם"),
+    (0x05BB, "קובוץ"),
+    (0x05BC, "דגש/מפיק"),
+    (0x05BD, "מתג"),
+    (0x05BF, "רפה"),
+    (0x05C1, "שין-ימנית"),
+    (0x05C2, "שין-שמאלית"),
+    (0x05C4, "נקודה עליונה"),
+    (0x05C5, "נקודה תחתונה"),
+    (0x05C7, "קמץ קטן"),
+]
+
+NIQQUD_CODEPOINTS = tuple(cp for cp, _ in NIQQUD_ROWS)
 
 
 def _is_ttf_with_glyf(font: TTFont) -> bool:
@@ -131,6 +156,24 @@ def import_taamim(
 ) -> Tuple[int, List[str]]:
     """מחזיר (מספר מוצלחים, רשימת הודעות שגיאה/דילוג)."""
     cps = list(codepoints) if codepoints is not None else list(TAAMIM_CODEPOINTS)
+    ok = 0
+    errs: List[str] = []
+    for cp in cps:
+        success, msg = import_glyph(source, target, cp, overwrite=True)
+        if success:
+            ok += 1
+        else:
+            errs.append(f"U+{cp:04X}: {msg}")
+    return ok, errs
+
+
+def import_niqqud(
+    source: TTFont,
+    target: TTFont,
+    codepoints: Optional[List[int]] = None,
+) -> Tuple[int, List[str]]:
+    """ייבוא ניקוד/סימני עזר נפוצים."""
+    cps = list(codepoints) if codepoints is not None else list(NIQQUD_CODEPOINTS)
     ok = 0
     errs: List[str] = []
     for cp in cps:

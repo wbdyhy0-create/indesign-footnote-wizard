@@ -49,8 +49,10 @@ try:
     from editor_widget import AnchorEditorCanvas, MarkToMarkPanel, NudgeButtons, pil_to_qpixmap
     from font_loader import FontLoader, _anchor_xy
     from glyph_importer import (
+        NIQQUD_ROWS,
         TAAMIM_ROWS,
         copy_gpos_and_scale_for_upem,
+        import_niqqud,
         import_taamim,
         upem_pair_message,
     )
@@ -143,7 +145,7 @@ class CalibrationTab(QWidget):
 
 
 class ImportTab(QWidget):
-    """ייבוא טעמים מגופן מקור לגופן היעד הטעון."""
+    """ייבוא טעמים/ניקוד מגופן מקור לגופן היעד הטעון."""
 
     def __init__(
         self,
@@ -192,6 +194,10 @@ class ImportTab(QWidget):
         self._chk_gpos.setChecked(True)
         v.addWidget(self._chk_gpos)
 
+        self._chk_niqqud = QCheckBox("כלול גם ניקוד (U+05B0–U+05C7)")
+        self._chk_niqqud.setChecked(True)
+        v.addWidget(self._chk_niqqud)
+
         self._list = QListWidget()
         self._list.setSelectionMode(QListWidget.MultiSelection)
         v.addWidget(self._list)
@@ -231,7 +237,8 @@ class ImportTab(QWidget):
         self._list.clear()
         loader = self._get_loader()
         tgt_cmap = loader.cmap if loader else {}
-        for cp, he_name in TAAMIM_ROWS:
+        rows = list(TAAMIM_ROWS) + (list(NIQQUD_ROWS) if self._chk_niqqud.isChecked() else [])
+        for cp, he_name in rows:
             ok = cp in tgt_cmap
             it = QListWidgetItem(f"{'✓' if ok else '✗'}  {_cp_label(cp)}  —  {he_name}")
             it.setData(Qt.UserRole, cp)
@@ -306,6 +313,8 @@ class ImportTab(QWidget):
             return
         if all_rows:
             cps = [cp for cp, _ in TAAMIM_ROWS]
+            if self._chk_niqqud.isChecked():
+                cps += [cp for cp, _ in NIQQUD_ROWS]
         else:
             cps = []
             for it in self._list.selectedItems():
@@ -317,7 +326,21 @@ class ImportTab(QWidget):
         source = TTFont(src_p)
         gpos_detail = ""
         try:
-            n_ok, errs = import_taamim(source, loader.font, cps)
+            taamim = set(cp for cp, _ in TAAMIM_ROWS)
+            niqqud = set(cp for cp, _ in NIQQUD_ROWS)
+            cps_taamim = [cp for cp in cps if cp in taamim]
+            cps_niqqud = [cp for cp in cps if cp in niqqud]
+
+            n_ok = 0
+            errs: List[str] = []
+            if cps_taamim:
+                a, e = import_taamim(source, loader.font, cps_taamim)
+                n_ok += a
+                errs.extend(e)
+            if cps_niqqud:
+                a, e = import_niqqud(source, loader.font, cps_niqqud)
+                n_ok += a
+                errs.extend(e)
             gpos_copied = False
             if self._chk_gpos.isChecked():
                 gok, gpos_detail = copy_gpos_and_scale_for_upem(source, loader.font)
