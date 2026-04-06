@@ -253,6 +253,33 @@ def _gsub_targets_for_glyph(font: TTFont, start_glyph: str) -> set[str]:
     return out
 
 
+def _gsub_closure_for_glyph(
+    font: TTFont,
+    start_glyph: Optional[str],
+    glyph_set: Any,
+    max_nodes: int = 120,
+) -> set[str]:
+    """
+    מחזיר סגירה טרנזיטיבית של יעדי GSUB מ־start_glyph (כולל start_glyph עצמו),
+    מוגבל במספר כדי להימנע מהרחבה לא רצויה בגופנים עם GSUB גדול.
+    """
+    if not start_glyph or start_glyph not in glyph_set:
+        return set()
+    resolved: set[str] = set()
+    pending: List[str] = [start_glyph]
+    while pending and len(resolved) < max_nodes:
+        cur = pending.pop()
+        if cur in resolved:
+            continue
+        if cur not in glyph_set:
+            continue
+        resolved.add(cur)
+        for tg in _gsub_targets_for_glyph(font, cur):
+            if tg not in resolved:
+                pending.append(tg)
+    return resolved
+
+
 def _tagin_geometry_glyph_name(font: TTFont, gname: str) -> str:
     """לחישוב גובה/עמודות תגין: וריאנטי שין משתמשים בגליף שין הבסיסי (U+05E9) כדי שלא נקודת סין/ניקוד תזניק את הגג."""
     try:
@@ -886,35 +913,23 @@ def _glyph_embed_job_list(
         seen.add(gname)
         out.append((gname, ls))
 
+    # 1) Embed requested letters by cmap, plus their GSUB-derived variants.
     for cp in letter_cps:
-        try_add_glyph(_cmap_cp_to_glyph_name(font, cp), by_cp.get(cp))
+        ls = by_cp.get(cp)
+        base_gn = _cmap_cp_to_glyph_name(font, cp)
+        try_add_glyph(base_gn, ls)
+        if ls is not None and ls.embed_in_font and ls.tag_count > 0 and base_gn:
+            for g in _gsub_closure_for_glyph(font, base_gn, gs):
+                try_add_glyph(g, ls)
+
+    # 2) Extra: shin has known Hebrew Presentation Forms codepoints that InDesign may prefer
+    # (FB2C.. etc). We keep this explicit to cover cases where those are in cmap but not
+    # reachable via GSUB from the base shin glyph in some fonts.
     shin_ls = by_cp.get(SHIN_CP)
     if shin_ls is not None and shin_ls.embed_in_font:
-        # Always embed the base shin glyph (U+05E9) + known cmap variants.
-        base_shin = _cmap_cp_to_glyph_name(font, SHIN_CP)
-        try_add_glyph(base_shin, shin_ls)
         for vcp in SHIN_VARIANT_CPS:
             if vcp in cmap:
                 try_add_glyph(_cmap_cp_to_glyph_name(font, vcp), shin_ls)
-
-        # Extra: embed shin glyphs that can be produced via GSUB (even if not in cmap).
-        # This targets InDesign behavior where a dotted/dagesh shin comes from substitutions.
-        if base_shin:
-            pending = [base_shin]
-            resolved: set[str] = set()
-            while pending:
-                cur = pending.pop()
-                if cur in resolved:
-                    continue
-                resolved.add(cur)
-                targets = _gsub_targets_for_glyph(font, cur)
-                for tg in targets:
-                    if tg in resolved:
-                        continue
-                    # Only embed if glyph exists and is drawable.
-                    if tg in gs:
-                        try_add_glyph(tg, shin_ls)
-                        pending.append(tg)
     return out
 
 
