@@ -128,6 +128,55 @@ SHIN_VARIANT_CPS: Tuple[int, ...] = (
     0xFB49,
 )
 
+# טווחים של סימני ניקוד/טעמים/נקודות שין/סין (Combining marks) בעברית.
+# משמשים לזיהוי רכיבי גליף שהם "סימן" כדי להתעלם מהם בחישוב גובה לתגין.
+HEBREW_MARK_RANGES: Tuple[Tuple[int, int], ...] = (
+    (0x0591, 0x05AF),
+    (0x05B0, 0x05BD),
+    (0x05BF, 0x05BF),
+    (0x05C1, 0x05C2),
+    (0x05C4, 0x05C7),
+    (0xFB1E, 0xFB1E),
+)
+
+
+def _in_ranges(cp: int, ranges: Tuple[Tuple[int, int], ...]) -> bool:
+    for lo, hi in ranges:
+        if lo <= cp <= hi:
+            return True
+    return False
+
+
+def _maybe_parse_uni_hex_glyph_name(gname: str) -> Optional[int]:
+    """
+    מנסה לחלץ Unicode מתוך שם גליף בסגנון uni05C1 / uni05B0 וכו׳.
+    מחזיר codepoint אם הצליח.
+    """
+    if not gname:
+        return None
+    n = gname.strip()
+    if not n.startswith("uni") or len(n) < 7:
+        return None
+    hx = n[3:7]
+    try:
+        return int(hx, 16)
+    except ValueError:
+        return None
+
+
+def _build_mark_glyph_name_set(font: TTFont) -> set[str]:
+    cmap = font.getBestCmap() or {}
+    out: set[str] = set()
+    for cp, gn in cmap.items():
+        if isinstance(cp, int) and isinstance(gn, str) and _in_ranges(cp, HEBREW_MARK_RANGES):
+            out.add(gn)
+    # הוספה גם לפי שמות גליפים "uni05xx" גם אם לא ממופים ב-cmap (נפוץ בחלק מהגופנים)
+    for gn in font.getGlyphOrder():
+        cp = _maybe_parse_uni_hex_glyph_name(gn)
+        if cp is not None and _in_ranges(cp, HEBREW_MARK_RANGES):
+            out.add(gn)
+    return out
+
 
 def _shin_variant_glyph_names(font: TTFont) -> set[str]:
     """שמות גליף לכל וריאנטי שין שמופיעים ב־cmap (לזיהוי בהטמעה)."""
@@ -151,6 +200,84 @@ def _tagin_geometry_glyph_name(font: TTFont, gname: str) -> str:
     if gname in _shin_variant_glyph_names(font):
         return base
     return gname
+
+
+def _glyph_xy_points_excluding_mark_components(
+    font: TTFont,
+    glyph_set: Any,
+    gname: str,
+    mark_glyph_names: set[str],
+) -> List[Tuple[float, float]]:
+    """
+    מחזיר נקודות מתאר של גליף תוך התעלמות מרכיבים שהם סימני ניקוד/טעמים (components ב-glyf),
+    כדי שהתגין יישבו ביחס לגובה האות הבסיסית ולא יידחפו למעלה בגלל נקודות/ניקוד שמוכללות בגליף מורכב.
+
+    אם הגליף לא מורכב או שלא ניתן לפרק בבטחה — נופלים להתנהגות הרגילה (כל הנקודות).
+    """
+    try:
+        g = font["glyf"][gname]
+    except Exception:
+        return _glyph_xy_points_for_band_search(font, glyph_set, gname)
+
+    # גליף פשוט: אין רכיבים לסינון.
+    if int(getattr(g, "numberOfContours", 0)) >= 0:
+        return _glyph_xy_points_for_band_search(font, glyph_set, gname)
+
+    def is_mark_component(comp_gn: str) -> bool:
+        if comp_gn in mark_glyph_names:
+            return True
+        cp = _maybe_parse_uni_hex_glyph_name(comp_gn)
+        return cp is not None and _in_ranges(cp, HEBREW_MARK_RANGES)
+
+    # גליף מורכב: מאחדים נקודות מרכיבים שאינם "סימן", כולל טרנספורמציה.
+    pts: List[Tuple[float, float]] = []
+    try:
+        comps = list(getattr(g, "components", []) or [])
+    except Exception:
+        return _glyph_xy_points_for_band_search(font, glyph_set, gname)
+
+    if not comps:
+        return _glyph_xy_points_for_band_search(font, glyph_set, gname)
+
+    for comp in comps:
+        comp_gn = getattr(comp, "glyphName", None)
+        if not isinstance(comp_gn, str) or not comp_gn:
+            continue
+        if is_mark_component(comp_gn):
+            continue
+        sub_pts = _glyph_xy_points_for_band_search(font, glyph_set, comp_gn)
+        if not sub_pts:
+            continue
+        # fontTools glyf component transform: a,b,c,d,e,f (2x2 + translate)
+        try:
+            a, b, c, d = comp.transform  # type: ignore[attr-defined]
+        except Exception:
+            a, b, c, d = 1.0, 0.0, 0.0, 1.0
+        try:
+            e = float(getattr(comp, "x", 0))
+            f = float(getattr(comp, "y", 0))
+        except Exception:
+            e, f = 0.0, 0.0
+        aa, bb, cc, dd = float(a), float(b), float(c), float(d)
+        for x, y in sub_pts:
+            tx = aa * x + cc * y + e
+            ty = bb * x + dd * y + f
+            pts.append((tx, ty))
+
+    # אם סינון מחק הכל (למשל גליף שמכיל רק נקודה) — נחזיר רגיל.
+    if not pts:
+        return _glyph_xy_points_for_band_search(font, glyph_set, gname)
+    return pts
+
+
+def _glyph_bounds_from_points(
+    pts: List[Tuple[float, float]],
+) -> Optional[Tuple[float, float, float, float]]:
+    if not pts:
+        return None
+    xs = [p[0] for p in pts]
+    ys = [p[1] for p in pts]
+    return min(xs), min(ys), max(xs), max(ys)
 
 
 def _glyph_names_for_codepoint(font: TTFont, cp: int) -> List[str]:
@@ -935,6 +1062,9 @@ class MainWindow(QMainWindow):
         self._settings_path: Optional[str] = None
         self._by_cp: Dict[int, LetterSettings] = {}
         self._current_cp: Optional[int] = None
+        # ברירת מחדל: להתעלם מרכיבי ניקוד/סימנים בחישוב גובה לתגין (עוזר במיוחד לשין עם נקודות).
+        self._ignore_mark_components_for_roof: bool = True
+        self._mark_glyph_names: set[str] = set()
         self._undo: List[Dict[str, Any]] = []
         self._redo: List[Dict[str, Any]] = []
         self._undo_suspend = 0
@@ -1320,6 +1450,10 @@ class MainWindow(QMainWindow):
         self._ascender = int(hhea.ascender) if hhea is not None else int(round(self._upem * 0.8))
         self._settings_path = path + ".taginim.json"
         had_settings_json = os.path.isfile(self._settings_path)
+        try:
+            self._mark_glyph_names = _build_mark_glyph_name_set(font)
+        except Exception:
+            self._mark_glyph_names = set()
         self._load_settings_file()
         if had_settings_json and _filename_looks_like_taginim_export(path):
             touched = False
@@ -1396,17 +1530,21 @@ class MainWindow(QMainWindow):
     def _load_settings_file(self) -> None:
         if not self._settings_path or not os.path.isfile(self._settings_path):
             self._init_default_letter_settings()
+            self._ignore_mark_components_for_roof = True
             return
         try:
             with open(self._settings_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
         except Exception:
             self._init_default_letter_settings()
+            self._ignore_mark_components_for_roof = True
             return
         letters = data.get("letters", [])
         if not letters:
             self._init_default_letter_settings()
+            self._ignore_mark_components_for_roof = True
             return
+        self._ignore_mark_components_for_roof = bool(data.get("ignore_mark_components_for_roof", True))
         self._by_cp.clear()
         for item in letters:
             ls = LetterSettings.from_json(item)
@@ -1430,7 +1568,12 @@ class MainWindow(QMainWindow):
         if not self._settings_path:
             return
         letters = [self._by_cp[cp].to_json() for cp in list(THREE_TAGINIM_CP) + list(ONE_TAG_CP)]
-        payload = {"version": 2, "font_path": self._font_path, "letters": letters}
+        payload = {
+            "version": 3,
+            "font_path": self._font_path,
+            "ignore_mark_components_for_roof": bool(self._ignore_mark_components_for_roof),
+            "letters": letters,
+        }
         with open(self._settings_path, "w", encoding="utf-8") as f:
             json.dump(payload, f, ensure_ascii=False, indent=2)
 
@@ -1990,7 +2133,18 @@ class MainWindow(QMainWindow):
         px_per_fu_x = float(w) / asc if asc > 0 else (x_ppem / max(upem_ft, 1.0))
         ink_x0 = 0.0
         if geom_gn:
-            b = self._glyph_bounds_fu(geom_gn)
+            b = None
+            if self._ignore_mark_components_for_roof and self._ttfont is not None:
+                try:
+                    gs = self._ttfont.getGlyphSet()
+                    pts = _glyph_xy_points_excluding_mark_components(
+                        self._ttfont, gs, geom_gn, self._mark_glyph_names
+                    )
+                    b = _glyph_bounds_from_points(pts)
+                except Exception:
+                    b = None
+            if b is None:
+                b = self._glyph_bounds_fu(geom_gn)
             if b:
                 x0, y0, x1, y1 = map(float, b)
                 ink_x0 = x0
@@ -2048,7 +2202,12 @@ class MainWindow(QMainWindow):
                 cxb = (x0b + x1b) * 0.5
                 yfb = y1b
                 gs = self._ttfont.getGlyphSet()
-                ptlist = _glyph_xy_points_for_band_search(self._ttfont, gs, geom_gn)
+                if self._ignore_mark_components_for_roof:
+                    ptlist = _glyph_xy_points_excluding_mark_components(
+                        self._ttfont, gs, geom_gn, self._mark_glyph_names
+                    )
+                else:
+                    ptlist = _glyph_xy_points_for_band_search(self._ttfont, gs, geom_gn)
                 yb = _bundle_top_y_fu_for_taginim(
                     ptlist,
                     n,
@@ -2276,6 +2435,16 @@ class MainWindow(QMainWindow):
         _asc = float(hhea.ascender) if hhea is not None else upem * 0.8
         geom_gn = _tagin_geometry_glyph_name(font, gname)
         b = _glyph_bounds_from_font(font, geom_gn)
+        if self._ignore_mark_components_for_roof:
+            try:
+                pts_b = _glyph_xy_points_excluding_mark_components(
+                    font, glyph_set, geom_gn, self._mark_glyph_names
+                )
+                b2 = _glyph_bounds_from_points(pts_b)
+                if b2 is not None:
+                    b = b2
+            except Exception:
+                pass
         if b is None:
             y_max = _asc
             cx = upem * 0.35
@@ -2293,7 +2462,12 @@ class MainWindow(QMainWindow):
         dot_r = max(12.0, ls.dot_frac * ink_h * 0.5) * sc
         spacing = ls.spacing_frac * ink_w * sc
 
-        pts = _glyph_xy_points_for_band_search(font, glyph_set, geom_gn)
+        if self._ignore_mark_components_for_roof:
+            pts = _glyph_xy_points_excluding_mark_components(
+                font, glyph_set, geom_gn, self._mark_glyph_names
+            )
+        else:
+            pts = _glyph_xy_points_for_band_search(font, glyph_set, geom_gn)
         y_bundle = _bundle_top_y_fu_for_taginim(
             pts, ls.tag_count, cx, spacing, ls.group_dx_fu, ink_w, half_w, y_max
         )
