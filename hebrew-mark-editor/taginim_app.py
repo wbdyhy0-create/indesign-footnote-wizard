@@ -2931,6 +2931,14 @@ class MainWindow(QMainWindow):
         ls: LetterSettings,
     ) -> None:
         ls.ensure_tags()
+        old_adv: Optional[int] = None
+        old_lsb: Optional[int] = None
+        try:
+            if "hmtx" in font:
+                a, l = font["hmtx"][gname]
+                old_adv, old_lsb = int(a), int(l)
+        except Exception:
+            pass
         if ls.embedded_tag_pairs > 0:
             n_strip = 2 * ls.embedded_tag_pairs
             _glyf_strip_last_contours(font, gname, n_strip)
@@ -3001,10 +3009,15 @@ class MainWindow(QMainWindow):
         new_g = pen.glyph()
         font["glyf"][gname] = new_g
         if "hmtx" in font:
-            adv, _ = font["hmtx"][gname]
-            ng = font["glyf"][gname]
-            lsb = int(getattr(ng, "xMin", 0))
-            font["hmtx"][gname] = (adv, lsb)
+            # לא מעדכנים LSB ל־xMin אחרי שטוח + תגין: בגופנים מורכבים (ביט ספרדי וכו׳)
+            # זה מזיז את הגליף ביחס לשורה ודגש/מפיק יכולים "לברוח" בין אותיות.
+            if old_adv is not None and old_lsb is not None:
+                font["hmtx"][gname] = (old_adv, old_lsb)
+            else:
+                adv, _ = font["hmtx"][gname]
+                ng = font["glyf"][gname]
+                lsb = int(getattr(ng, "xMin", 0))
+                font["hmtx"][gname] = (adv, lsb)
 
     def _set_preview_font(self, ttf_path: str) -> None:
         f = QFont()
