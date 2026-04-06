@@ -1555,7 +1555,8 @@ class MainWindow(QMainWindow):
         self._line_font_query.returnPressed.connect(self._open_font)
         self._btn_explorer_search = QPushButton("חיפוש גופנים ב־Explorer…")
         self._btn_explorer_search.setToolTip(
-            "פותח חיפוש Windows (אופציונלי). לבחירת קובץ השתמש ב־«פתח גופן»."
+            "מנסה לפתוח חיפוש Windows בתיקיית גופנים; ב־Win11 לעיתים זה לא נתמך — "
+            "אז נפתחת תיקיית הגופנים ב־Explorer. לבחירת קובץ השתמש ב־«פתח גופן…»."
         )
         self._btn_explorer_search.clicked.connect(self._explorer_font_search)
         self._btn_save = QPushButton("שמור גופן חדש")

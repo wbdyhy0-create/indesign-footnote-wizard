@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ctypes
 import os
+import subprocess
 import sys
 import tempfile
 from typing import List
@@ -179,8 +180,18 @@ def font_search_ms_uri_windows_folder() -> str:
     return "search-ms:crumb=location:C%3A%5CWindows%5CFonts"
 
 
+def _fonts_folder_for_search_fallback(use_system_fonts_folder: bool) -> str:
+    """תיקייה לפתיחה כש־search-ms לא נתמך (Win11 וכו')."""
+    if use_system_fonts_folder:
+        return _norm_dir(os.path.join(os.environ.get("WINDIR", r"C:\Windows"), "Fonts"))
+    cfonts = _norm_dir(r"C:\Fonts")
+    if os.path.isdir(cfonts):
+        return cfonts
+    return _norm_dir(os.path.join(os.environ.get("WINDIR", r"C:\Windows"), "Fonts"))
+
+
 def launch_windows_font_search(use_system_fonts_folder: bool = False) -> bool:
-    """פותח חיפוש Explorer; ShellExecuteW מטפל נכון ב־search-ms (בניגוד ל־explorer argv)."""
+    """מנסה לפתוח חיפוש Explorer דרך search-ms; אם נכשל — פותח את תיקיית הגופנים ישירות."""
     if sys.platform != "win32":
         return False
     uri = font_search_ms_uri_windows_folder() if use_system_fonts_folder else font_search_ms_uri()
@@ -195,10 +206,22 @@ def launch_windows_font_search(use_system_fonts_folder: bool = False) -> bool:
                 1,  # SW_SHOWNORMAL
             )
         )
-        return rc > 32
+        if rc > 32:
+            return True
+    except OSError:
+        pass
+
+    # Fallback: ב־Windows 11 (ובמיוחד 24H2+) פרוטוקול search-ms לעיתים לא רשום / חיפוש כבוי —
+    # ShellExecuteW מחזיר ≤32. פותחים את תיקיית הגופנים ב־Explorer (עובד תמיד).
+    folder = _fonts_folder_for_search_fallback(use_system_fonts_folder)
+    if not os.path.isdir(folder):
+        return False
+    try:
+        os.startfile(folder)  # type: ignore[attr-defined]
+        return True
     except OSError:
         try:
-            os.startfile(uri)  # type: ignore[attr-defined]
+            subprocess.run(["explorer", folder], check=False)
             return True
         except OSError:
             return False
