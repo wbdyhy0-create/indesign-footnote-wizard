@@ -498,7 +498,8 @@ def _glyf_strip_last_contours(font: TTFont, gname: str, n_contours: int) -> bool
     if nc < n_contours:
         return False
     keep = nc - n_contours
-    if keep < 0:
+    # הגנה: לא מאפשרים למחוק את כל הגליף (זה גורם ל"אות שנעלמה").
+    if keep <= 0:
         return False
     ends = list(g.endPtsOfContours)
     last_keep_idx = int(ends[keep - 1])
