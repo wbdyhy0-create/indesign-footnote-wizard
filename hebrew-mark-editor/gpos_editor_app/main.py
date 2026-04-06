@@ -1022,6 +1022,28 @@ def main() -> int:
     sys.excepthook = _qt_excepthook
 
     try:
+        # לפני QApplication: מפחית חלון לבן וסגירה מיידית בחלק מכרטיסי מסך ב-Windows
+        if os.environ.get("GPOS_EDITOR_NO_SOFTWARE_GL", "").lower() not in (
+            "1",
+            "true",
+            "yes",
+        ):
+            try:
+                QApplication.setAttribute(Qt.AA_UseSoftwareOpenGL, True)
+            except Exception:
+                pass
+        try:
+            QApplication.setAttribute(Qt.AA_DisableHighDpiScaling, True)
+        except Exception:
+            pass
+
+        try:
+            import faulthandler
+
+            faulthandler.enable(all_threads=True, file=sys.stderr)
+        except Exception:
+            pass
+
         app = QApplication(sys.argv)
         app.setQuitOnLastWindowClosed(True)
         app.setStyle("Fusion")

@@ -5,6 +5,8 @@ cd /d "%~dp0"
 REM ASCII only. Prefer Python 3.12 (PyQt5); "python" alone may still be 3.14.
 
 set "QT_QPA_PLATFORM=windows"
+REM Helps some Intel/AMD setups where hardware GL closes the Qt window instantly
+set "QT_OPENGL=software"
 
 set "SCRIPT=%~dp0gpos_editor_app\main.py"
 if not exist "%SCRIPT%" (
