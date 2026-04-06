@@ -1125,9 +1125,18 @@ class TaginimEditorCanvas(QWidget):
         self._spacing_fu: float = 0.0
         self._tag_shape_mode: str = TAG_SHAPE_ROUND
         self._draw_editor_overlay: bool = True
+        self._draw_grid: bool = False
+        self._grid_step_px: int = 20
+        self._grid_major_every: int = 5
 
     def set_draw_editor_overlay(self, draw: bool) -> None:
         self._draw_editor_overlay = bool(draw)
+        self.update()
+
+    def set_draw_grid(self, draw: bool, step_px: int = 20, major_every: int = 5) -> None:
+        self._draw_grid = bool(draw)
+        self._grid_step_px = int(max(6, min(80, step_px)))
+        self._grid_major_every = int(max(2, min(12, major_every)))
         self.update()
 
     def set_drag_delta_callback(self, cb: Optional[Callable[[float, float], None]]) -> None:
@@ -1252,6 +1261,29 @@ class TaginimEditorCanvas(QWidget):
     def paintEvent(self, event) -> None:
         p = QPainter(self)
         p.fillRect(self.rect(), QBrush(QColor(255, 255, 255)))
+        if self._draw_grid:
+            w = int(self.width())
+            h = int(self.height())
+            step = int(self._grid_step_px)
+            major_every = int(self._grid_major_every)
+            pen_minor = QPen(QColor(235, 235, 235), 1)
+            pen_major = QPen(QColor(215, 215, 215), 1)
+            # verticals
+            x = 0
+            i = 0
+            while x <= w:
+                p.setPen(pen_major if (i % major_every == 0) else pen_minor)
+                p.drawLine(x, 0, x, h)
+                x += step
+                i += 1
+            # horizontals
+            y = 0
+            i = 0
+            while y <= h:
+                p.setPen(pen_major if (i % major_every == 0) else pen_minor)
+                p.drawLine(0, y, w, y)
+                y += step
+                i += 1
         if self._glyph_qimage is not None:
             p.drawImage(self._ox, self._oy, self._glyph_qimage)
         if not self._draw_editor_overlay:
@@ -1334,6 +1366,7 @@ class MainWindow(QMainWindow):
         self._redo: List[Dict[str, Any]] = []
         self._undo_suspend = 0
         self._canvas_hide_editor_overlay: bool = False
+        self._canvas_grid_enabled: bool = False
 
         self._letters_list = QListWidget()
         self._letters_list.setMinimumWidth(160)
@@ -1564,6 +1597,11 @@ class MainWindow(QMainWindow):
         cv = QVBoxLayout(center_wrap)
         cv.addWidget(QLabel("עורך האות (גרור תגין)"))
         cv.addWidget(self._canvas, alignment=Qt.AlignCenter)
+        self._chk_canvas_grid = QCheckBox("הצג רשת להשוואת גובה/עובי (Grid)")
+        self._chk_canvas_grid.setToolTip(
+            "מציג רשת עדינה על הקנבס כדי להשוות גובה/עובי בין אותיות לפי קווי הרשת."
+        )
+        self._chk_canvas_grid.toggled.connect(self._on_canvas_grid_toggled)
         self._chk_canvas_hide_editor_tags = QCheckBox(
             "בתצוגה: רק מה שבקובץ (בלי ציור תגין של העורך מעל הביטמאפ)"
         )
@@ -1572,6 +1610,7 @@ class MainWindow(QMainWindow):
             "סימון כאן משאיר רק את הרינדור מהגופן; עדיין אפשר לגרור ולשמור — הציור יחזור כשמבטלים סימון."
         )
         self._chk_canvas_hide_editor_tags.toggled.connect(self._on_canvas_hide_editor_tags_toggled)
+        cv.addWidget(self._chk_canvas_grid)
         cv.addWidget(self._chk_canvas_hide_editor_tags)
         cv.addStretch()
 
@@ -1863,6 +1902,7 @@ class MainWindow(QMainWindow):
             return
         self._ignore_mark_components_for_roof = bool(data.get("ignore_mark_components_for_roof", True))
         self._canvas_hide_editor_overlay = bool(data.get("canvas_hide_editor_tag_overlay", False))
+        self._canvas_grid_enabled = bool(data.get("canvas_grid_enabled", False))
         self._sync_canvas_overlay_ui()
         letters = data.get("letters", [])
         if not letters:
@@ -1897,6 +1937,7 @@ class MainWindow(QMainWindow):
             "font_path": self._font_path,
             "ignore_mark_components_for_roof": bool(self._ignore_mark_components_for_roof),
             "canvas_hide_editor_tag_overlay": bool(self._canvas_hide_editor_overlay),
+            "canvas_grid_enabled": bool(self._canvas_grid_enabled),
             "letters": letters,
         }
         with open(self._settings_path, "w", encoding="utf-8") as f:
@@ -2452,15 +2493,27 @@ class MainWindow(QMainWindow):
         if not hasattr(self, "_chk_canvas_hide_editor_tags"):
             return
         self._chk_canvas_hide_editor_tags.blockSignals(True)
+        if hasattr(self, "_chk_canvas_grid"):
+            self._chk_canvas_grid.blockSignals(True)
         try:
             self._chk_canvas_hide_editor_tags.setChecked(self._canvas_hide_editor_overlay)
+            if hasattr(self, "_chk_canvas_grid"):
+                self._chk_canvas_grid.setChecked(self._canvas_grid_enabled)
         finally:
             self._chk_canvas_hide_editor_tags.blockSignals(False)
+            if hasattr(self, "_chk_canvas_grid"):
+                self._chk_canvas_grid.blockSignals(False)
         self._canvas.set_draw_editor_overlay(not self._canvas_hide_editor_overlay)
+        self._canvas.set_draw_grid(self._canvas_grid_enabled, step_px=20, major_every=5)
 
     def _on_canvas_hide_editor_tags_toggled(self, checked: bool) -> None:
         self._canvas_hide_editor_overlay = bool(checked)
         self._canvas.set_draw_editor_overlay(not self._canvas_hide_editor_overlay)
+        self._save_settings_file()
+
+    def _on_canvas_grid_toggled(self, checked: bool) -> None:
+        self._canvas_grid_enabled = bool(checked)
+        self._canvas.set_draw_grid(self._canvas_grid_enabled, step_px=20, major_every=5)
         self._save_settings_file()
 
     def _ink_height_fu(self, ls: LetterSettings) -> float:
