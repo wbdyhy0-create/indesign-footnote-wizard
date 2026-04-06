@@ -19,9 +19,16 @@ except ImportError:
     print("Install: pip install fpdf2", file=sys.stderr)
     sys.exit(1)
 
+try:
+    # Proper RTL display (Hebrew) in PDF text runs
+    from bidi.algorithm import get_display  # type: ignore
+except Exception:
+    get_display = None
+
 ROOT = os.path.dirname(os.path.abspath(__file__))
 MD_PATH = os.path.join(ROOT, "GPOS_EDITOR_USER_GUIDE.md")
 PDF_PATH = os.path.join(ROOT, "GPOS_EDITOR_USER_GUIDE.pdf")
+PDF_FALLBACK_PATH = os.path.join(ROOT, "GPOS_EDITOR_USER_GUIDE_rtl.pdf")
 
 
 def _font_paths() -> tuple[str | None, str | None]:
@@ -47,6 +54,18 @@ def _strip_inline_md(s: str) -> str:
     s = re.sub(r"`([^`]+)`", r"\1", s)
     s = s.replace("\u2713", "[ok]").replace("\u2717", "[no]")
     return s
+
+
+def _rtl(s: str) -> str:
+    """Convert logical Hebrew string to visual RTL for PDF rendering."""
+    if not s:
+        return s
+    if get_display is None:
+        return s  # fallback (may appear reversed)
+    # Keep LTR "islands" (Windows, file names, versions) readable inside RTL lines.
+    lrm = "\u200E"  # Left-to-Right Mark
+    wrapped = re.sub(r"([A-Za-z0-9_./:\\-]+)", lambda m: f"{lrm}{m.group(1)}{lrm}", s)
+    return get_display(wrapped, base_dir="R")
 
 
 def main() -> int:
@@ -113,6 +132,7 @@ def main() -> int:
                 continue
 
             s = _strip_inline_md(line)
+            s = _rtl(s)
 
             if s.startswith("# "):
                 pdf.set_font("Hebrew", size=18)
@@ -141,7 +161,7 @@ def main() -> int:
                 pdf.set_font("Hebrew", style="", size=11)
                 pdf.ln(1)
             elif s.startswith("- "):
-                pdf.multi_cell(tw, 6, "• " + s[2:], align="R")
+                pdf.multi_cell(tw, 6, _rtl("• " + s[2:]), align="R")
             elif re.match(r"^\d+\.\s", s):
                 pdf.multi_cell(tw, 6, s, align="R")
             elif s.startswith("*") and s.endswith("*") and len(s) > 2:
@@ -151,8 +171,25 @@ def main() -> int:
             else:
                 pdf.multi_cell(tw, 6, s, align="R")
 
-    pdf.output(PDF_PATH)
-    print("Wrote:", PDF_PATH)
+    def _first_writable_path(preferred: str, fallback: str) -> str:
+        try_paths = [preferred, fallback]
+        if os.path.isfile(fallback):
+            # If fallback exists and is locked, keep generating a new numbered file.
+            base, ext = os.path.splitext(fallback)
+            for i in range(2, 50):
+                try_paths.append(f"{base}{i}{ext}")
+        for p in try_paths:
+            try:
+                pdf.output(p)
+                return p
+            except PermissionError:
+                continue
+        # Last resort: re-raise the original preferred error
+        pdf.output(preferred)
+        return preferred
+
+    out_path = _first_writable_path(PDF_PATH, PDF_FALLBACK_PATH)
+    print("Wrote:", out_path)
     return 0
 
 
