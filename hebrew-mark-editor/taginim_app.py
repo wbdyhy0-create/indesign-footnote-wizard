@@ -343,17 +343,47 @@ def _gsub_closure_for_glyph(
     return resolved
 
 
-def _tagin_geometry_glyph_name(font: TTFont, gname: str) -> str:
-    """לחישוב גובה/עמודות תגין: וריאנטי שין משתמשים בגליף שין הבסיסי (U+05E9) כדי שלא נקודת סין/ניקוד תזניק את הגג."""
+def _tagin_geometry_glyph_name(font: TTFont, gname: str, cp: Optional[int] = None) -> str:
+    """
+    לחישוב גובה/עמודות תגין: משתמשים בגליף בסיסי "נקי" כשאפשר, כדי שניקוד/דגש/מפיק
+    (כ-component או כווריאנט GSUB/שם גליף) לא יזניקו את הגג.
+    """
     try:
         gs = font.getGlyphSet()
     except Exception:
         return gname
-    base = _cmap_cp_to_glyph_name(font, SHIN_CP)
-    if not base or gname == base or base not in gs:
-        return gname
-    if gname in _shin_variant_glyph_names(font):
-        return base
+
+    # 1) וריאנטי שין ידועים: תמיד משתמשים בשין הבסיסי (U+05E9).
+    base_shin = _cmap_cp_to_glyph_name(font, SHIN_CP)
+    if base_shin and base_shin in gs and gname in _shin_variant_glyph_names(font):
+        return base_shin
+
+    # 2) אם יש לנו codepoint של האות — נעדיף את גליף ה-cmap כגליף בסיס (לפני GSUB).
+    if isinstance(cp, int):
+        base = _cmap_cp_to_glyph_name(font, cp)
+        if base and base in gs:
+            n = (gname or "").lower()
+            # אם זה נראה כמו וריאנט עם דגש/מפיק/נקודה וכו' — נחזור לבסיס.
+            if (
+                gname != base
+                and (
+                    "." in gname
+                    or "dagesh" in n
+                    or "mapiq" in n
+                    or "dothebrew" in n
+                    or "pointhebrew" in n
+                    or "shindot" in n
+                    or "sindot" in n
+                )
+            ):
+                return base
+
+    # 3) Heuristic לפי שם: split על '.' (נפוץ: base.dagesh / base.mapiq).
+    if "." in gname:
+        base = gname.split(".", 1)[0]
+        if base and base in gs:
+            return base
+
     return gname
 
 
@@ -2556,7 +2586,7 @@ class MainWindow(QMainWindow):
         asc = float(self._ascender)
         gname = self._glyph_name(self._current_cp)
         geom_gn = (
-            _tagin_geometry_glyph_name(self._ttfont, gname)
+            _tagin_geometry_glyph_name(self._ttfont, gname, self._current_cp)
             if self._ttfont is not None and gname
             else gname
         )
@@ -2627,7 +2657,7 @@ class MainWindow(QMainWindow):
         spacing_fu = ls.spacing_frac * ink_w * sc
         gname_ed = self._glyph_name(ls.codepoint)
         if n > 0 and gname_ed and self._ttfont is not None:
-            geom_gn = _tagin_geometry_glyph_name(self._ttfont, gname_ed)
+            geom_gn = _tagin_geometry_glyph_name(self._ttfont, gname_ed, ls.codepoint)
             bb = self._glyph_bounds_fu(geom_gn)
             if bb:
                 x0b, _y0b, x1b, y1b = map(float, bb)
@@ -2865,7 +2895,7 @@ class MainWindow(QMainWindow):
         upem = float(font["head"].unitsPerEm)
         hhea = font.get("hhea")
         _asc = float(hhea.ascender) if hhea is not None else upem * 0.8
-        geom_gn = _tagin_geometry_glyph_name(font, gname)
+        geom_gn = _tagin_geometry_glyph_name(font, gname, ls.codepoint)
         b = _glyph_bounds_from_font(font, geom_gn)
         if self._ignore_mark_components_for_roof:
             try:
