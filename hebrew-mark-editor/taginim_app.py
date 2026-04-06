@@ -75,40 +75,6 @@ from PyQt5.QtWidgets import (
 TAG_SHAPE_ROUND = "round"
 TAG_SHAPE_SQUARE_FAN = "square_fan"
 
-# --- תבניות "תגין מוכנים" ---
-# המטרה: להתחיל מסט אחיד (מידה/עובי/רווחים/צורה) ולהשאיר למשתמש רק לגרור ולהניח לכל אות.
-# הערכים כאן הם ברירת מחדל "סבירה" — אפשר עדיין לכוון ידנית אחרי החלה אם רוצים.
-READY_TAGIN_PRESET_THREE: Dict[str, Any] = {
-    # TAGIN_STYLE_PRESET_KEYS
-    "height_frac": 0.15,
-    "line_width_frac": 0.020,
-    "dot_frac": 0.030,
-    "spacing_frac": 0.085,
-    "middle_boost_frac": 0.12,
-    "package_scale": 1.0,
-    "tag_shape_mode": TAG_SHAPE_ROUND,
-    # מיקום חבילה ביחס לתיבת הדיו של האות: 0 = עוגן אוטומטי מעל האות
-    "group_dx_frac": 0.0,
-    "group_dy_frac": 0.0,
-    "saved_from_cp": SHIN_CP,
-    "version": 1,
-}
-
-READY_TAGIN_PRESET_ONE: Dict[str, Any] = {
-    "height_frac": 0.15,
-    "line_width_frac": 0.020,
-    "dot_frac": 0.030,
-    "spacing_frac": 0.085,
-    "middle_boost_frac": 0.0,
-    "package_scale": 1.0,
-    "tag_shape_mode": TAG_SHAPE_ROUND,
-    "group_dx_frac": 0.0,
-    "group_dy_frac": 0.0,
-    "saved_from_cp": ONE_TAG_CP[0] if len(ONE_TAG_CP) else SHIN_CP,
-    "version": 1,
-}
-
-
 def _is_save_access_denied(err: BaseException) -> bool:
     """כשל כתיבה / קובץ נעול / הרשאות — ממשיכים לנתיב חלופי או דיאלוג שמירה."""
     if isinstance(err, PermissionError):
@@ -153,6 +119,39 @@ ONE_TAG_CP: Tuple[int, ...] = (0x05D1, 0x05D3, 0x05E7, 0x05D7, 0x05D9, 0x05D4)
 MAX_TAGINIM_PER_LETTER = 9
 
 SHIN_CP = 0x05E9
+
+# --- תבניות "תגין מוכנים" ---
+# המטרה: להתחיל מסט אחיד (מידה/עובי/רווחים/צורה) ולהשאיר למשתמש רק לגרור ולהניח לכל אות.
+# הערכים כאן הם ברירת מחדל "סבירה" — אפשר עדיין לכוון ידנית אחרי החלה אם רוצים.
+READY_TAGIN_PRESET_THREE: Dict[str, Any] = {
+    # TAGIN_STYLE_PRESET_KEYS
+    "height_frac": 0.15,
+    "line_width_frac": 0.020,
+    "dot_frac": 0.030,
+    "spacing_frac": 0.085,
+    "middle_boost_frac": 0.12,
+    "package_scale": 1.0,
+    "tag_shape_mode": TAG_SHAPE_ROUND,
+    # מיקום חבילה ביחס לתיבת הדיו של האות: 0 = עוגן אוטומטי מעל האות
+    "group_dx_frac": 0.0,
+    "group_dy_frac": 0.0,
+    "saved_from_cp": SHIN_CP,
+    "version": 1,
+}
+
+READY_TAGIN_PRESET_ONE: Dict[str, Any] = {
+    "height_frac": 0.15,
+    "line_width_frac": 0.020,
+    "dot_frac": 0.030,
+    "spacing_frac": 0.085,
+    "middle_boost_frac": 0.0,
+    "package_scale": 1.0,
+    "tag_shape_mode": TAG_SHAPE_ROUND,
+    "group_dx_frac": 0.0,
+    "group_dy_frac": 0.0,
+    "saved_from_cp": ONE_TAG_CP[0] if len(ONE_TAG_CP) else SHIN_CP,
+    "version": 1,
+}
 # InDesign / עריכה / ניקוד: שין כגליף מורכב (נקודה/דגוש) — חייבים הטמעה בכל הווריאנטים ב־cmap,
 # אחרת המעבד בוחר גליף בלי תגין. FB2E/FB2F = שין+דגוש+נקודת שין/סין (לעיתים NFC).
 SHIN_VARIANT_CPS: Tuple[int, ...] = (
