@@ -211,6 +211,34 @@ def _build_mark_glyph_name_set(font: TTFont) -> set[str]:
         cp = _maybe_parse_uni_hex_glyph_name(gn)
         if cp is not None and _in_ranges(cp, HEBREW_MARK_RANGES):
             out.add(gn)
+    # גופנים רבים נותנים שמות "מילוליים" לנקודות/ניקוד שאינם uni05xx או לא מופיעים ב-cmap.
+    # אם לא נסנן אותם, נקודה (כמו דגש/מפיק) יכולה להרים את חישוב "גג" התגין בגליפים מורכבים.
+    mark_name_hints = (
+        "dagesh",
+        "mapiq",
+        "dothebrew",
+        "pointhebrew",
+        "shindot",
+        "sindot",
+        "sheva",
+        "hiriq",
+        "holam",
+        "patah",
+        "qamats",
+        "qamas",
+        "segol",
+        "tsere",
+        "qubuts",
+        "kubuts",
+        "meteg",
+        "rafe",
+    )
+    for gn in font.getGlyphOrder():
+        if not isinstance(gn, str):
+            continue
+        n = gn.lower()
+        if any(h in n for h in mark_name_hints):
+            out.add(gn)
     return out
 
 
@@ -1937,7 +1965,32 @@ class MainWindow(QMainWindow):
         # משמרים embed_in_font והמונה embedded_tag_pairs; רק מחילים סגנון/גאומטריה.
         ls.tag_count = max(0, min(MAX_TAGINIM_PER_LETTER, int(tag_count)))
         ls.ensure_tags()
-        self._apply_tagin_style_data_to_letter(ls, preset)
+        # "מוכנים": המטרה היא מראה אחיד בין אותיות.
+        # לכן מחשבים מידות *אבסולוטיות* על בסיס אות ייחוס, וממירים ל-frac לכל אות.
+        ref_cp = preset.get("saved_from_cp")
+        if not isinstance(ref_cp, int):
+            ref_cp = SHIN_CP
+        ref_w, ref_h = self._ink_dimensions_for_cp(ref_cp)
+        tw, th = self._ink_dimensions_for_cp(ls.codepoint)
+        sc = float(preset.get("package_scale", 1.0))
+        sc = max(0.25, min(3.0, sc))
+
+        # מידות אבסולוטיות (FU) לפי אות ייחוס
+        desired_stem_h = max(30.0, float(preset.get("height_frac", ls.height_frac)) * ref_h) * sc
+        desired_stem_w = max(8.0, float(preset.get("line_width_frac", ls.line_width_frac)) * ref_w) * sc
+        desired_dot_d = max(20.0, float(preset.get("dot_frac", ls.dot_frac)) * ref_h) * sc
+        desired_spacing = float(preset.get("spacing_frac", ls.spacing_frac)) * ref_w * sc
+
+        # החלה: קובעים package_scale ואז מכוונים fracs כך שהאבסולוט יצא זהה בין האותיות
+        ls.package_scale = sc
+        ls.height_frac = max(0.0, desired_stem_h / max(th * sc, 1e-6))
+        ls.line_width_frac = max(0.0, desired_stem_w / max(tw * sc, 1e-6))
+        ls.dot_frac = max(0.0, desired_dot_d / max(th * sc, 1e-6))
+        ls.spacing_frac = max(0.0, desired_spacing / max(tw * sc, 1e-6))
+        ls.middle_boost_frac = float(preset.get("middle_boost_frac", ls.middle_boost_frac))
+        tsm = str(preset.get("tag_shape_mode", ls.tag_shape_mode))
+        ls.tag_shape_mode = tsm if tsm in (TAG_SHAPE_ROUND, TAG_SHAPE_SQUARE_FAN) else TAG_SHAPE_ROUND
+
         # בתבנית "מוכנה" מאפסים היסט חבילה כדי להתחיל מהעוגן האוטומטי מעל האות.
         ls.group_dx_fu = 0.0
         ls.group_dy_fu = 0.0
