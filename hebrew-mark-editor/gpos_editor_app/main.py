@@ -133,6 +133,17 @@ def _cp_label(cp: int) -> str:
     return f"U+{cp:04X}  {chr(cp)}"
 
 
+def _cp_label_named(cp: int) -> str:
+    name = None
+    for x, he in list(TAAMIM_ROWS) + list(NIQQUD_ROWS):
+        if int(x) == int(cp):
+            name = he
+            break
+    if name:
+        return f"{name}  —  U+{cp:04X}  {chr(cp)}"
+    return _cp_label(cp)
+
+
 class CalibrationTab(QWidget):
     """MarkToBase + MarkToMark כלשוניות פנימיות."""
 
@@ -662,7 +673,7 @@ class MarkToBaseTab(QWidget):
         cmap = self._loader.cmap
         for cp in ALL_MARK_CODES:
             if cp in cmap:
-                self._mark_list.addItem(_cp_label(cp))
+                self._mark_list.addItem(_cp_label_named(cp))
         if self._mark_list.count():
             self._mark_list.setCurrentRow(0)
 
