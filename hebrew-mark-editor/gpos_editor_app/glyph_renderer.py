@@ -157,6 +157,34 @@ class GlyphRenderer:
 
         return img
 
+    def render_char_with_two_marks(
+        self,
+        base_cp: int,
+        mark1_cp: Optional[int],
+        off1_fu_x: float,
+        off1_fu_y: float,
+        mark2_cp: Optional[int],
+        off2_fu_x: float,
+        off2_fu_y: float,
+    ) -> Image.Image:
+        """
+        Like render_char_with_mark, but mark1 and mark2 offsets are both relative to the base.
+        mark2 offset is converted to the internal (relative-to-mark1) form.
+        """
+        if mark1_cp is None:
+            return self.render_char_with_mark(base_cp, mark2_cp, off2_fu_x, off2_fu_y)
+        if mark2_cp is None:
+            return self.render_char_with_mark(base_cp, mark1_cp, off1_fu_x, off1_fu_y)
+        return self.render_char_with_mark(
+            base_cp,
+            mark1_cp,
+            off1_fu_x,
+            off1_fu_y,
+            mark2_cp=mark2_cp,
+            offset2_fu_x=(off2_fu_x - off1_fu_x),
+            offset2_fu_y=(off2_fu_y - off1_fu_y),
+        )
+
     def draw_anchor_cross(
         self, image: Image.Image, offset_fu_x: float, offset_fu_y: float
     ) -> Image.Image:

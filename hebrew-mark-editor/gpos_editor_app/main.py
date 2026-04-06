@@ -489,6 +489,8 @@ class MarkToBaseTab(QWidget):
         self._renderer: Optional[GlyphRenderer] = None
         self._base_cp = 0x05D0
         self._mark_cp: Optional[int] = None
+        self._pinned_mark_cp: Optional[int] = None
+        self._last_mark_cp: Optional[int] = None
         self._dirty = False
         self._use_memory = False
         self._font_path = ""
@@ -526,6 +528,15 @@ class MarkToBaseTab(QWidget):
         self._info = QLabel("טען גופן.")
         self._info.setWordWrap(True)
         lv.addWidget(self._info)
+
+        pin_row = QHBoxLayout()
+        self._chk_pin_prev = QCheckBox("הצג גם את הסימון הקודם (מוצמד בירוק)")
+        self._chk_pin_prev.setChecked(True)
+        pin_row.addWidget(self._chk_pin_prev, 1)
+        self._b_clear_pin = QPushButton("בטל הצמדה")
+        self._b_clear_pin.clicked.connect(self._clear_pin)
+        pin_row.addWidget(self._b_clear_pin)
+        lv.addLayout(pin_row)
 
         self._b_create_pair = QPushButton("צור זוג MarkToBase לזוג שנבחר")
         self._b_create_pair.clicked.connect(self._create_mark_to_base_pair)
@@ -651,6 +662,14 @@ class MarkToBaseTab(QWidget):
         self._refresh_all()
 
     def _on_mark_changed(self, _row: int) -> None:
+        cur = self._current_mark_cp()
+        if self._chk_pin_prev.isChecked() and self._last_mark_cp is not None and cur != self._last_mark_cp:
+            self._pinned_mark_cp = self._last_mark_cp
+        self._last_mark_cp = cur
+        self._refresh_all()
+
+    def _clear_pin(self) -> None:
+        self._pinned_mark_cp = None
         self._refresh_all()
 
     def _glyph_names(self) -> Tuple[Optional[str], Optional[str]]:
@@ -719,7 +738,32 @@ class MarkToBaseTab(QWidget):
         self._spin_by.blockSignals(False)
 
         ox, oy = bx - mx, by - my
-        img = self._renderer.render_char_with_mark(self._base_cp, self._current_mark_cp(), ox, oy)
+
+        # Optional pinned (second) mark preview: render both marks at their own MarkToBase offsets.
+        pin_cp = self._pinned_mark_cp
+        if pin_cp is not None and pin_cp != self._current_mark_cp():
+            pin_g = self._loader.get_glyph_name(pin_cp)
+            if pin_g:
+                pin_mbi = self._loader.find_mark_base(bg, pin_g)
+                if pin_mbi and pin_mbi.get_base_anchor() is not None:
+                    pbx, pby = _anchor_xy(pin_mbi.get_base_anchor())
+                    pmx, pmy = _anchor_xy(pin_mbi.get_mark_anchor())
+                    pox, poy = pbx - pmx, pby - pmy
+                    img = self._renderer.render_char_with_two_marks(
+                        self._base_cp,
+                        self._current_mark_cp(),
+                        ox,
+                        oy,
+                        pin_cp,
+                        pox,
+                        poy,
+                    )
+                else:
+                    img = self._renderer.render_char_with_mark(self._base_cp, self._current_mark_cp(), ox, oy)
+            else:
+                img = self._renderer.render_char_with_mark(self._base_cp, self._current_mark_cp(), ox, oy)
+        else:
+            img = self._renderer.render_char_with_mark(self._base_cp, self._current_mark_cp(), ox, oy)
         img = self._renderer.draw_anchor_cross(img, 0, 0)
         self._canvas._scale = self._renderer._scale()
         self._canvas.set_pixmap_from_pil(img)
