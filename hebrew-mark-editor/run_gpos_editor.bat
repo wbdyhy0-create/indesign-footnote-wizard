@@ -44,13 +44,14 @@ if errorlevel 1 (
 
 echo.
 echo Starting GPOS editor ^(window with tabs should open^)...
-echo Command: "%PY%" "%SCRIPT%"
+echo Command: "%PY%" -u "%SCRIPT%"
 echo.
 
+REM -u = unbuffered so any error prints before the window closes
 if "%PY%"=="python" (
-  "%PY%" "%SCRIPT%"
+  "%PY%" -u "%SCRIPT%"
 ) else (
-  py -3 "%SCRIPT%"
+  py -3 -u "%SCRIPT%"
 )
 
 set ERR=!ERRORLEVEL!

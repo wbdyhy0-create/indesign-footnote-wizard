@@ -18,43 +18,62 @@ if _APP_DIR not in sys.path:
 
 from typing import Callable, List, Optional, Tuple
 
-from fontTools.ttLib import TTFont
-from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QColor
-from PyQt5.QtWidgets import (
-    QAction,
-    QApplication,
-    QCheckBox,
-    QDialog,
-    QFileDialog,
-    QGridLayout,
-    QGroupBox,
-    QHBoxLayout,
-    QLabel,
-    QLineEdit,
-    QListWidget,
-    QListWidgetItem,
-    QMainWindow,
-    QMessageBox,
-    QPushButton,
-    QSpinBox,
-    QSplitter,
-    QTabWidget,
-    QTextEdit,
-    QVBoxLayout,
-    QWidget,
-)
+try:
+    from fontTools.ttLib import TTFont
+    from PyQt5.QtCore import Qt
+    from PyQt5.QtGui import QColor
+    from PyQt5.QtWidgets import (
+        QAction,
+        QApplication,
+        QCheckBox,
+        QDialog,
+        QFileDialog,
+        QGridLayout,
+        QGroupBox,
+        QHBoxLayout,
+        QLabel,
+        QLineEdit,
+        QListWidget,
+        QListWidgetItem,
+        QMainWindow,
+        QMessageBox,
+        QPushButton,
+        QSpinBox,
+        QSplitter,
+        QTabWidget,
+        QTextEdit,
+        QVBoxLayout,
+        QWidget,
+    )
 
-from editor_widget import AnchorEditorCanvas, MarkToMarkPanel, NudgeButtons, pil_to_qpixmap
-from font_loader import FontLoader, _anchor_xy
-from glyph_importer import (
-    TAAMIM_ROWS,
-    copy_gpos_and_scale_for_upem,
-    import_taamim,
-    upem_pair_message,
-)
-from gpos_profile import apply_profile_to_font, load_profile_json, save_profile_json
-from glyph_renderer import GlyphRenderer
+    from editor_widget import AnchorEditorCanvas, MarkToMarkPanel, NudgeButtons, pil_to_qpixmap
+    from font_loader import FontLoader, _anchor_xy
+    from glyph_importer import (
+        TAAMIM_ROWS,
+        copy_gpos_and_scale_for_upem,
+        import_taamim,
+        upem_pair_message,
+    )
+    from gpos_profile import apply_profile_to_font, load_profile_json, save_profile_json
+    from glyph_renderer import GlyphRenderer
+except Exception as _startup_exc:
+    import traceback
+
+    print("Failed to start GPOS editor (missing or broken dependency).", file=sys.stderr)
+    print(_startup_exc, file=sys.stderr)
+    traceback.print_exc()
+    print(
+        "\nFix: open cmd in hebrew-mark-editor folder and run:\n"
+        "  python -m pip install -r requirements.txt\n"
+        "\nIf you use Python 3.14: PyQt5 often has no wheel yet. "
+        "Install Python 3.12 from python.org (check Add to PATH), then run again.",
+        file=sys.stderr,
+    )
+    try:
+        input("\nPress Enter to close this window...")
+    except EOFError:
+        pass
+    raise SystemExit(1) from _startup_exc
 
 # --- Unicode (כמו editor.py) ---
 _MARK_RANGES: Tuple[Tuple[int, int], ...] = (
@@ -954,4 +973,16 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except SystemExit:
+        raise
+    except Exception:
+        import traceback
+
+        traceback.print_exc()
+        try:
+            input("\nPress Enter to close...")
+        except EOFError:
+            pass
+        raise SystemExit(1)
