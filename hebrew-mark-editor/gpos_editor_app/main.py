@@ -673,7 +673,9 @@ class MarkToBaseTab(QWidget):
         cmap = self._loader.cmap
         for cp in ALL_MARK_CODES:
             if cp in cmap:
-                self._mark_list.addItem(_cp_label_named(cp))
+                it = QListWidgetItem(_cp_label_named(cp))
+                it.setData(Qt.UserRole, int(cp))
+                self._mark_list.addItem(it)
         if self._mark_list.count():
             self._mark_list.setCurrentRow(0)
 
@@ -681,8 +683,11 @@ class MarkToBaseTab(QWidget):
         row = self._mark_list.currentRow()
         if row < 0:
             return None
-        text = self._mark_list.item(row).text()
-        return int(text.split()[0][2:], 16)
+        it = self._mark_list.item(row)
+        data = it.data(Qt.UserRole) if it else None
+        if data is None:
+            return None
+        return int(data)
 
     def _pick_letter(self, cp: int) -> None:
         self._base_cp = cp
