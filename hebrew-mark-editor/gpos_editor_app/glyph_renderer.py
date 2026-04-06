@@ -169,14 +169,19 @@ class GlyphRenderer:
             self.face.load_glyph(gi, freetype.FT_LOAD_RENDER)
             g = self.face.glyph
             bm = g.bitmap
-            w, h = int(bm.width), int(g.rows)
+            w, h = int(bm.width), int(bm.rows)
             if w > 0 and h > 0:
                 buf = bytes(bm.buffer)
                 sg = Image.new("L", (w, h), 255)
                 pix = sg.load()
+                pitch = int(bm.pitch) if hasattr(bm, "pitch") else w
+                stride = abs(pitch) if pitch else w
                 for yy in range(h):
                     for xx in range(w):
-                        v = buf[yy * w + xx]
+                        idx = yy * stride + xx
+                        if idx >= len(buf):
+                            continue
+                        v = buf[idx]
                         pix[xx, yy] = 255 - v
                 left = int(g.bitmap_left)
                 top = int(g.bitmap_top)
