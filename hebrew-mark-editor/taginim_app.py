@@ -22,6 +22,7 @@ from fontTools.pens.boundsPen import BoundsPen
 from fontTools.pens.recordingPen import DecomposingRecordingPen
 from fontTools.pens.ttGlyphPen import TTGlyphPen
 from fontTools.ttLib import TTFont
+from fontTools.ttLib.tables import otTables
 from fontTools.ttLib.tables._g_l_y_f import GlyphCoordinates
 
 from PIL import Image
@@ -185,6 +186,70 @@ def _shin_variant_glyph_names(font: TTFont) -> set[str]:
         g = _cmap_cp_to_glyph_name(font, cp)
         if g:
             out.add(g)
+    return out
+
+
+def _unwrap_gsub_subtable(sub: Any) -> Any:
+    while type(sub).__name__ == "ExtensionSubst" and hasattr(sub, "ExtSubTable"):
+        sub = sub.ExtSubTable
+    return sub
+
+
+def _gsub_targets_for_glyph(font: TTFont, start_glyph: str) -> set[str]:
+    """
+    Best-effort: מחזיר גליפים שיכולים להיווצר מ־start_glyph דרך GSUB לא־קונטקסטואלי
+    (Single/Multiple/Alternate/Ligature/ReverseChainSingle).
+
+    המטרה: InDesign לפעמים מחליף את גליף השין כשיש ניקוד/נקודה/דגש (ccmp/locl וכו׳)
+    לגליף יעד שאינו ב־cmap; אם לא נטמיע תגין גם עליו — התגין "נעלמים".
+    """
+    out: set[str] = set()
+    if not start_glyph or "GSUB" not in font:
+        return out
+    try:
+        gsub = font["GSUB"].table
+        lookups = gsub.LookupList.Lookup if gsub and gsub.LookupList else []
+    except Exception:
+        return out
+
+    for lookup in lookups:
+        for raw in getattr(lookup, "SubTable", []) or []:
+            st = _unwrap_gsub_subtable(raw)
+            name = type(st).__name__
+            try:
+                if name == "SingleSubst":
+                    m = getattr(st, "mapping", None) or {}
+                    if start_glyph in m:
+                        out.add(str(m[start_glyph]))
+                elif name == "MultipleSubst":
+                    m = getattr(st, "mapping", None) or {}
+                    if start_glyph in m:
+                        for g in (m[start_glyph] or []):
+                            out.add(str(g))
+                elif name == "AlternateSubst":
+                    m = getattr(st, "alternates", None) or {}
+                    if start_glyph in m:
+                        for g in (m[start_glyph] or []):
+                            out.add(str(g))
+                elif name == "LigatureSubst":
+                    # ligatures: components -> ligGlyph
+                    ligatures = getattr(st, "ligatures", None) or {}
+                    if start_glyph in ligatures:
+                        for lig in ligatures[start_glyph] or []:
+                            lg = getattr(lig, "LigGlyph", None)
+                            if lg:
+                                out.add(str(lg))
+                elif name == "ReverseChainSingleSubst":
+                    sub_map = getattr(st, "Substitute", None)
+                    cov = getattr(st, "Coverage", None)
+                    glyphs = getattr(cov, "glyphs", None) if cov is not None else None
+                    if glyphs and sub_map and len(glyphs) == len(sub_map):
+                        for i, g in enumerate(glyphs):
+                            if g == start_glyph:
+                                out.add(str(sub_map[i]))
+            except Exception:
+                # Keep scanning other subtables
+                pass
     return out
 
 
@@ -811,10 +876,9 @@ def _glyph_embed_job_list(
     seen: set[str] = set()
     out: List[Tuple[str, LetterSettings]] = []
 
-    def try_add(cp: int, ls: Optional[LetterSettings]) -> None:
+    def try_add_glyph(gname: Optional[str], ls: Optional[LetterSettings]) -> None:
         if ls is None or not ls.embed_in_font or ls.tag_count <= 0:
             return
-        gname = _cmap_cp_to_glyph_name(font, cp)
         if not gname or gname not in gs:
             return
         if gname in seen:
@@ -823,12 +887,34 @@ def _glyph_embed_job_list(
         out.append((gname, ls))
 
     for cp in letter_cps:
-        try_add(cp, by_cp.get(cp))
+        try_add_glyph(_cmap_cp_to_glyph_name(font, cp), by_cp.get(cp))
     shin_ls = by_cp.get(SHIN_CP)
     if shin_ls is not None and shin_ls.embed_in_font:
+        # Always embed the base shin glyph (U+05E9) + known cmap variants.
+        base_shin = _cmap_cp_to_glyph_name(font, SHIN_CP)
+        try_add_glyph(base_shin, shin_ls)
         for vcp in SHIN_VARIANT_CPS:
             if vcp in cmap:
-                try_add(vcp, shin_ls)
+                try_add_glyph(_cmap_cp_to_glyph_name(font, vcp), shin_ls)
+
+        # Extra: embed shin glyphs that can be produced via GSUB (even if not in cmap).
+        # This targets InDesign behavior where a dotted/dagesh shin comes from substitutions.
+        if base_shin:
+            pending = [base_shin]
+            resolved: set[str] = set()
+            while pending:
+                cur = pending.pop()
+                if cur in resolved:
+                    continue
+                resolved.add(cur)
+                targets = _gsub_targets_for_glyph(font, cur)
+                for tg in targets:
+                    if tg in resolved:
+                        continue
+                    # Only embed if glyph exists and is drawable.
+                    if tg in gs:
+                        try_add_glyph(tg, shin_ls)
+                        pending.append(tg)
     return out
 
 
