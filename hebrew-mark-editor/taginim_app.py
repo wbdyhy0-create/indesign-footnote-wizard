@@ -374,9 +374,9 @@ def _glyph_xy_points_excluding_mark_components(
     except Exception:
         return _glyph_xy_points_for_band_search(font, glyph_set, gname)
 
-    # גליף פשוט: אין רכיבים לסינון.
+    # גליף פשוט: אין רכיבים לסינון, אבל ייתכן שדגש/מפיק כבר "מוכללים" כקונטור קטן בתוך הגליף.
     if int(getattr(g, "numberOfContours", 0)) >= 0:
-        return _glyph_xy_points_for_band_search(font, glyph_set, gname)
+        return _glyph_xy_points_for_roof_search(font, glyph_set, gname, filter_small_contours=True)
 
     def is_mark_component(comp_gn: str) -> bool:
         if comp_gn in mark_glyph_names:
@@ -392,7 +392,7 @@ def _glyph_xy_points_excluding_mark_components(
         return _glyph_xy_points_for_band_search(font, glyph_set, gname)
 
     if not comps:
-        return _glyph_xy_points_for_band_search(font, glyph_set, gname)
+        return _glyph_xy_points_for_roof_search(font, glyph_set, gname, filter_small_contours=True)
 
     for comp in comps:
         comp_gn = getattr(comp, "glyphName", None)
@@ -400,7 +400,7 @@ def _glyph_xy_points_excluding_mark_components(
             continue
         if is_mark_component(comp_gn):
             continue
-        sub_pts = _glyph_xy_points_for_band_search(font, glyph_set, comp_gn)
+        sub_pts = _glyph_xy_points_for_roof_search(font, glyph_set, comp_gn, filter_small_contours=True)
         if not sub_pts:
             continue
         # fontTools glyf component transform: a,b,c,d,e,f (2x2 + translate)
@@ -532,6 +532,70 @@ def _glyph_xy_points_for_band_search(font: TTFont, glyph_set: Any, gname: str) -
     except Exception:
         return []
     return [(float(c[0]), float(c[1])) for c in coords]
+
+
+def _glyph_xy_points_for_roof_search(
+    font: TTFont,
+    glyph_set: Any,
+    gname: str,
+    *,
+    filter_small_contours: bool = True,
+) -> List[Tuple[float, float]]:
+    """
+    כמו _glyph_xy_points_for_band_search, אבל עם פילטר אופציונלי שמסיר "איים" קטנים
+    (למשל דגש/מפיק כחלק מהגליף הפשוט ולא כ-component) כדי שלא ירים את גובה התגין.
+    """
+    try:
+        g = font["glyf"][gname]
+    except Exception:
+        return []
+    try:
+        coords, end_pts, _flags = g.getCoordinates(glyph_set)
+    except Exception:
+        return []
+
+    pts_all: List[Tuple[float, float]] = [(float(c[0]), float(c[1])) for c in coords]
+    if not filter_small_contours or not pts_all:
+        return pts_all
+
+    try:
+        ends = list(end_pts)
+    except Exception:
+        ends = []
+    if not ends:
+        return pts_all
+
+    xs_all = [x for x, _ in pts_all]
+    ys_all = [y for _, y in pts_all]
+    gw = max(1.0, max(xs_all) - min(xs_all))
+    gh = max(1.0, max(ys_all) - min(ys_all))
+    g_area = gw * gh
+
+    # ספי סינון: אי קטן משמעותית יחסית לגליף.
+    area_thr = max(60.0 * 60.0, 0.020 * g_area)
+    w_thr = max(18.0, 0.22 * gw)
+    h_thr = max(18.0, 0.22 * gh)
+
+    out: List[Tuple[float, float]] = []
+    start = 0
+    for e in ends:
+        end = int(e) + 1
+        contour = pts_all[start:end]
+        start = end
+        if not contour:
+            continue
+        xs = [x for x, _ in contour]
+        ys = [y for _, y in contour]
+        cw = max(xs) - min(xs)
+        ch = max(ys) - min(ys)
+        c_area = max(0.0, cw) * max(0.0, ch)
+        # אם זה "אי" קטן (לרוב דגש/מפיק/נקודת שין) — מסננים אותו לצורך חישוב גג.
+        if c_area <= area_thr and cw <= w_thr and ch <= h_thr:
+            continue
+        out.extend(contour)
+
+    # אם סינון מחק הכל — נחזיר רגיל כדי לא לשבור גליפים מיוחדים.
+    return out if out else pts_all
 
 
 def _y_span_from_pts(pts: List[Tuple[float, float]]) -> float:
