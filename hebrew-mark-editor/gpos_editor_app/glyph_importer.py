@@ -186,15 +186,40 @@ def copy_gpos_and_scale_for_upem(
     """
     מעתיק GPOS ממקור ליעד ומקנה קנה מידה לעוגני Mark אם ה-UPEM שונה.
     """
+    prev = deepcopy(target["GPOS"]) if "GPOS" in target else None
     ok, msg = copy_gpos_table(source, target)
     if not ok:
         return False, msg
     su = float(source["head"].unitsPerEm)
     tu = float(target["head"].unitsPerEm)
     if su <= 0 or abs(su - tu) < 1e-6:
+        try:
+            target["GPOS"].compile(target)
+        except Exception as e:
+            if prev is not None:
+                target["GPOS"] = prev
+            else:
+                del target["GPOS"]
+            return (
+                False,
+                "העתקת GPOS נכשלה (שמות גליפים לא תואמים בין מקור ליעד). "
+                f"פרטים: {e}",
+            )
         return True, msg + " UPEM זהה — ללא סקייל לעוגנים."
     f = tu / su
     nb = scale_mark_anchors_in_font(target, f)
+    try:
+        target["GPOS"].compile(target)
+    except Exception as e:
+        if prev is not None:
+            target["GPOS"] = prev
+        else:
+            del target["GPOS"]
+        return (
+            False,
+            "העתקת GPOS נכשלה (שמות גליפים לא תואמים בין מקור ליעד). "
+            f"פרטים: {e}",
+        )
     return True, f"{msg} סקייל עוגנים Mark: factor={f:.4f} (עודכנו {nb} עוגנים)."
 
 

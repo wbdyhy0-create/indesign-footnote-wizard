@@ -575,7 +575,19 @@ class MarkToBaseTab(QWidget):
             return
         self._use_memory = enabled
         if enabled:
-            self._renderer = GlyphRenderer.from_ttfont(self._loader.font, size_px=220)
+            try:
+                self._renderer = GlyphRenderer.from_ttfont(self._loader.font, size_px=220)
+            except Exception as e:
+                self._use_memory = False
+                self._renderer = GlyphRenderer(self._font_path, size_px=220)
+                QMessageBox.warning(
+                    self,
+                    "תצוגה מזיכרון",
+                    "לא ניתן להציג תצוגה מזיכרון אחרי הייבוא.\n"
+                    "זה בדרך כלל קורה כש־GPOS שהועתק מפנה לשמות גליפים שלא קיימים ביעד.\n\n"
+                    f"פרטים: {e}\n\n"
+                    "המשך עבודה ייעשה מתצוגה מהקובץ בדיסק.",
+                )
         else:
             self._renderer = GlyphRenderer(self._font_path, size_px=220)
         self._refresh_all()
@@ -963,7 +975,10 @@ class MainWindow(QMainWindow):
             self._gpos_copied_session = True
         self._use_memory_preview = True
         if self._loader:
-            self._tab_mtb.set_use_memory_preview(True)
+            try:
+                self._tab_mtb.set_use_memory_preview(True)
+            except Exception:
+                self._use_memory_preview = False
             self._tab_mtb._fill_marks()
             self._tab_mtb._refresh_all()
             self._tab_mtm.set_loader(self._loader, self._on_any_gpos_edit)
