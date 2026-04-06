@@ -9,10 +9,11 @@ REM Helps some Intel/AMD setups where hardware GL closes the Qt window instantly
 set "QT_OPENGL=software"
 
 set "SCRIPT=%~dp0gpos_editor_app\main.py"
-if not exist "%SCRIPT%" (
+REM Use !SCRIPT! not %%SCRIPT%% inside (...) — paths like (2) break cmd.exe blocks.
+if not exist "!SCRIPT!" (
   echo.
   echo ERROR: main.py not found:
-  echo   %SCRIPT%
+  echo   !SCRIPT!
   echo.
   pause
   exit /b 1
@@ -31,7 +32,7 @@ if not errorlevel 1 (
     exit /b 1
   )
   echo Starting GPOS editor...
-  py -3.12 -u "%SCRIPT%"
+  py -3.12 -u "!SCRIPT!"
   goto :DONE
 )
 
@@ -45,7 +46,7 @@ if not errorlevel 1 (
     exit /b 1
   )
   echo Starting GPOS editor...
-  py -3.11 -u "%SCRIPT%"
+  py -3.11 -u "!SCRIPT!"
   goto :DONE
 )
 
@@ -59,7 +60,7 @@ if not errorlevel 1 (
     exit /b 1
   )
   echo Starting GPOS editor...
-  py -3.10 -u "%SCRIPT%"
+  py -3.10 -u "!SCRIPT!"
   goto :DONE
 )
 
@@ -73,7 +74,7 @@ if not errorlevel 1 (
     exit /b 1
   )
   echo Starting GPOS editor...
-  py -3 -u "%SCRIPT%"
+  py -3 -u "!SCRIPT!"
   goto :DONE
 )
 
@@ -87,7 +88,7 @@ if not errorlevel 1 (
     exit /b 1
   )
   echo Starting GPOS editor...
-  python -u "%SCRIPT%"
+  python -u "!SCRIPT!"
   goto :DONE
 )
 
