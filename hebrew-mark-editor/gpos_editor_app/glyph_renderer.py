@@ -7,6 +7,10 @@ from io import BytesIO
 from typing import TYPE_CHECKING, Optional, Tuple
 
 import freetype
+try:
+    import uharfbuzz as hb  # type: ignore
+except Exception:
+    hb = None
 
 if TYPE_CHECKING:
     from fontTools.ttLib import TTFont
@@ -234,4 +238,84 @@ class GlyphRenderer:
             x -= int(g.advance.x >> 6) if g.advance.x else w + 4
             if x < 20:
                 break
+        return img
+
+    def render_sample_text_harfbuzz(self, text: str) -> Image.Image:
+        """
+        Shaped preview using HarfBuzz (much closer to InDesign).
+        Falls back to render_sample_text() if uharfbuzz is unavailable.
+        """
+        if hb is None:
+            return self.render_sample_text(text)
+
+        sc = self._scale()
+        upem = int(self._upem())
+
+        face_bytes = b""
+        if self._stream is not None:
+            try:
+                face_bytes = self._stream.getvalue()
+            except Exception:
+                face_bytes = b""
+        if not face_bytes and self.font_path:
+            try:
+                with open(self.font_path, "rb") as f:
+                    face_bytes = f.read()
+            except Exception:
+                face_bytes = b""
+        if not face_bytes:
+            return self.render_sample_text(text)
+
+        hb_face = hb.Face(face_bytes)
+        hb_font = hb.Font(hb_face)
+        hb_font.scale = (upem, upem)
+
+        buf = hb.Buffer()
+        buf.add_str(text)
+        buf.guess_segment_properties()
+        hb.shape(hb_font, buf, {})
+
+        infos = buf.glyph_infos
+        pos = buf.glyph_positions
+
+        img = Image.new("RGBA", (CANVAS_W, CANVAS_H), (255, 255, 255, 255))
+        x0 = CANVAS_W - 40
+        y0 = int(CANVAS_H * 0.55)
+        x_fu = 0.0
+        y_fu = 0.0
+
+        for i in range(len(infos)):
+            gid = int(infos[i].codepoint)
+            dx_fu = float(pos[i].x_offset)
+            dy_fu = float(pos[i].y_offset)
+            adv_fu = float(pos[i].x_advance)
+
+            self.face.load_glyph(gid, freetype.FT_LOAD_RENDER)
+            g = self.face.glyph
+            bm = g.bitmap
+            w, h = int(bm.width), int(bm.rows)
+            if w > 0 and h > 0:
+                bufb = bytes(bm.buffer)
+                sg = Image.new("L", (w, h), 255)
+                pix = sg.load()
+                pitch = int(bm.pitch) if hasattr(bm, "pitch") else w
+                stride = abs(pitch) if pitch else w
+                for yy in range(h):
+                    for xx in range(w):
+                        idx = yy * stride + xx
+                        if idx >= len(bufb):
+                            continue
+                        v = bufb[idx]
+                        pix[xx, yy] = 255 - v
+
+                left = int(g.bitmap_left)
+                top = int(g.bitmap_top)
+                px = x0 - int((x_fu + dx_fu) * sc) - left - w
+                py = y0 - int((y_fu + dy_fu) * sc) - top
+                _paste_rgba(img, sg, px, py, (20, 20, 20, 255))
+
+            x_fu += adv_fu
+            if x0 - int(x_fu * sc) < 20:
+                break
+
         return img

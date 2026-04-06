@@ -2,3 +2,4 @@ fonttools>=4.47.0
 freetype-py>=2.4.0
 Pillow>=10.0.0
 PyQt5>=5.15.0
+uharfbuzz>=0.41.0

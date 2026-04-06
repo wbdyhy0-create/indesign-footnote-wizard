@@ -924,6 +924,10 @@ class PreviewTab(QWidget):
                 "«אחרי» = הגופן הטעון; «לפני» = קובץ אופציונלי להשוואה."
             )
         )
+        self._chk_hb = QCheckBox("HarfBuzz (תצוגה קרובה לאינדיזיין)")
+        self._chk_hb.setChecked(True)
+        self._chk_hb.toggled.connect(self._render)
+        v.addWidget(self._chk_hb)
         self._edit = QLineEdit(self.SAMPLE)
         self._edit.setLayoutDirection(Qt.RightToLeft)
         v.addWidget(self._edit)
@@ -990,7 +994,10 @@ class PreviewTab(QWidget):
         ra = self._renderer_after()
         if ra:
             try:
-                self._lbl_after.setPixmap(pil_to_qpixmap(ra.render_sample_text(txt)))
+                if self._chk_hb.isChecked():
+                    self._lbl_after.setPixmap(pil_to_qpixmap(ra.render_sample_text_harfbuzz(txt)))
+                else:
+                    self._lbl_after.setPixmap(pil_to_qpixmap(ra.render_sample_text(txt)))
             except Exception as e:
                 self._lbl_after.setText(str(e))
         else:
@@ -1000,7 +1007,10 @@ class PreviewTab(QWidget):
         if bp:
             try:
                 rb = GlyphRenderer(bp, 180)
-                self._lbl_before.setPixmap(pil_to_qpixmap(rb.render_sample_text(txt)))
+                if self._chk_hb.isChecked():
+                    self._lbl_before.setPixmap(pil_to_qpixmap(rb.render_sample_text_harfbuzz(txt)))
+                else:
+                    self._lbl_before.setPixmap(pil_to_qpixmap(rb.render_sample_text(txt)))
             except Exception as e:
                 self._lbl_before.setText(str(e))
         else:
