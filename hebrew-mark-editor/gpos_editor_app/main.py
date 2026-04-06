@@ -795,6 +795,8 @@ class MainWindow(QMainWindow):
         a_about.triggered.connect(self._help)
         m_help.addAction(a_about)
 
+        self._tab_save.refresh()
+
     def _open_font(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
             self,
@@ -964,17 +966,100 @@ class MainWindow(QMainWindow):
         event.accept()
 
 
-def main() -> None:
-    app = QApplication(sys.argv)
-    app.setLayoutDirection(Qt.RightToLeft)
-    w = MainWindow()
-    w.show()
-    sys.exit(app.exec_())
+def _crash_log_path() -> str:
+    return os.path.join(
+        os.environ.get("TEMP", os.path.expanduser("~")),
+        "gpos_editor_crash.txt",
+    )
+
+
+def _log_crash(phase: str, exc: BaseException) -> None:
+    import traceback
+
+    p = _crash_log_path()
+    try:
+        with open(p, "w", encoding="utf-8") as f:
+            f.write(f"{phase}\n\n")
+            traceback.print_exception(type(exc), exc, exc.__traceback__, file=f)
+    except OSError:
+        pass
+
+
+def main() -> int:
+    """מחזיר קוד יציאה ל-event loop. ללא sys.exit מתוך כאן — פחות סיכון לסגירה מוקדמת."""
+    import traceback
+
+    _in_qt_hook = False
+
+    def _qt_excepthook(exc_type, exc, tb) -> None:
+        nonlocal _in_qt_hook
+        if exc_type is KeyboardInterrupt:
+            sys.__excepthook__(exc_type, exc, tb)
+            return
+        if _in_qt_hook:
+            sys.__excepthook__(exc_type, exc, tb)
+            return
+        _in_qt_hook = True
+        try:
+            traceback.print_exception(exc_type, exc, tb)
+            try:
+                if isinstance(exc, BaseException):
+                    _log_crash("Uncaught exception (Qt thread)", exc)
+            except Exception:
+                pass
+            try:
+                if QApplication.instance():
+                    QMessageBox.critical(
+                        None,
+                        "GPOS Editor — שגיאה",
+                        "".join(traceback.format_exception(exc_type, exc, tb))[:4000],
+                    )
+            except Exception:
+                pass
+        finally:
+            _in_qt_hook = False
+
+    sys.excepthook = _qt_excepthook
+
+    try:
+        app = QApplication(sys.argv)
+        app.setQuitOnLastWindowClosed(True)
+        app.setStyle("Fusion")
+        if os.environ.get("GPOS_EDITOR_LTR") == "1":
+            app.setLayoutDirection(Qt.LeftToRight)
+        else:
+            app.setLayoutDirection(Qt.RightToLeft)
+        try:
+            w = MainWindow()
+        except Exception as e:
+            _log_crash("Failed while building main window (ImportTab / widgets)", e)
+            traceback.print_exc()
+            try:
+                input(
+                    "\nWindow build failed. Details saved to:\n"
+                    + _crash_log_path()
+                    + "\nPress Enter..."
+                )
+            except EOFError:
+                pass
+            return 1
+        app._gpos_main_window = w
+        w.show()
+        return int(app.exec_())
+    except Exception as e:
+        _log_crash("Fatal error in main()", e)
+        traceback.print_exc()
+        print("\nSee:", _crash_log_path(), file=sys.stderr)
+        try:
+            input("Press Enter to close...")
+        except EOFError:
+            pass
+        return 1
 
 
 if __name__ == "__main__":
     try:
-        main()
+        raise SystemExit(main())
     except SystemExit:
         raise
     except Exception:

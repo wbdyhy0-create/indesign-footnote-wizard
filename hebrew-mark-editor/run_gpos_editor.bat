@@ -4,6 +4,9 @@ cd /d "%~dp0"
 
 REM Use ASCII only in this file. Hebrew/UTF-8 breaks Windows cmd.exe batch parsing.
 
+REM Force Qt to use the normal Windows plugin (fixes some white-window-then-close cases)
+set "QT_QPA_PLATFORM=windows"
+
 set "SCRIPT=%~dp0gpos_editor_app\main.py"
 if not exist "%SCRIPT%" (
   echo.
@@ -58,6 +61,13 @@ set ERR=!ERRORLEVEL!
 if not "!ERR!"=="0" (
   echo.
   echo Python exited with code !ERR!. Scroll up for error text.
+  echo.
+)
+if exist "%TEMP%\gpos_editor_crash.txt" (
+  echo.
+  echo --- gpos_editor_crash.txt ---
+  type "%TEMP%\gpos_editor_crash.txt"
+  echo --- end ---
   echo.
 )
 pause
