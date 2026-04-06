@@ -75,6 +75,39 @@ from PyQt5.QtWidgets import (
 TAG_SHAPE_ROUND = "round"
 TAG_SHAPE_SQUARE_FAN = "square_fan"
 
+# --- תבניות "תגין מוכנים" ---
+# המטרה: להתחיל מסט אחיד (מידה/עובי/רווחים/צורה) ולהשאיר למשתמש רק לגרור ולהניח לכל אות.
+# הערכים כאן הם ברירת מחדל "סבירה" — אפשר עדיין לכוון ידנית אחרי החלה אם רוצים.
+READY_TAGIN_PRESET_THREE: Dict[str, Any] = {
+    # TAGIN_STYLE_PRESET_KEYS
+    "height_frac": 0.15,
+    "line_width_frac": 0.020,
+    "dot_frac": 0.030,
+    "spacing_frac": 0.085,
+    "middle_boost_frac": 0.12,
+    "package_scale": 1.0,
+    "tag_shape_mode": TAG_SHAPE_ROUND,
+    # מיקום חבילה ביחס לתיבת הדיו של האות: 0 = עוגן אוטומטי מעל האות
+    "group_dx_frac": 0.0,
+    "group_dy_frac": 0.0,
+    "saved_from_cp": SHIN_CP,
+    "version": 1,
+}
+
+READY_TAGIN_PRESET_ONE: Dict[str, Any] = {
+    "height_frac": 0.15,
+    "line_width_frac": 0.020,
+    "dot_frac": 0.030,
+    "spacing_frac": 0.085,
+    "middle_boost_frac": 0.0,
+    "package_scale": 1.0,
+    "tag_shape_mode": TAG_SHAPE_ROUND,
+    "group_dx_frac": 0.0,
+    "group_dy_frac": 0.0,
+    "saved_from_cp": ONE_TAG_CP[0] if len(ONE_TAG_CP) else SHIN_CP,
+    "version": 1,
+}
+
 
 def _is_save_access_denied(err: BaseException) -> bool:
     """כשל כתיבה / קובץ נעול / הרשאות — ממשיכים לנתיב חלופי או דיאלוג שמירה."""
@@ -1342,6 +1375,29 @@ class MainWindow(QMainWindow):
         pv.addWidget(self._btn_preset_apply)
         preset_box.setLayout(pv)
 
+        ready_box = QGroupBox("תגין מוכנים (לגרירה מהירה)")
+        rvv = QVBoxLayout()
+        self._btn_ready_three_cur = QPushButton("החל שלישייה מוכנה על אות זו")
+        self._btn_ready_three_cur.setToolTip(
+            "מיישם סט קבוע של שלושה תגין (מידות/עובי/רווחים/צורה) על האות הנוכחית, "
+            "ומאפס היסט חבילה כדי שתתחיל מעוגן אוטומטי מעל האות. אחר כך פשוט גוררים ומניחים."
+        )
+        self._btn_ready_one_cur = QPushButton("החל תג יחיד מוכן על אות זו")
+        self._btn_ready_one_cur.setToolTip(
+            "כמו שלישייה, אבל לתג יחיד (לבד״ק חיה)."
+        )
+        self._btn_ready_three_all = QPushButton("החל שלישייה מוכנה על כל שעטנז״גץ")
+        self._btn_ready_one_all = QPushButton("החל תג יחיד מוכן על כל בד״ק חיה")
+        self._btn_ready_three_cur.clicked.connect(self._apply_ready_three_to_current)
+        self._btn_ready_one_cur.clicked.connect(self._apply_ready_one_to_current)
+        self._btn_ready_three_all.clicked.connect(self._apply_ready_three_to_all)
+        self._btn_ready_one_all.clicked.connect(self._apply_ready_one_to_all)
+        rvv.addWidget(self._btn_ready_three_cur)
+        rvv.addWidget(self._btn_ready_one_cur)
+        rvv.addWidget(self._btn_ready_three_all)
+        rvv.addWidget(self._btn_ready_one_all)
+        ready_box.setLayout(rvv)
+
         self._line_font_query = QLineEdit()
         self._line_font_query.setPlaceholderText("חיפוש שם קובץ גופן (אופציונלי)…")
         self._line_font_query.setToolTip(
@@ -1376,6 +1432,7 @@ class MainWindow(QMainWindow):
         rv.addWidget(settings_box)
         rv.addWidget(style_box)
         rv.addWidget(preset_box)
+        rv.addWidget(ready_box)
         rv.addWidget(QLabel("תצוגה מקדימה אחרי שמירה:"))
         rv.addWidget(self._preview_label)
         rv.addStretch()
@@ -1874,6 +1931,59 @@ class MainWindow(QMainWindow):
         for t in ls.tags:
             t.dx_fu = 0.0
             t.dy_fu = 0.0
+
+    def _apply_ready_preset_to_letter(self, ls: LetterSettings, preset: Dict[str, Any], tag_count: int) -> None:
+        # משמרים embed_in_font והמונה embedded_tag_pairs; רק מחילים סגנון/גאומטריה.
+        ls.tag_count = max(0, min(MAX_TAGINIM_PER_LETTER, int(tag_count)))
+        ls.ensure_tags()
+        self._apply_tagin_style_data_to_letter(ls, preset)
+        # בתבנית "מוכנה" מאפסים היסט חבילה כדי להתחיל מהעוגן האוטומטי מעל האות.
+        ls.group_dx_fu = 0.0
+        ls.group_dy_fu = 0.0
+        ls.ensure_tags()
+        for t in ls.tags:
+            t.dx_fu = 0.0
+            t.dy_fu = 0.0
+
+    def _apply_ready_three_to_current(self) -> None:
+        ls = self._current_letter_settings()
+        if ls is None:
+            return
+        self._push_undo()
+        self._apply_ready_preset_to_letter(ls, READY_TAGIN_PRESET_THREE, 3)
+        self._save_settings_file()
+        self._refresh_letter_ui()
+
+    def _apply_ready_one_to_current(self) -> None:
+        ls = self._current_letter_settings()
+        if ls is None:
+            return
+        self._push_undo()
+        self._apply_ready_preset_to_letter(ls, READY_TAGIN_PRESET_ONE, 1)
+        self._save_settings_file()
+        self._refresh_letter_ui()
+
+    def _apply_ready_three_to_all(self) -> None:
+        self._push_undo()
+        for cp in THREE_TAGINIM_CP:
+            ls = self._by_cp.get(cp)
+            if ls is None:
+                continue
+            self._apply_ready_preset_to_letter(ls, READY_TAGIN_PRESET_THREE, 3)
+        self._save_settings_file()
+        self._refresh_letter_ui()
+        QMessageBox.information(self, "הוחל", "השלישייה המוכנה הוחלה על כל שעטנז״גץ.")
+
+    def _apply_ready_one_to_all(self) -> None:
+        self._push_undo()
+        for cp in ONE_TAG_CP:
+            ls = self._by_cp.get(cp)
+            if ls is None:
+                continue
+            self._apply_ready_preset_to_letter(ls, READY_TAGIN_PRESET_ONE, 1)
+        self._save_settings_file()
+        self._refresh_letter_ui()
+        QMessageBox.information(self, "הוחל", "התג היחיד המוכן הוחל על כל בד״ק חיה.")
 
     def _save_tagin_style_preset(self) -> None:
         ls = self._current_letter_settings()
