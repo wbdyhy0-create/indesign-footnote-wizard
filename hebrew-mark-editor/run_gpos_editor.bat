@@ -1,16 +1,15 @@
 @echo off
-chcp 65001 >nul
-setlocal EnableExtensions
+setlocal EnableExtensions EnableDelayedExpansion
 cd /d "%~dp0"
 
-title עורך GPOS — מפעיל
+REM Use ASCII only in this file. Hebrew/UTF-8 breaks Windows cmd.exe batch parsing.
 
 set "SCRIPT=%~dp0gpos_editor_app\main.py"
 if not exist "%SCRIPT%" (
   echo.
-  echo שגיאה: לא נמצא הקובץ:
+  echo ERROR: main.py not found:
   echo   %SCRIPT%
-  echo ודאו שתיקיית gpos_editor_app קיימת ליד הקובץ run_gpos_editor.bat
+  echo Make sure folder gpos_editor_app is next to this .bat file.
   echo.
   pause
   exit /b 1
@@ -25,12 +24,12 @@ if not defined PY (
 )
 
 if not defined PY (
-  echo לא נמצא Python. התקינו מ-python.org עם סימון Add to PATH.
+  echo Python not found. Install from python.org and check "Add to PATH".
   pause
   exit /b 1
 )
 
-echo מתקין חבילות (אם חסרות) — אם יש שורות אדומות כאן, שלחו צילום מסך.
+echo Installing packages from requirements.txt ...
 if "%PY%"=="python" (
   "%PY%" -m pip install -r requirements.txt
 ) else (
@@ -38,15 +37,14 @@ if "%PY%"=="python" (
 )
 if errorlevel 1 (
   echo.
-  echo התקנת החבילות נכשלה. אולי גרסת Python 3.14 חדשה מדי ל-PyQt5 —
-  echo נסו Python 3.12 מ-python.org והתקינו שוב.
+  echo pip install failed. Try Python 3.12 if you use 3.14 ^(PyQt5 wheels^).
   pause
   exit /b 1
 )
 
 echo.
-echo מריץ את האפליקציה (אמור להופיע חלון עם לשוניות למעלה)...
-echo פקודה: "%PY%" "%SCRIPT%"
+echo Starting GPOS editor ^(window with tabs should open^)...
+echo Command: "%PY%" "%SCRIPT%"
 echo.
 
 if "%PY%"=="python" (
@@ -55,12 +53,11 @@ if "%PY%"=="python" (
   py -3 "%SCRIPT%"
 )
 
-set "ERR=%ERRORLEVEL%"
-if not "%ERR%"=="0" (
+set ERR=!ERRORLEVEL!
+if not "!ERR!"=="0" (
   echo.
-  echo Python הסתיים עם קוד %ERR%.
-  echo אם לא נפתח חלון גרפי — ייתכן שחסר PyQt5 או שיש שגיאה בשורות למעלה.
+  echo Python exited with code !ERR!. Scroll up for error text.
   echo.
 )
 pause
-exit /b %ERR%
+exit /b !ERR!
