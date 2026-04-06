@@ -149,12 +149,14 @@ class ImportTab(QWidget):
         self,
         get_loader: Callable[[], Optional[FontLoader]],
         get_target_path: Callable[[], str],
+        open_target: Callable[[], None],
         on_import_done: Callable[[int, bool, List[str], str], None],
         parent: Optional[QWidget] = None,
     ) -> None:
         super().__init__(parent)
         self._get_loader = get_loader
         self._get_target_path = get_target_path
+        self._open_target = open_target
         self._on_import_done = on_import_done
 
         v = QVBoxLayout(self)
@@ -175,7 +177,12 @@ class ImportTab(QWidget):
 
         self._tgt_lbl = QLabel("גופן יעד: לא נטען — פתחו מקובץ ← פתח גופן.")
         self._tgt_lbl.setWordWrap(True)
-        v.addWidget(self._tgt_lbl)
+        row_t = QHBoxLayout()
+        row_t.addWidget(self._tgt_lbl, 1)
+        self._b_open_target = QPushButton("פתח גופן יעד…")
+        self._b_open_target.clicked.connect(self._open_target)
+        row_t.addWidget(self._b_open_target)
+        v.addLayout(row_t)
         self._upem_lbl = QLabel("")
         v.addWidget(self._upem_lbl)
 
@@ -190,26 +197,35 @@ class ImportTab(QWidget):
         v.addWidget(self._list)
 
         h = QHBoxLayout()
-        b_ref = QPushButton("רענן רשימה")
-        b_ref.clicked.connect(self.refresh_list)
-        b_prev = QPushButton("תצוגה מקדימה (מהמקור)")
-        b_prev.clicked.connect(self._preview_selected_from_source)
-        h.addWidget(b_ref)
-        h.addWidget(b_prev)
+        self._b_ref = QPushButton("רענן רשימה")
+        self._b_ref.clicked.connect(self.refresh_list)
+        self._b_prev = QPushButton("תצוגה מקדימה (מהמקור)")
+        self._b_prev.clicked.connect(self._preview_selected_from_source)
+        h.addWidget(self._b_ref)
+        h.addWidget(self._b_prev)
         v.addLayout(h)
 
         h2 = QHBoxLayout()
-        b_all = QPushButton("ייבא הכל")
-        b_all.clicked.connect(lambda: self._run_import(all_rows=True))
-        b_sel = QPushButton("ייבא נבחרים")
-        b_sel.clicked.connect(lambda: self._run_import(all_rows=False))
-        h2.addWidget(b_all)
-        h2.addWidget(b_sel)
+        self._b_all = QPushButton("ייבא הכל")
+        self._b_all.clicked.connect(lambda: self._run_import(all_rows=True))
+        self._b_sel = QPushButton("ייבא נבחרים")
+        self._b_sel.clicked.connect(lambda: self._run_import(all_rows=False))
+        h2.addWidget(self._b_all)
+        h2.addWidget(self._b_sel)
         v.addLayout(h2)
+        self._sync_enabled()
 
     def update_target_label(self) -> None:
         p = self._get_target_path()
         self._tgt_lbl.setText(f"גופן יעד: {p}" if p else "גופן יעד: לא נטען — פתחו מקובץ.")
+        self._sync_enabled()
+
+    def _sync_enabled(self) -> None:
+        has_target = self._get_loader() is not None
+        self._b_all.setEnabled(has_target)
+        self._b_sel.setEnabled(has_target)
+        # Refresh/preview still useful even without target (source preview),
+        # but keeping them enabled avoids blocking the user.
 
     def refresh_list(self) -> None:
         self._list.clear()
@@ -277,7 +293,12 @@ class ImportTab(QWidget):
     def _run_import(self, all_rows: bool) -> None:
         loader = self._get_loader()
         if not loader:
-            QMessageBox.warning(self, "יעד", "פתחו גופן יעד מתפריט «קובץ → פתח גופן».")
+            QMessageBox.warning(
+                self,
+                "יעד",
+                "לא נטען גופן יעד.\n\n"
+                "לחצו «פתח גופן יעד…» בלשונית זו או מתפריט «קובץ → פתח גופן».",
+            )
             return
         src_p = self._src.text().strip()
         if not src_p:
@@ -801,6 +822,7 @@ class MainWindow(QMainWindow):
         self._tab_import = ImportTab(
             lambda: self._loader,
             lambda: self._font_path or "",
+            self._open_font,
             self._after_import,
         )
         self._tab_mtb = MarkToBaseTab()
