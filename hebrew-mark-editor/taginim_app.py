@@ -125,13 +125,15 @@ SHIN_CP = 0x05E9
 # הערכים כאן הם ברירת מחדל "סבירה" — אפשר עדיין לכוון ידנית אחרי החלה אם רוצים.
 READY_TAGIN_PRESET_THREE: Dict[str, Any] = {
     # TAGIN_STYLE_PRESET_KEYS
-    "height_frac": 0.15,
-    "line_width_frac": 0.020,
-    "dot_frac": 0.030,
-    "spacing_frac": 0.085,
-    "middle_boost_frac": 0.12,
-    "package_scale": 1.0,
-    "tag_shape_mode": TAG_SHAPE_ROUND,
+    # קטן ושמן יותר כברירת מחדל, עם "כובע" מרובע.
+    "height_frac": 0.125,
+    "line_width_frac": 0.038,
+    "dot_frac": 0.040,
+    "spacing_frac": 0.070,
+    # אמצעי גבוה יותר מהצדדים (כמו בתמונה)
+    "middle_boost_frac": 0.22,
+    "package_scale": 0.90,
+    "tag_shape_mode": TAG_SHAPE_SQUARE_FAN,
     # מיקום חבילה ביחס לתיבת הדיו של האות: 0 = עוגן אוטומטי מעל האות
     "group_dx_frac": 0.0,
     "group_dy_frac": 0.0,
@@ -140,13 +142,13 @@ READY_TAGIN_PRESET_THREE: Dict[str, Any] = {
 }
 
 READY_TAGIN_PRESET_ONE: Dict[str, Any] = {
-    "height_frac": 0.15,
-    "line_width_frac": 0.020,
-    "dot_frac": 0.030,
-    "spacing_frac": 0.085,
+    "height_frac": 0.125,
+    "line_width_frac": 0.038,
+    "dot_frac": 0.040,
+    "spacing_frac": 0.070,
     "middle_boost_frac": 0.0,
-    "package_scale": 1.0,
-    "tag_shape_mode": TAG_SHAPE_ROUND,
+    "package_scale": 0.90,
+    "tag_shape_mode": TAG_SHAPE_SQUARE_FAN,
     "group_dx_frac": 0.0,
     "group_dy_frac": 0.0,
     "saved_from_cp": ONE_TAG_CP[0] if len(ONE_TAG_CP) else SHIN_CP,
