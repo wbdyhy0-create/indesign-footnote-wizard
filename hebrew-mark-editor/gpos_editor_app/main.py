@@ -643,14 +643,27 @@ class MarkToBaseTab(QWidget):
         if not bg:
             self._info.setText("אין גליף לאות בסיס ב־cmap.")
             return
+        # Always render at least the base letter, even if a mark isn't selected yet.
         if not mg:
-            self._info.setText("בחרו סימון.")
+            img = self._renderer.render_char_with_mark(self._base_cp, None, 0.0, 0.0)
+            img = self._renderer.draw_anchor_cross(img, 0, 0)
+            self._canvas._scale = self._renderer._scale()
+            self._canvas.set_pixmap_from_pil(img)
+            self._info.setText(f"בסיס {bg}\nבחרו סימון מהרשימה כדי לערוך MarkToBase.")
             return
         mbi = self._loader.find_mark_base(bg, mg)
         if not mbi:
+            # Render a best-effort preview anyway (base + mark at zero offset),
+            # and explain that the pair is missing in GPOS.
+            img = self._renderer.render_char_with_mark(
+                self._base_cp, self._current_mark_cp(), 0.0, 0.0
+            )
+            img = self._renderer.draw_anchor_cross(img, 0, 0)
+            self._canvas._scale = self._renderer._scale()
+            self._canvas.set_pixmap_from_pil(img)
             self._info.setText(
                 f"אין MarkToBase עבור:\nבסיס {bg} + סימון {mg}\n"
-                "(או חסר עוגן — ניתן ליצור מ־0,0 בעורך הישן / ידנית ב־FEA)."
+                "כרגע מוצגת תצוגה בסיסית בלבד. כדי לכייל צריך ליצור זוג/עוגנים (MarkToBase)."
             )
             self._spin_bx.blockSignals(True)
             self._spin_by.blockSignals(True)
@@ -661,7 +674,13 @@ class MarkToBaseTab(QWidget):
             return
         ba = mbi.get_base_anchor()
         if ba is None:
-            self._info.setText("אין BaseAnchor — השתמשו בעורך Tk או הוסיפו ידנית.")
+            img = self._renderer.render_char_with_mark(
+                self._base_cp, self._current_mark_cp(), 0.0, 0.0
+            )
+            img = self._renderer.draw_anchor_cross(img, 0, 0)
+            self._canvas._scale = self._renderer._scale()
+            self._canvas.set_pixmap_from_pil(img)
+            self._info.setText("אין BaseAnchor — כרגע מוצגת תצוגה בסיסית בלבד. צרו עוגן ואז כיילו.")
             return
         bx, by = _anchor_xy(ba)
         mx, my = _anchor_xy(mbi.get_mark_anchor())
