@@ -504,6 +504,10 @@ class MarkToBaseTab(QWidget):
         self._info.setWordWrap(True)
         lv.addWidget(self._info)
 
+        self._b_create_pair = QPushButton("צור זוג MarkToBase לזוג שנבחר")
+        self._b_create_pair.clicked.connect(self._create_mark_to_base_pair)
+        lv.addWidget(self._b_create_pair)
+
         bx_row = QHBoxLayout()
         bx_row.addWidget(QLabel("BaseAnchor X:"))
         self._spin_bx = QSpinBox()
@@ -701,6 +705,26 @@ class MarkToBaseTab(QWidget):
             f"מחלקת סימון: {mbi.mark_class}  |  "
             f"BaseAnchor: ({bx:.0f}, {by:.0f})  |  MarkAnchor: ({mx:.0f}, {my:.0f})"
         )
+
+    def _create_mark_to_base_pair(self) -> None:
+        if not self._loader:
+            return
+        bg, mg = self._glyph_names()
+        if not bg or not mg:
+            QMessageBox.information(self, "חסר", "בחרו אות בסיס וסימון מהרשימה.")
+            return
+        ok = self._loader.ensure_mark_to_base_pair(bg, mg)
+        if not ok:
+            QMessageBox.warning(
+                self,
+                "יצירה",
+                "לא הצלחתי ליצור זוג MarkToBase.\n"
+                "או שאין בכלל MarkToBase בגופן, או שמבנה ה-GPOS לא נתמך ליצירה אוטומטית.\n\n"
+                "במקרה כזה צריך להתחיל מגופן שיש בו MarkToBase, או לבצע עריכה ידנית.",
+            )
+            return
+        self._dirty = True
+        self.refresh_after_cmap_change()
 
     def _on_drag_fu(self, dx: float, dy: float) -> None:
         self._apply_nudge(dx, dy)

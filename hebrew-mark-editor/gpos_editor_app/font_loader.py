@@ -267,6 +267,63 @@ class FontLoader:
         _set_anchor_xy(ba, bx, by)
         return True
 
+    def ensure_mark_to_base_pair(self, base_glyph: str, mark_glyph: str) -> bool:
+        """
+        יוצר (במידת הצורך) זוג MarkToBase עבור base_glyph + mark_glyph באחת מתתי־הטבלאות הקיימות.
+        זה מוסיף את הסימון ל-MarkCoverage/MarkArray, ומוודא BaseAnchor קיים עבור האות.
+
+        הערה: לא יוצר Lookup חדש אם אין בכלל MarkToBase בגופן.
+        """
+        if "GPOS" not in self.font:
+            return False
+        subtables = iter_mark_base_subtables(self.font)
+        if not subtables:
+            return False
+
+        # אם כבר קיים, אין מה לעשות
+        if self.find_mark_base(base_glyph, mark_glyph):
+            return True
+
+        st = subtables[0]
+        try:
+            bases = st.BaseCoverage.glyphs
+            marks = st.MarkCoverage.glyphs
+        except Exception:
+            return False
+
+        # Ensure base is in coverage
+        if base_glyph not in bases:
+            bases.append(base_glyph)
+            br = otTables.BaseRecord()
+            br.BaseAnchor = [None] * int(st.ClassCount)
+            st.BaseArray.BaseRecord.append(br)
+
+        # Ensure mark is in coverage + mark array. Use a new class.
+        if mark_glyph not in marks:
+            marks.append(mark_glyph)
+            new_class = int(st.ClassCount)
+            st.ClassCount = new_class + 1
+
+            mrec = otTables.MarkRecord()
+            mrec.Class = new_class
+            mrec.MarkAnchor = _ensure_anchor()
+            st.MarkArray.MarkRecord.append(mrec)
+
+            # For every base, extend anchors for the new class
+            for br in st.BaseArray.BaseRecord:
+                while len(br.BaseAnchor) <= new_class:
+                    br.BaseAnchor.append(None)
+
+        # Ensure base anchor exists for this base+mark class
+        mbi = self.find_mark_base(base_glyph, mark_glyph)
+        if not mbi:
+            return False
+        ba = mbi.get_base_anchor()
+        if ba is None:
+            ba = _ensure_anchor()
+            mbi.set_base_anchor(ba)
+        return True
+
     def nudge_base_anchor(
         self, base_glyph: str, mark_glyph: str, dx: float, dy: float
     ) -> bool:
