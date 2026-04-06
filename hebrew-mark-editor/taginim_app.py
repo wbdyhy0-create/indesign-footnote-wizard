@@ -64,6 +64,7 @@ from PyQt5.QtWidgets import (
     QMessageBox,
     QPushButton,
     QSlider,
+    QSpinBox,
     QSplitter,
     QVBoxLayout,
     QWidget,
@@ -967,6 +968,11 @@ class TaginimEditorCanvas(QWidget):
         self._drag_delta_cb: Optional[Callable[[float, float], None]] = None
         self._spacing_fu: float = 0.0
         self._tag_shape_mode: str = TAG_SHAPE_ROUND
+        self._draw_editor_overlay: bool = True
+
+    def set_draw_editor_overlay(self, draw: bool) -> None:
+        self._draw_editor_overlay = bool(draw)
+        self.update()
 
     def set_drag_delta_callback(self, cb: Optional[Callable[[float, float], None]]) -> None:
         self._drag_delta_cb = cb
@@ -1092,6 +1098,8 @@ class TaginimEditorCanvas(QWidget):
         p.fillRect(self.rect(), QBrush(QColor(255, 255, 255)))
         if self._glyph_qimage is not None:
             p.drawImage(self._ox, self._oy, self._glyph_qimage)
+        if not self._draw_editor_overlay:
+            return
         pen_line = QPen(
             QColor(30, 30, 30),
             max(1, int(round(self._stem_w_fu * self._px_per_fu_x))),
@@ -1169,6 +1177,7 @@ class MainWindow(QMainWindow):
         self._undo: List[Dict[str, Any]] = []
         self._redo: List[Dict[str, Any]] = []
         self._undo_suspend = 0
+        self._canvas_hide_editor_overlay: bool = False
 
         self._letters_list = QListWidget()
         self._letters_list.setMinimumWidth(160)
@@ -1232,6 +1241,19 @@ class MainWindow(QMainWindow):
         self._btn_add_tagin = QPushButton("הוסף תג…")
         self._btn_remove_tagin = QPushButton("הסר תג אחרון")
         self._btn_strip_baked = QPushButton("הסר תגין מוטמעים מהאות")
+        self._spin_strip_tag_layers = QSpinBox()
+        self._spin_strip_tag_layers.setRange(1, 12)
+        self._spin_strip_tag_layers.setValue(1)
+        self._spin_strip_tag_layers.setToolTip(
+            "כל «סט» = כל התגין של האות הנוכחית (לכל תג שני קונטורים בסוף הגליף). "
+            "מספר 2 = מסירים שני סטים מהסוף — למשל כפל מהטמעה כשלא הוסרה השכבה הקודמת."
+        )
+        self._btn_strip_last_sets = QPushButton("הסר סט/ים תגין מהסוף")
+        self._btn_strip_last_sets.setToolTip(
+            "מסיר קונטורים מהסוף בלבד (שכבות תגין שהוטמעו אחרונות). גוף האות נשאר — "
+            "בדרך כלל הקונטורים הראשונים בגליף הם המתאר של האות. "
+            "אם יש כפילות רק בתצוגה (ביטמאפ + ציור העורך) — סמנו למטה «רק מהקובץ»."
+        )
         self._btn_add_tagin.setToolTip(
             f"מוסיף תג נוסף לחבילה (עד {MAX_TAGINIM_PER_LETTER}). מרווחים נקבעים לפי סליידר המרווח."
         )
@@ -1239,12 +1261,14 @@ class MainWindow(QMainWindow):
             "מקטין את מספר התגין. ב־0 — אין תגין על האות בעורך (ולא יוטבע בגופן)."
         )
         self._btn_strip_baked.setToolTip(
-            "מוחק מהגליף בזיכרון את קונטורי התגין מהשמירה הקודמת (לפי מונה פנימי או מספר התגין). "
-            "«שמור גופן» משתמש בזיכרון הזה — לא בקובץ המקורי על הדיסק — כדי שהייצוא ישקף את ההסרה."
+            "מוחק מהגליף בזיכרון את קונטורי התגין לפי מונה ההטמעה (או לפי מספר התגין באות). "
+            "נלקחים הקונטורים האחרונים בגליף — לא גוף האות שבדרך כלל בראש הרשימה. "
+            "«שמור גופן» משתמש בזיכרון — לא בקובץ המקורי על הדיסק."
         )
         self._btn_add_tagin.clicked.connect(self._on_add_tagin)
         self._btn_remove_tagin.clicked.connect(self._on_remove_tagin)
         self._btn_strip_baked.clicked.connect(self._on_strip_baked_taginim)
+        self._btn_strip_last_sets.clicked.connect(self._on_strip_last_tag_sets)
         tag_btn_row = QWidget()
         tbr = QHBoxLayout(tag_btn_row)
         tbr.setContentsMargins(0, 0, 0, 0)
@@ -1253,6 +1277,14 @@ class MainWindow(QMainWindow):
         tbr.addWidget(self._btn_strip_baked)
         tbr.addStretch()
         form.addRow("חבילת תגין:", tag_btn_row)
+        strip_sets_row = QWidget()
+        ssr = QHBoxLayout(strip_sets_row)
+        ssr.setContentsMargins(0, 0, 0, 0)
+        ssr.addWidget(QLabel("סטים מהסוף:"))
+        ssr.addWidget(self._spin_strip_tag_layers)
+        ssr.addWidget(self._btn_strip_last_sets)
+        ssr.addStretch()
+        form.addRow("הסרת שכבות:", strip_sets_row)
         self._lbl_mm_hint = QLabel(
             f"ליד כל סליידר מוצגים ערכים מדויקים ומ״מ משוערים (הדפסה @{int(REFERENCE_PT_FOR_MM_LABEL)}pt, לפי UPEM ומידות האות הנוכחית)."
         )
@@ -1352,6 +1384,15 @@ class MainWindow(QMainWindow):
         cv = QVBoxLayout(center_wrap)
         cv.addWidget(QLabel("עורך האות (גרור תגין)"))
         cv.addWidget(self._canvas, alignment=Qt.AlignCenter)
+        self._chk_canvas_hide_editor_tags = QCheckBox(
+            "בתצוגה: רק מה שבקובץ (בלי ציור תגין של העורך מעל הביטמאפ)"
+        )
+        self._chk_canvas_hide_editor_tags.setToolTip(
+            "כשבגליף כבר יש תגין מוטמע והעורך מצייר שוב תגין — נראית כפילות או «תגין מרחפים». "
+            "סימון כאן משאיר רק את הרינדור מהגופן; עדיין אפשר לגרור ולשמור — הציור יחזור כשמבטלים סימון."
+        )
+        self._chk_canvas_hide_editor_tags.toggled.connect(self._on_canvas_hide_editor_tags_toggled)
+        cv.addWidget(self._chk_canvas_hide_editor_tags)
         cv.addStretch()
 
         # ב־RTL הווידג'ט הראשון ב־splitter יושב בקצה הימני — סדר: הגדרות, עורך, רשימת אותיות.
@@ -1640,12 +1681,14 @@ class MainWindow(QMainWindow):
             self._init_default_letter_settings()
             self._ignore_mark_components_for_roof = True
             return
+        self._ignore_mark_components_for_roof = bool(data.get("ignore_mark_components_for_roof", True))
+        self._canvas_hide_editor_overlay = bool(data.get("canvas_hide_editor_tag_overlay", False))
+        self._sync_canvas_overlay_ui()
         letters = data.get("letters", [])
         if not letters:
             self._init_default_letter_settings()
             self._ignore_mark_components_for_roof = True
             return
-        self._ignore_mark_components_for_roof = bool(data.get("ignore_mark_components_for_roof", True))
         self._by_cp.clear()
         for item in letters:
             ls = LetterSettings.from_json(item)
@@ -1673,6 +1716,7 @@ class MainWindow(QMainWindow):
             "version": 3,
             "font_path": self._font_path,
             "ignore_mark_components_for_roof": bool(self._ignore_mark_components_for_roof),
+            "canvas_hide_editor_tag_overlay": bool(self._canvas_hide_editor_overlay),
             "letters": letters,
         }
         with open(self._settings_path, "w", encoding="utf-8") as f:
@@ -2013,13 +2057,18 @@ class MainWindow(QMainWindow):
             self._btn_add_tagin.setEnabled(False)
             self._btn_remove_tagin.setEnabled(False)
             self._btn_strip_baked.setEnabled(False)
+            self._btn_strip_last_sets.setEnabled(False)
+            self._spin_strip_tag_layers.setEnabled(False)
             self._slider_middle_boost.setEnabled(False)
             return
         n = ls.tag_count
         tt_ok = self._ttfont is not None
         self._btn_add_tagin.setEnabled(n < MAX_TAGINIM_PER_LETTER)
         self._btn_remove_tagin.setEnabled(n > 0)
-        self._btn_strip_baked.setEnabled(tt_ok and n > 0)
+        strip_ok = tt_ok and n > 0
+        self._btn_strip_baked.setEnabled(strip_ok)
+        self._btn_strip_last_sets.setEnabled(strip_ok)
+        self._spin_strip_tag_layers.setEnabled(strip_ok)
         self._slider_middle_boost.setEnabled(n == 3)
 
     def _on_add_tagin(self) -> None:
@@ -2101,6 +2150,60 @@ class MainWindow(QMainWindow):
         self._save_settings_file()
         self._reload_ft_face_from_memory()
         self._refresh_letter_ui()
+
+    def _on_strip_last_tag_sets(self) -> None:
+        if self._ttfont is None or self._current_cp is None:
+            return
+        ls = self._by_cp.get(self._current_cp)
+        if ls is None or ls.tag_count <= 0:
+            return
+        layers = int(self._spin_strip_tag_layers.value())
+        n_strip = layers * 2 * ls.tag_count
+        r = QMessageBox.question(
+            self,
+            "הסרת סטי תגין מהסוף",
+            f"יוסרו {n_strip} קונטורים אחרונים מכל גליף של האות הנוכחית — "
+            f"{layers} סט/ים של {ls.tag_count} תגין (בכל סט {2 * ls.tag_count} קונטורים). "
+            "גוף האות נשאר בדרך כלל כי הוא בקונטורים הראשונים של הגליף.\n\n"
+            "להמשיך?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        if r != QMessageBox.Yes:
+            return
+        failed: List[str] = []
+        for gname in _glyph_names_for_codepoint(self._ttfont, self._current_cp):
+            if not _glyf_strip_last_contours(self._ttfont, gname, n_strip):
+                failed.append(gname)
+        if failed:
+            QMessageBox.warning(
+                self,
+                "הסרה חלקית",
+                "לא ניתן להסיר (גליף מורכב, או אין מספיק קונטורים בסוף הגליף):\n"
+                + ", ".join(failed[:14])
+                + ("\n…" if len(failed) > 14 else ""),
+            )
+        removed_units = layers * ls.tag_count
+        ls.embedded_tag_pairs = max(0, ls.embedded_tag_pairs - removed_units)
+        ls.ensure_tags()
+        self._save_settings_file()
+        self._reload_ft_face_from_memory()
+        self._refresh_letter_ui()
+
+    def _sync_canvas_overlay_ui(self) -> None:
+        if not hasattr(self, "_chk_canvas_hide_editor_tags"):
+            return
+        self._chk_canvas_hide_editor_tags.blockSignals(True)
+        try:
+            self._chk_canvas_hide_editor_tags.setChecked(self._canvas_hide_editor_overlay)
+        finally:
+            self._chk_canvas_hide_editor_tags.blockSignals(False)
+        self._canvas.set_draw_editor_overlay(not self._canvas_hide_editor_overlay)
+
+    def _on_canvas_hide_editor_tags_toggled(self, checked: bool) -> None:
+        self._canvas_hide_editor_overlay = bool(checked)
+        self._canvas.set_draw_editor_overlay(not self._canvas_hide_editor_overlay)
+        self._save_settings_file()
 
     def _ink_height_fu(self, ls: LetterSettings) -> float:
         gname = self._glyph_name(ls.codepoint)
