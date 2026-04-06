@@ -94,6 +94,38 @@ def _all_mark_codes() -> List[int]:
 
 ALL_MARK_CODES = tuple(_all_mark_codes())
 
+_LAST_FILE_DIR: str = ""
+
+
+def _default_fonts_dir() -> str:
+    w = os.environ.get("WINDIR", r"C:\Windows")
+    p = os.path.join(w, "Fonts")
+    if os.path.isdir(p):
+        return p
+    return os.path.expanduser("~")
+
+
+def _pick_start_dir(current_path: str = "") -> str:
+    global _LAST_FILE_DIR
+    cur = (current_path or "").strip()
+    if cur:
+        d = os.path.dirname(cur)
+        if d and os.path.isdir(d):
+            _LAST_FILE_DIR = d
+            return d
+    if _LAST_FILE_DIR and os.path.isdir(_LAST_FILE_DIR):
+        return _LAST_FILE_DIR
+    _LAST_FILE_DIR = _default_fonts_dir()
+    return _LAST_FILE_DIR
+
+
+def _remember_dir(path: str) -> None:
+    global _LAST_FILE_DIR
+    if path:
+        d = os.path.dirname(path)
+        if d and os.path.isdir(d):
+            _LAST_FILE_DIR = d
+
 
 def _cp_label(cp: int) -> str:
     return f"U+{cp:04X}  {chr(cp)}"
@@ -210,11 +242,12 @@ class ImportTab(QWidget):
         path, _ = QFileDialog.getOpenFileName(
             self,
             "גופן מקור (עם טעמים)",
-            "",
-            "Fonts (*.ttf *.TTF *.otf *.OTF);;All (*.*)",
+            _pick_start_dir(self._src.text()),
+            "Fonts (*.ttf *.TTF *.otf *.OTF *.ttc *.TTC);;All (*.*)",
         )
         if path:
             self._src.setText(path)
+            _remember_dir(path)
             self.refresh_list()
 
     def _preview_selected_from_source(self) -> None:
@@ -318,11 +351,12 @@ class ProfilesTab(QWidget):
         path, _ = QFileDialog.getOpenFileName(
             self,
             "פרופיל GPOS",
-            "",
+            _pick_start_dir(self._path_edit.text()),
             "JSON (*.json);;All (*.*)",
         )
         if path:
             self._path_edit.setText(path)
+            _remember_dir(path)
 
     def _save_profile(self) -> None:
         loader = self._get_loader()
@@ -332,11 +366,12 @@ class ProfilesTab(QWidget):
         path, _ = QFileDialog.getSaveFileName(
             self,
             "שמירת פרופיל",
-            "my_font.gpos_profile.json",
+            os.path.join(_pick_start_dir(self._path_edit.text()), "my_font.gpos_profile.json"),
             "JSON (*.json);;All (*.*)",
         )
         if not path:
             return
+        _remember_dir(path)
         name = os.path.splitext(os.path.basename(path))[0]
         try:
             save_profile_json(loader.font, name, path)
@@ -702,11 +737,12 @@ class PreviewTab(QWidget):
         path, _ = QFileDialog.getOpenFileName(
             self,
             "גופן לפני (השוואה)",
-            "",
-            "Fonts (*.ttf *.TTF *.otf *.OTF);;All (*.*)",
+            _pick_start_dir(self._before_path.text()),
+            "Fonts (*.ttf *.TTF *.otf *.OTF *.ttc *.TTC);;All (*.*)",
         )
         if path:
             self._before_path.setText(path)
+            _remember_dir(path)
             self._render()
 
     def set_context(
@@ -801,11 +837,12 @@ class MainWindow(QMainWindow):
         path, _ = QFileDialog.getOpenFileName(
             self,
             "בחר גופן",
-            "",
-            "Fonts (*.ttf *.TTF *.otf *.OTF);;All (*.*)",
+            _pick_start_dir(self._font_path or ""),
+            "Fonts (*.ttf *.TTF *.otf *.OTF *.ttc *.TTC);;All (*.*)",
         )
         if not path:
             return
+        _remember_dir(path)
         try:
             probe = TTFont(path)
             has_gpos = "GPOS" in probe
@@ -850,6 +887,7 @@ class MainWindow(QMainWindow):
         )
         if not path:
             return
+        _remember_dir(path)
         try:
             self._loader.save(path)
         except Exception as e:
