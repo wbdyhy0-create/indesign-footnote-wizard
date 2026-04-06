@@ -16,6 +16,18 @@ from PIL import Image, ImageDraw
 CANVAS_W, CANVAS_H = 560, 420
 
 
+def _select_unicode_charmap(face: freetype.Face) -> None:
+    """Ensure get_char_index() uses the Unicode cmap (some fonts default to Symbol)."""
+    try:
+        face.select_charmap(freetype.FT_ENCODING_UNICODE)
+    except Exception:
+        # Best-effort: some faces may not expose select_charmap in older bindings
+        try:
+            face.charmap = face.get_charmap(freetype.FT_ENCODING_UNICODE)  # type: ignore[attr-defined]
+        except Exception:
+            pass
+
+
 def _render_glyph_slot(
     face: freetype.Face, glyph_index: int, color: int = 0
 ) -> Tuple[Optional[object], int, int, int, int]:
@@ -62,6 +74,7 @@ class GlyphRenderer:
         self.size_px = size_px
         self._stream: Optional[BytesIO] = None
         self.face = freetype.Face(font_path)
+        _select_unicode_charmap(self.face)
         self.face.set_pixel_sizes(0, size_px)
 
     @classmethod
@@ -74,6 +87,7 @@ class GlyphRenderer:
         font.save(self._stream)
         self._stream.seek(0)
         self.face = freetype.Face(self._stream)
+        _select_unicode_charmap(self.face)
         self.face.set_pixel_sizes(0, size_px)
         return self
 
@@ -83,6 +97,7 @@ class GlyphRenderer:
         font.save(self._stream)
         self._stream.seek(0)
         self.face = freetype.Face(self._stream)
+        _select_unicode_charmap(self.face)
         self.face.set_pixel_sizes(0, self.size_px)
 
     def set_size(self, size_px: int) -> None:
