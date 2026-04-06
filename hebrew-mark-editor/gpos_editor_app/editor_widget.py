@@ -6,7 +6,7 @@ from __future__ import annotations
 from typing import Callable, List, Optional, Tuple, Any
 
 from PyQt5.QtCore import Qt, QPoint
-from PyQt5.QtGui import QImage, QMouseEvent, QPainter, QPixmap
+from PyQt5.QtGui import QImage, QMouseEvent, QPainter, QPixmap, QColor, QPen
 from PyQt5.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -46,8 +46,15 @@ class AnchorEditorCanvas(QFrame):
         self._on_drag = on_drag_delta
         self._pixmap: Optional[QPixmap] = None
         self._last_pos: Optional[QPoint] = None
+        self._show_grid = False
+        self._grid_step_px = 20
         self.setFixedSize(CANVAS_W, CANVAS_H)
         self.setFrameStyle(QFrame.StyledPanel | QFrame.Plain)
+
+    def set_grid(self, enabled: bool, step_px: int = 20) -> None:
+        self._show_grid = bool(enabled)
+        self._grid_step_px = max(4, int(step_px or 20))
+        self.update()
 
     def set_pixmap_from_pil(self, pil_img) -> None:
         self._pixmap = pil_to_qpixmap(pil_img)
@@ -55,11 +62,36 @@ class AnchorEditorCanvas(QFrame):
 
     def paintEvent(self, event) -> None:
         super().paintEvent(event)
-        if self._pixmap:
-            p = QPainter(self)
-            x = (self.width() - self._pixmap.width()) // 2
-            y = (self.height() - self._pixmap.height()) // 2
-            p.drawPixmap(x, y, self._pixmap)
+        p = QPainter(self)
+        try:
+            if self._pixmap:
+                x = (self.width() - self._pixmap.width()) // 2
+                y = (self.height() - self._pixmap.height()) // 2
+                p.drawPixmap(x, y, self._pixmap)
+
+            if self._show_grid:
+                w, h = self.width(), self.height()
+                step = self._grid_step_px
+
+                # light grid
+                grid_pen = QPen(QColor(0, 0, 0, 28))
+                p.setPen(grid_pen)
+                xx = 0
+                while xx <= w:
+                    p.drawLine(xx, 0, xx, h)
+                    xx += step
+                yy = 0
+                while yy <= h:
+                    p.drawLine(0, yy, w, yy)
+                    yy += step
+
+                # center axes
+                axis_pen = QPen(QColor(200, 0, 120, 70))
+                axis_pen.setWidth(2)
+                p.setPen(axis_pen)
+                p.drawLine(w // 2, 0, w // 2, h)
+                p.drawLine(0, h // 2, w, h // 2)
+        finally:
             p.end()
 
     def mousePressEvent(self, e: QMouseEvent) -> None:

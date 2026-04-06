@@ -566,6 +566,21 @@ class MarkToBaseTab(QWidget):
         self._canvas = AnchorEditorCanvas(sc, self._on_drag_fu, self)
         cv.addWidget(self._canvas, alignment=Qt.AlignCenter)
 
+        grid_row = QHBoxLayout()
+        self._chk_grid = QCheckBox("רשת")
+        self._chk_grid.setChecked(True)
+        self._sp_grid = QSpinBox()
+        self._sp_grid.setRange(4, 120)
+        self._sp_grid.setValue(20)
+        grid_row.addWidget(self._chk_grid)
+        grid_row.addWidget(QLabel("מרווח (px):"))
+        grid_row.addWidget(self._sp_grid)
+        grid_row.addStretch()
+        cv.addLayout(grid_row)
+        self._chk_grid.toggled.connect(lambda _=None: self._apply_grid())
+        self._sp_grid.valueChanged.connect(lambda _=None: self._apply_grid())
+        self._apply_grid()
+
         right = QWidget()
         right.setMinimumWidth(260)
         right.setMaximumWidth(340)
@@ -674,6 +689,12 @@ class MarkToBaseTab(QWidget):
         self._pinned_mark_cp = None
         self._pinned_off_fu = None
         self._refresh_all()
+
+    def _apply_grid(self) -> None:
+        try:
+            self._canvas.set_grid(self._chk_grid.isChecked(), int(self._sp_grid.value()))
+        except Exception:
+            pass
 
     def _compute_mark_to_base_offset_fu(self, mark_cp: Optional[int]) -> Optional[Tuple[float, float]]:
         if not self._loader or mark_cp is None:
