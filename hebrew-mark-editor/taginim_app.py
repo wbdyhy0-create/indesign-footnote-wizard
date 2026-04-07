@@ -1113,11 +1113,13 @@ class TaginimEditorCanvas(QWidget):
 
     tagDragStarted = pyqtSignal()
     tagDragged = pyqtSignal()
+    fontFileDropped = pyqtSignal(str)
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.setFixedSize(400, 400)
         self.setMouseTracking(True)
+        self.setAcceptDrops(True)
         self._glyph_qimage: Optional[Any] = None
         self._ox: int = 0
         self._oy: int = 0
@@ -1363,11 +1365,35 @@ class TaginimEditorCanvas(QWidget):
             self._drag_package = False
             self._last_mouse = None
 
+    def dragEnterEvent(self, e) -> None:
+        md = e.mimeData()
+        if md is not None and md.hasUrls():
+            for u in md.urls():
+                p = u.toLocalFile()
+                if isinstance(p, str) and p.lower().endswith((".ttf", ".otf", ".ttc")):
+                    e.acceptProposedAction()
+                    return
+        e.ignore()
+
+    def dropEvent(self, e) -> None:
+        md = e.mimeData()
+        if md is None or not md.hasUrls():
+            e.ignore()
+            return
+        for u in md.urls():
+            p = u.toLocalFile()
+            if isinstance(p, str) and p.lower().endswith((".ttf", ".otf", ".ttc")):
+                self.fontFileDropped.emit(p)
+                e.acceptProposedAction()
+                return
+        e.ignore()
+
 
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("עורך תגין לגופנים עבריים")
+        self.setAcceptDrops(True)
         self._font_path: Optional[str] = None
         self._ttfont: Optional[TTFont] = None
         self._ft_face: Optional[freetype.Face] = None
@@ -1398,6 +1424,7 @@ class MainWindow(QMainWindow):
         self._canvas.set_drag_delta_callback(self._on_canvas_drag_delta)
         self._canvas.tagDragStarted.connect(self._push_undo)
         self._canvas.tagDragged.connect(self._on_tag_dragged)
+        self._canvas.fontFileDropped.connect(self._on_font_file_dropped)
 
         self._slider_height = self._make_slider(5, 40, 15, "%")
         self._slider_line = self._make_slider(5, 80, 20, "%×10")
@@ -1906,6 +1933,33 @@ class MainWindow(QMainWindow):
         )
         if path:
             self._load_font_from_path(path)
+
+    def _on_font_file_dropped(self, path: str) -> None:
+        if isinstance(path, str) and path:
+            self._load_font_from_path(path)
+
+    def dragEnterEvent(self, e) -> None:
+        md = e.mimeData()
+        if md is not None and md.hasUrls():
+            for u in md.urls():
+                p = u.toLocalFile()
+                if isinstance(p, str) and p.lower().endswith((".ttf", ".otf", ".ttc")):
+                    e.acceptProposedAction()
+                    return
+        e.ignore()
+
+    def dropEvent(self, e) -> None:
+        md = e.mimeData()
+        if md is None or not md.hasUrls():
+            e.ignore()
+            return
+        for u in md.urls():
+            p = u.toLocalFile()
+            if isinstance(p, str) and p.lower().endswith((".ttf", ".otf", ".ttc")):
+                self._load_font_from_path(p)
+                e.acceptProposedAction()
+                return
+        e.ignore()
 
     def _load_settings_file(self) -> None:
         if not self._settings_path or not os.path.isfile(self._settings_path):
