@@ -635,10 +635,12 @@ def _glyph_xy_points_for_roof_search(
         if c_area <= area_thr_dot and cw <= w_thr_dot and ch <= h_thr_dot:
             asp = (cw / max(ch, 1e-6)) if ch > 0 else 999.0
             asp = max(asp, 1.0 / max(asp, 1e-6))
-            inside_x = (gx0 + 0.14 * gw) <= ccx <= (gx1 - 0.14 * gw)
-            inside_y = (gy0 + 0.12 * gh) <= ccy <= (gy1 - 0.18 * gh)
-            not_near_top = cy1 <= (gy1 - 0.08 * gh)
-            if asp <= 1.75 and inside_x and inside_y and not_near_top:
+            # להקל במיוחד לאותיות קטנות (י׳) ולנקודת שין/סין שנמצאות גבוה:
+            # מסננים דוט פנימי גם אם הוא קרוב לראש הגליף, כל עוד הוא לא ממש בקצה העליון.
+            inside_x = (gx0 + 0.12 * gw) <= ccx <= (gx1 - 0.12 * gw)
+            inside_y = (gy0 + 0.06 * gh) <= ccy <= (gy1 - 0.04 * gh)
+            not_on_very_top = cy1 <= (gy1 - 0.02 * gh)
+            if asp <= 1.75 and inside_x and inside_y and not_on_very_top:
                 continue
         out.extend(contour)
 
