@@ -1411,6 +1411,8 @@ class MainWindow(QMainWindow):
         self._undo_suspend = 0
         self._canvas_hide_editor_overlay: bool = False
         self._canvas_grid_enabled: bool = False
+        self._lock_style_enabled: bool = False
+        self._locked_style_payload: Optional[Dict[str, Any]] = None
 
         self._letters_list = QListWidget()
         self._letters_list.setMinimumWidth(160)
@@ -1549,6 +1551,13 @@ class MainWindow(QMainWindow):
 
         style_box = QGroupBox("סגנון תגין (העתקה בין אותיות)")
         sv = QVBoxLayout()
+        self._chk_lock_style = QCheckBox("נעל סגנון תגין במעבר בין אותיות")
+        self._chk_lock_style.setToolTip(
+            "מסמנים אחרי שכיוונתם אות אחת (למשל שין). מרגע זה, כל מעבר לאות אחרת יחיל אוטומטית "
+            "את אותו סגנון (גובה/עובי/נקודה/מרווחים/סקייל/צורה + היסט יחסי לתיבת הדיו) — "
+            "וכך לא צריך לכוון שוב ושוב."
+        )
+        self._chk_lock_style.toggled.connect(self._on_lock_style_toggled)
         self._btn_style_save = QPushButton("שמור סגנון מהאות הנוכחית…")
         self._btn_style_save.setToolTip(
             "שומר יחסי גודל, צורת תגין (עגול / מרובע), מרווח, קנה מידה ומיקום חבילה יחסי לתיבת הדיו."
@@ -1559,6 +1568,7 @@ class MainWindow(QMainWindow):
             "מחיל את הסגנון השמור על האות הנוכחית; היסט החבילה מחושב מחדש לפי תיבת הדיו של האות הזו."
         )
         self._btn_style_apply.clicked.connect(self._apply_tagin_style_to_current_letter)
+        sv.addWidget(self._chk_lock_style)
         sv.addWidget(self._btn_style_save)
         sv.addWidget(self._btn_style_apply)
         style_box.setLayout(sv)
@@ -2030,6 +2040,13 @@ class MainWindow(QMainWindow):
         else:
             cp = ONE_TAG_CP[row - n_three]
         self._current_cp = cp
+        # נעילת סגנון: החלה אוטומטית של הסגנון הנעול על האות שאליה עוברים.
+        if self._lock_style_enabled and self._locked_style_payload is not None:
+            ls = self._current_letter_settings()
+            if ls is not None:
+                self._push_undo()
+                self._apply_locked_style_payload_to_letter(ls, self._locked_style_payload)
+                self._save_settings_file()
         self._refresh_letter_ui()
 
     def _snapshot_all(self) -> Dict[str, Any]:
@@ -2206,6 +2223,77 @@ class MainWindow(QMainWindow):
         for t in ls.tags:
             t.dx_fu = 0.0
             t.dy_fu = 0.0
+
+    def _capture_locked_style_payload_from_current(self) -> Optional[Dict[str, Any]]:
+        ls = self._current_letter_settings()
+        if ls is None:
+            return None
+        # לוודא שהסליידרים משקפים את מה שעל המסך כרגע.
+        self._slider_values_to_letter(ls)
+        iw, ih = self._ink_dimensions_for_cp(ls.codepoint)
+        sc = max(0.25, min(3.0, float(ls.package_scale)))
+        payload: Dict[str, Any] = {
+            "version": 1,
+            "tag_count": int(ls.tag_count),
+            "package_scale": sc,
+            "tag_shape_mode": ls.tag_shape_mode,
+            "middle_boost_frac": float(ls.middle_boost_frac),
+            "group_dx_frac": float(ls.group_dx_fu) / max(iw, 1e-6),
+            "group_dy_frac": float(ls.group_dy_fu) / max(ih, 1e-6),
+            # מידות אבסולוטיות (FU) כדי לשמור מראה עקבי בין אותיות
+            "stem_h_fu": max(30.0, float(ls.height_frac) * ih) * sc,
+            "stem_w_fu": max(8.0, float(ls.line_width_frac) * iw) * sc,
+            "dot_d_fu": max(20.0, float(ls.dot_frac) * ih) * sc,
+            "spacing_fu": float(ls.spacing_frac) * iw * sc,
+        }
+        return payload
+
+    def _apply_locked_style_payload_to_letter(self, ls: LetterSettings, payload: Dict[str, Any]) -> None:
+        tw, th = self._ink_dimensions_for_cp(ls.codepoint)
+        sc = max(0.25, min(3.0, float(payload.get("package_scale", 1.0))))
+        ls.package_scale = sc
+        tc = payload.get("tag_count")
+        # לא מחליפים קבוצת אותיות (1/3) אוטומטית — רק אם אותו מספר תגין.
+        if isinstance(tc, int) and int(tc) == int(ls.tag_count):
+            ls.tag_count = int(tc)
+        ls.ensure_tags()
+
+        stem_h = float(payload.get("stem_h_fu", max(30.0, ls.height_frac * th) * sc))
+        stem_w = float(payload.get("stem_w_fu", max(8.0, ls.line_width_frac * tw) * sc))
+        dot_d = float(payload.get("dot_d_fu", max(20.0, ls.dot_frac * th) * sc))
+        spacing = float(payload.get("spacing_fu", ls.spacing_frac * tw * sc))
+
+        ls.height_frac = max(0.0, stem_h / max(th * sc, 1e-6))
+        ls.line_width_frac = max(0.0, stem_w / max(tw * sc, 1e-6))
+        ls.dot_frac = max(0.0, dot_d / max(th * sc, 1e-6))
+        ls.spacing_frac = max(0.0, spacing / max(tw * sc, 1e-6))
+        ls.middle_boost_frac = float(payload.get("middle_boost_frac", ls.middle_boost_frac))
+        tsm = str(payload.get("tag_shape_mode", ls.tag_shape_mode))
+        ls.tag_shape_mode = tsm if tsm in (TAG_SHAPE_ROUND, TAG_SHAPE_SQUARE_FAN) else TAG_SHAPE_ROUND
+
+        dx_frac = float(payload.get("group_dx_frac", 0.0))
+        dy_frac = float(payload.get("group_dy_frac", 0.0))
+        ls.group_dx_fu = dx_frac * tw
+        ls.group_dy_fu = dy_frac * th
+
+        ls.ensure_tags()
+        for t in ls.tags:
+            t.dx_fu = 0.0
+            t.dy_fu = 0.0
+
+    def _on_lock_style_toggled(self, checked: bool) -> None:
+        self._lock_style_enabled = bool(checked)
+        if self._lock_style_enabled:
+            self._locked_style_payload = self._capture_locked_style_payload_from_current()
+            if self._locked_style_payload is None:
+                self._lock_style_enabled = False
+                self._chk_lock_style.blockSignals(True)
+                try:
+                    self._chk_lock_style.setChecked(False)
+                finally:
+                    self._chk_lock_style.blockSignals(False)
+        else:
+            self._locked_style_payload = None
 
     def _apply_ready_three_to_current(self) -> None:
         ls = self._current_letter_settings()
