@@ -78,12 +78,9 @@ const Home: React.FC<HomeProps> = ({ onNavigateToCatalog, onNavigateToVideos }) 
             className="w-full max-w-3xl text-right block cursor-pointer rounded-3xl border border-amber-400/40 bg-gradient-to-l from-amber-500/20 via-amber-400/10 to-rose-500/10 p-5 shadow-[0_0_35px_rgba(245,158,11,0.2)] transition hover:scale-[1.01] hover:border-amber-300/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70"
             aria-label="מעבר לעמוד המבצע"
           >
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="inline-flex items-center rounded-full border border-amber-300/40 bg-amber-500/20 px-3 py-1 text-xs font-black text-amber-200">
+            <div className="flex flex-col items-center text-center gap-2">
+              <div className="inline-flex items-center rounded-full border border-amber-300/40 bg-amber-500/20 px-5 py-2 text-sm md:text-base font-black text-amber-200">
                 מבצע חם
-              </div>
-              <div className="text-xs font-bold text-amber-100/90">
-                9 סקריפטים מובחרים + מדריך אינטרקטיבי
               </div>
             </div>
             <div className="mt-3 flex flex-col md:flex-row items-start md:items-center gap-4">
