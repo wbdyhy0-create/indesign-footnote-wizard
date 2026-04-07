@@ -343,7 +343,29 @@ def _tagin_geometry_glyph_name(font: TTFont, gname: str, cp: Optional[int] = Non
     except Exception:
         return gname
 
-    # 1) אם יש לנו codepoint של האות — נעדיף את גליף ה-cmap כגליף בסיס (לפני GSUB).
+    def variant_candidates(nm: str) -> List[str]:
+        """מנסה לחלץ שם בסיס מווריאנט נפוץ (yoddagesh/shinsindot וכו')."""
+        out: List[str] = []
+        if not nm:
+            return out
+        if "." in nm:
+            out.append(nm.split(".", 1)[0])
+        low = nm.lower()
+        # נפוץ: yoddagesh / shindageshsindot / ... (בלי נקודה)
+        for tok in ("dagesh", "mapiq", "sindot", "shindot", "pointhebrew", "dothebrew"):
+            if tok in low:
+                out.append(low.replace(tok, ""))
+        # נפוץ: removals leave double underscores וכו'
+        cleaned: List[str] = []
+        for c in out:
+            c2 = "".join(ch for ch in c if ch.isalnum() or ch in "._-")
+            c2 = c2.strip("._-")
+            if c2 and c2 not in cleaned:
+                cleaned.append(c2)
+        return cleaned
+
+    # 1) אם יש לנו codepoint של האות — נעדיף את גליף ה-cmap כגליף בסיס (לפני GSUB),
+    # אבל אם ה-cmap עצמו כבר מצביע על וריאנט (למשל yoddagesh), ננסה למצוא שם בסיס חלופי.
     # לשין (U+05E9) לא ממפים ל־cmap הבסיסי: וריאנטי FB2x/FB49 וכו' חייבים גיאומטריה
     # מהגליף האמיתי שנשמר — אחרת מרכז/רוחב מחושבים ממתאר אחר והדגש/מפיק "בורחים" יחסית.
     if isinstance(cp, int) and cp != SHIN_CP:
@@ -364,6 +386,12 @@ def _tagin_geometry_glyph_name(font: TTFont, gname: str, cp: Optional[int] = Non
                 )
             ):
                 return base
+            if gname == base and (
+                "dagesh" in n or "mapiq" in n or "shindot" in n or "sindot" in n or "." in gname
+            ):
+                for cand in variant_candidates(base):
+                    if cand in gs:
+                        return cand
 
     # 2) Heuristic לפי שם: split על '.' (נפוץ: base.dagesh / base.mapiq).
     if "." in gname and cp != SHIN_CP:
@@ -3155,16 +3183,31 @@ class MainWindow(QMainWindow):
         upem = float(font["head"].unitsPerEm)
         hhea = font.get("hhea")
         _asc = float(hhea.ascender) if hhea is not None else upem * 0.8
-        geom_gn = _tagin_geometry_glyph_name(font, gname, ls.codepoint)
-        b = _glyph_bounds_from_font(font, geom_gn)
+
+        # חשוב: מרכז/רוחב של התגין צריכים להתאים לגליף היעד (gname),
+        # אבל "גג" החבילה צריך להתבסס על גיאומטריה נקייה מנקודות/דגש.
+        geom_roof_gn = _tagin_geometry_glyph_name(font, gname, ls.codepoint)
+
+        b_target = _glyph_bounds_from_font(font, gname)
+        b = b_target
+        b_roof = _glyph_bounds_from_font(font, geom_roof_gn)
         if self._ignore_mark_components_for_roof:
             try:
+                # ל־bbox כללי (cx/ink_w) נשתמש בגליף היעד (שלא יזיז דגש/מפיק),
+                # אבל ל"רוף" נשתמש בגליף הגיאומטריה (נקי יותר).
+                if b_target is not None:
+                    pts_t = _glyph_xy_points_excluding_mark_components(
+                        font, glyph_set, gname, self._mark_glyph_names
+                    )
+                    b2t = _glyph_bounds_from_points(pts_t)
+                    if b2t is not None:
+                        b = b2t
                 pts_b = _glyph_xy_points_excluding_mark_components(
-                    font, glyph_set, geom_gn, self._mark_glyph_names
+                    font, glyph_set, geom_roof_gn, self._mark_glyph_names
                 )
                 b2 = _glyph_bounds_from_points(pts_b)
                 if b2 is not None:
-                    b = b2
+                    b_roof = b2
             except Exception:
                 pass
         if b is None:
@@ -3186,10 +3229,17 @@ class MainWindow(QMainWindow):
 
         if self._ignore_mark_components_for_roof:
             pts = _glyph_xy_points_excluding_mark_components(
-                font, glyph_set, geom_gn, self._mark_glyph_names
+                font, glyph_set, geom_roof_gn, self._mark_glyph_names
             )
         else:
-            pts = _glyph_xy_points_for_band_search(font, glyph_set, geom_gn)
+            pts = _glyph_xy_points_for_band_search(font, glyph_set, geom_roof_gn)
+        # fallback Y מקסימלי לפי גיאומטריית הרוף אם קיימת
+        if b_roof is not None:
+            try:
+                _x0r, _y0r, _x1r, y1r = map(float, b_roof)
+                y_max = min(y_max, y1r) if y_max is not None else y1r
+            except Exception:
+                pass
         y_bundle = _bundle_top_y_fu_for_taginim(
             pts, ls.tag_count, cx, spacing, ls.group_dx_fu, ink_w, half_w, y_max
         )
