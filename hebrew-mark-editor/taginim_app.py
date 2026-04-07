@@ -1864,6 +1864,17 @@ class MainWindow(QMainWindow):
         """טוען גופן מנתיב. מחזיר True אם הצליח."""
         if not path:
             return False
+        path = os.path.normpath(path)
+        if not os.path.isfile(path):
+            QMessageBox.information(
+                self,
+                "לא נמצא קובץ",
+                "הקובץ שנגרר לא זוהה כקובץ גופן אמיתי על הדיסק.\n\n"
+                "זה קורה כשגוררים מתוך חלון 'גופנים' של Windows (תיקייה וירטואלית).\n\n"
+                "פתרון: גררו קובץ ‎.ttf‎ / ‎.otf‎ מהתיקייה שבה הוא נמצא בפועל (Downloads / Documents וכו׳), "
+                "או השתמשו ב־«פתח גופן…».",
+            )
+            return False
         try:
             font = TTFont(path, fontNumber=0)
         except Exception as e:
