@@ -589,10 +589,25 @@ def _glyph_xy_points_for_roof_search(
     gh = max(1.0, max(ys_all) - min(ys_all))
     g_area = gw * gh
 
-    # ספי סינון: אי קטן משמעותית יחסית לגליף.
-    area_thr = max(60.0 * 60.0, 0.020 * g_area)
-    w_thr = max(18.0, 0.22 * gw)
-    h_thr = max(18.0, 0.22 * gh)
+    gx0 = min(xs_all)
+    gy0 = min(ys_all)
+    gx1 = max(xs_all)
+    gy1 = max(ys_all)
+
+    # ספי סינון:
+    # - "אי" קטן קלאסי (ברוב הגופנים)
+    area_thr_small = max(60.0 * 60.0, 0.020 * g_area)
+    w_thr_small = max(18.0, 0.22 * gw)
+    h_thr_small = max(18.0, 0.22 * gh)
+
+    # - "נקודה פנימית" (דגש/מפיק) לפעמים גדולה יותר (למשל בביט ספרדי) ולכן צריך סף מרווח יותר,
+    #   אבל עם תנאים שמקטינים סיכון לסינון חלקי אות אמיתיים:
+    #   * יחס כמעט מרובע
+    #   * ממוקם בתוך גוף האות (לא בשוליים)
+    #   * לא נוגע ממש בחלק העליון של הגליף
+    area_thr_dot = max(90.0 * 90.0, 0.10 * g_area)
+    w_thr_dot = max(26.0, 0.42 * gw)
+    h_thr_dot = max(26.0, 0.42 * gh)
 
     out: List[Tuple[float, float]] = []
     start = 0
@@ -607,9 +622,24 @@ def _glyph_xy_points_for_roof_search(
         cw = max(xs) - min(xs)
         ch = max(ys) - min(ys)
         c_area = max(0.0, cw) * max(0.0, ch)
-        # אם זה "אי" קטן (לרוב דגש/מפיק/נקודת שין) — מסננים אותו לצורך חישוב גג.
-        if c_area <= area_thr and cw <= w_thr and ch <= h_thr:
+        cx0, cy0 = min(xs), min(ys)
+        cx1, cy1 = max(xs), max(ys)
+        ccx = (cx0 + cx1) * 0.5
+        ccy = (cy0 + cy1) * 0.5
+
+        # (A) אי קטן (לרוב דגש/מפיק/נקודת שין) — מסננים אותו לצורך חישוב גג.
+        if c_area <= area_thr_small and cw <= w_thr_small and ch <= h_thr_small:
             continue
+
+        # (B) נקודה פנימית גדולה יותר: מסננים אם היא "דוטית" וממוקמת בתוך הגוף.
+        if c_area <= area_thr_dot and cw <= w_thr_dot and ch <= h_thr_dot:
+            asp = (cw / max(ch, 1e-6)) if ch > 0 else 999.0
+            asp = max(asp, 1.0 / max(asp, 1e-6))
+            inside_x = (gx0 + 0.14 * gw) <= ccx <= (gx1 - 0.14 * gw)
+            inside_y = (gy0 + 0.12 * gh) <= ccy <= (gy1 - 0.18 * gh)
+            not_near_top = cy1 <= (gy1 - 0.08 * gh)
+            if asp <= 1.75 and inside_x and inside_y and not_near_top:
+                continue
         out.extend(contour)
 
     # אם סינון מחק הכל — נחזיר רגיל כדי לא לשבור גליפים מיוחדים.
