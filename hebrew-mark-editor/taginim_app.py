@@ -661,20 +661,45 @@ def _max_y_in_vertical_band(
     half_width: float,
     fallback_y: float,
 ) -> float:
-    """מקסימום Y בפס אנכי; אם יש נקודת ניקוד בודדת גבוהה מעל גוף האות — מתעלמים ממנה."""
+    """מקסימום Y בפס אנכי; מתעלם מנקודה/כובע קטן שמרים את הגג."""
     lo, hi = x_center - half_width, x_center + half_width
-    ys = sorted({y for x, y in pts if lo <= x <= hi})
-    if not ys:
+    band_pts = [(x, y) for x, y in pts if lo <= x <= hi]
+    if not band_pts:
         return fallback_y
-    if len(ys) == 1:
-        return ys[0]
     span = _y_span_from_pts(pts)
-    y_hi = ys[-1]
-    y_next = ys[-2]
-    jump = y_hi - y_next
-    if jump > max(28.0, 0.11 * span):
-        return y_next
-    return y_hi
+    # מתחילים מהמקסימום, אבל אם "הראש" מורכב מאשכול קטן/צר (נקודה/שין-דוט/מפיק)
+    # אנחנו מתעלמים ממנו ולוקחים את הגג הבא.
+    cur_pts = band_pts
+    for _ in range(2):
+        ys = sorted({y for _x, y in cur_pts})
+        if not ys:
+            return fallback_y
+        if len(ys) == 1:
+            return ys[0]
+        y_hi = ys[-1]
+        y_next = ys[-2]
+
+        # 1) כלל ישן: קפיצה גדולה בין שני y-ים הגבוהים.
+        jump = y_hi - y_next
+        if jump > max(28.0, 0.11 * span):
+            return y_next
+
+        # 2) כלל חדש: אם הנקודות באזור העליון יוצרות "אשכול" צר (כמו נקודה),
+        # מתעלמים מהן גם אם יש כמה ערכי y קרובים.
+        win = max(14.0, 0.035 * span)
+        top_band = [(x, y) for x, y in cur_pts if y >= y_hi - win]
+        if len(top_band) < 4:
+            return y_hi
+        xs = [x for x, _y in top_band]
+        w = max(xs) - min(xs)
+        # צר מאוד יחסית לפס האנכי → סביר שזה דוט/כובע ולא "גג" האות.
+        if w <= max(22.0, 0.33 * (half_width * 2.0)):
+            # מסירים את האשכול העליון ומנסים שוב
+            cur_pts = [(x, y) for x, y in cur_pts if y < y_hi - win]
+            continue
+        return y_hi
+    # נפילה: אם סינון מחק יותר מדי — נחזיר את המקסימום המקורי.
+    return max(y for _x, y in band_pts)
 
 
 def _bundle_top_y_fu_for_taginim(
