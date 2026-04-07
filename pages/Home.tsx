@@ -75,15 +75,13 @@ const Home: React.FC<HomeProps> = ({ onNavigateToCatalog, onNavigateToVideos }) 
         <div className="mb-6 flex justify-center px-4">
           <a
             href="https://footnote-wizard-2.vercel.app/promotions/promo-1774362225701"
-            className="w-full max-w-3xl text-right block cursor-pointer rounded-3xl border border-amber-400/40 bg-gradient-to-l from-amber-500/20 via-amber-400/10 to-rose-500/10 p-5 shadow-[0_0_35px_rgba(245,158,11,0.2)] transition hover:scale-[1.01] hover:border-amber-300/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70"
+            className="relative w-full max-w-3xl text-right block cursor-pointer rounded-3xl border border-amber-400/40 bg-gradient-to-l from-amber-500/20 via-amber-400/10 to-rose-500/10 p-5 shadow-[0_0_35px_rgba(245,158,11,0.2)] transition hover:scale-[1.01] hover:border-amber-300/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70"
             aria-label="מעבר לעמוד המבצע"
           >
-            <div className="flex flex-col items-center text-center gap-2">
-              <div className="inline-flex items-center rounded-full border border-amber-300/40 bg-amber-500/20 px-5 py-2 text-sm md:text-base font-black text-amber-200">
-                מבצע חם
-              </div>
+            <div className="absolute left-1/2 top-4 -translate-x-1/2 inline-flex items-center rounded-full border border-amber-300/40 bg-amber-500/25 px-6 py-2.5 text-base md:text-lg font-black text-amber-200 shadow-[0_0_25px_rgba(245,158,11,0.18)]">
+              מבצע חם
             </div>
-            <div className="mt-3 flex flex-col md:flex-row items-start md:items-center gap-4">
+            <div className="pt-14 flex flex-col md:flex-row items-start md:items-center gap-4">
               <div className="text-xl md:text-2xl font-black text-white leading-snug">
                 9 סקריפטים מובחרים + מדריך אינטרקטיבי לתוכנת אינדיזיין בסך הכל{' '}
                 <span className="text-amber-300">750 ש&quot;ח</span>
