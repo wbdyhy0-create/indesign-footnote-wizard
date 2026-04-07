@@ -80,13 +80,12 @@ const Home: React.FC<HomeProps> = ({ onNavigateToCatalog, onNavigateToVideos }) 
           >
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="inline-flex items-center rounded-full border border-amber-300/40 bg-amber-500/20 px-3 py-1 text-xs font-black text-amber-200">
-                מבצע חג הפסח
+                מבצעים חמים
               </div>
-              <div className="text-xs font-bold text-amber-100/90">בתוקף עד 01.04.26</div>
+              <div className="text-xs font-bold text-amber-100/90">הכי נמוך בשוק הסקריפטים</div>
             </div>
             <div className="mt-3 text-xl md:text-2xl font-black text-white leading-snug">
-              רכישת כל סקריפט בודד מתוך החנות בסך הכל{' '}
-              <span className="text-amber-300">100 ש&quot;ח</span>.
+              מבצעים חמים, הכי נמוך בשוק הסקריפטים
             </div>
           </a>
         </div>
