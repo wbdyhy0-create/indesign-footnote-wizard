@@ -80,12 +80,23 @@ const Home: React.FC<HomeProps> = ({ onNavigateToCatalog, onNavigateToVideos }) 
           >
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="inline-flex items-center rounded-full border border-amber-300/40 bg-amber-500/20 px-3 py-1 text-xs font-black text-amber-200">
-                מבצעים חמים
+                מבצע חם
               </div>
-              <div className="text-xs font-bold text-amber-100/90">הכי נמוך בשוק הסקריפטים</div>
+              <div className="text-xs font-bold text-amber-100/90">
+                9 סקריפטים מובחרים + מדריך אינטרקטיבי
+              </div>
             </div>
-            <div className="mt-3 text-xl md:text-2xl font-black text-white leading-snug">
-              מבצעים חמים, הכי נמוך בשוק הסקריפטים
+            <div className="mt-3 flex flex-col md:flex-row items-start md:items-center gap-4">
+              <div className="text-xl md:text-2xl font-black text-white leading-snug">
+                9 סקריפטים מובחרים + מדריך אינטרקטיבי לתוכנת אינדיזיין בסך הכל{' '}
+                <span className="text-amber-300">750 ש&quot;ח</span>
+              </div>
+              <img
+                src="/assets/promo-9-scripts.png"
+                alt="תמונת מבצע 9 סקריפטים מובחרים + מדריך אינטרקטיבי"
+                className="w-full md:w-52 rounded-2xl border border-amber-400/30 shadow-[0_0_30px_rgba(245,158,11,0.18)]"
+                loading="lazy"
+              />
             </div>
           </a>
         </div>
