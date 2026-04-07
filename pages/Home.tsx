@@ -78,10 +78,12 @@ const Home: React.FC<HomeProps> = ({ onNavigateToCatalog, onNavigateToVideos }) 
             className="relative w-full max-w-3xl text-right block cursor-pointer rounded-3xl border border-amber-400/40 bg-gradient-to-l from-amber-500/20 via-amber-400/10 to-rose-500/10 p-5 shadow-[0_0_35px_rgba(245,158,11,0.2)] transition hover:scale-[1.01] hover:border-amber-300/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70"
             aria-label="מעבר לעמוד המבצע"
           >
-            <div className="absolute left-1/2 top-4 -translate-x-1/2 inline-flex items-center rounded-full border border-amber-300/40 bg-amber-500/25 px-7 md:px-8 py-3 md:py-3.5 text-3xl md:text-4xl font-black text-amber-200 shadow-[0_0_25px_rgba(245,158,11,0.18)]">
-              מבצע חם
+            <div className="absolute inset-x-0 top-4 z-10 flex justify-center px-4">
+              <div className="inline-flex items-center rounded-full border border-amber-300/40 bg-amber-500/25 px-10 md:px-12 py-4 md:py-4.5 text-4xl md:text-5xl lg:text-6xl font-black text-amber-100 shadow-[0_0_35px_rgba(245,158,11,0.22)]">
+                מבצע חם
+              </div>
             </div>
-            <div className="pt-20 md:pt-24 flex flex-col md:flex-row items-start md:items-center gap-4">
+            <div className="pt-28 md:pt-32 lg:pt-36 flex flex-col md:flex-row items-start md:items-center gap-4">
               <div className="text-xl md:text-2xl font-black text-white leading-snug">
                 9 סקריפטים מובחרים + מדריך אינטרקטיבי לתוכנת אינדיזיין בסך הכל{' '}
                 <span className="text-amber-300">750 ש&quot;ח</span>
