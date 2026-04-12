@@ -15,6 +15,8 @@ declare module "opentype.js" {
   }
 
   export interface Glyph {
+    /** 0 לרוב = .notdef כשאין גליף לתו */
+    index?: number;
     advanceWidth: number;
     getPath(x: number, y: number, fontSize: number): Path;
   }

@@ -1,4 +1,5 @@
 import type { Font } from "opentype.js";
+import { bboxForMarkGeometry, markGeometry } from "./canvasMarkFallback";
 
 export const CANVAS_W = 900;
 export const CANVAS_H = 420;
@@ -34,11 +35,9 @@ export function computeMarkCenteredOnLetterOffsets(
   const targetX = anchorX;
   const targetY = (baseBBox.y1 + baseBBox.y2) / 2;
 
-  const g = font.charToGlyph(String.fromCodePoint(mark.codePoint));
   const ox = anchorX + mark.offsetX * markScale;
   const oy = anchorY + mark.offsetY * markScale;
-  const p = g.getPath(ox, oy, markFontPx);
-  const bb = p.getBoundingBox();
+  const bb = bboxForMarkGeometry(markGeometry(font, mark.codePoint, ox, oy, markFontPx));
   const mcx = (bb.x1 + bb.x2) / 2;
   const mcy = (bb.y1 + bb.y2) / 2;
   const ddx = (targetX - mcx) / markScale;

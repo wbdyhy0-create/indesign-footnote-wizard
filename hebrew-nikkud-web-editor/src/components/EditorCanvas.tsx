@@ -10,6 +10,7 @@ import {
   CANVAS_W,
   VIEW_BASE_FONT_PX,
 } from "../lib/canvasLayout";
+import { drawHebrewMarkWithFallback, hitTestHebrewMark } from "../lib/canvasMarkFallback";
 
 export interface EditorCanvasProps {
   font: Font | null;
@@ -108,15 +109,20 @@ export function EditorCanvas({
     const sorted = sortMarksForDraw(marks);
 
     for (const m of sorted) {
-      const ch = String.fromCodePoint(m.codePoint);
-      const g = font.charToGlyph(ch);
       const ox = anchorX + m.offsetX * markScale;
       const oy = anchorY + m.offsetY * markScale;
-      const p = g.getPath(ox, oy, markFontPx);
       const isSel = m.id === selectedMarkId;
-      p.fill = isSel ? "#1d4ed8" : "#991b1b";
-      p.draw(ctx);
-      boxes.set(m.id, p.getBoundingBox());
+      const fill = isSel ? "#1d4ed8" : "#991b1b";
+      const bb = drawHebrewMarkWithFallback(
+        ctx,
+        font,
+        m.codePoint,
+        ox,
+        oy,
+        markFontPx,
+        fill,
+      );
+      boxes.set(m.id, bb);
     }
 
     ctx.strokeStyle = "#d4d4d8";
@@ -208,12 +214,9 @@ function hitTestMarks(
 
   const sorted = sortMarksForDraw(marks).reverse();
   for (const m of sorted) {
-    const g = font.charToGlyph(String.fromCodePoint(m.codePoint));
     const ox = anchorX + m.offsetX * markScale;
     const oy = anchorY + m.offsetY * markScale;
-    const p = g.getPath(ox, oy, markFontPx);
-    const bb = p.getBoundingBox();
-    if (sx >= bb.x1 && sx <= bb.x2 && sy >= bb.y1 && sy <= bb.y2) return m.id;
+    if (hitTestHebrewMark(font, m.codePoint, ox, oy, markFontPx, sx, sy)) return m.id;
   }
   return null;
 }
