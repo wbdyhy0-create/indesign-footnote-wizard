@@ -14,15 +14,3 @@ export const HEBREW_LETTERS: CodepointItem[] = (() => {
   }
   return out;
 })();
-
-/** ניקוד וטעמים U+0591 … U+05C7 */
-export const NIKKUD_AND_CANTILLATION: CodepointItem[] = (() => {
-  const out: CodepointItem[] = [];
-  for (let cp = 0x0591; cp <= 0x05c7; cp++) {
-    out.push({
-      codePoint: cp,
-      label: String.fromCodePoint(cp),
-    });
-  }
-  return out;
-})();

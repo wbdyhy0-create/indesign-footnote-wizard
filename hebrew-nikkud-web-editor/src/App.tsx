@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { EditorCanvas } from "./components/EditorCanvas";
-import { HEBREW_LETTERS, NIKKUD_AND_CANTILLATION } from "./data/codepoints";
+import { HEBREW_LETTERS } from "./data/codepoints";
+import { NikkudPicker } from "./components/NikkudPicker";
 import { useFontLoader } from "./hooks/useFontLoader";
 import type { MarkInstance } from "./types";
 import { nudgeOutOfCenterOverlap } from "./lib/collision";
@@ -320,16 +321,10 @@ export default function App() {
           </div>
 
           <div className="field">
-            <label>הוספת ניקוד / טעם</label>
-            <select value={markToAdd} onChange={(e) => setMarkToAdd(Number(e.target.value))}>
-              {NIKKUD_AND_CANTILLATION.map((l) => (
-                <option key={l.codePoint} value={l.codePoint}>
-                  {l.label} U+{l.codePoint.toString(16).toUpperCase()}
-                </option>
-              ))}
-            </select>
-            <button type="button" className="primary" onClick={addMark}>
-              הוסף סימן
+            <label>הוספת ניקוד</label>
+            <NikkudPicker selectedCodePoint={markToAdd} onSelect={setMarkToAdd} />
+            <button type="button" className="primary nikkud-add-btn" onClick={addMark}>
+              הוסף את הניקוד הנבחר
             </button>
           </div>
 
