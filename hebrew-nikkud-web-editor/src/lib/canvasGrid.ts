@@ -12,9 +12,13 @@ export function drawPixelGrid(
   ctx.save();
   ctx.lineWidth = 1;
 
+  const majorStroke = "rgba(39, 39, 42, 0.34)";
+  /** קווים דקים — גוון כחלחל כדי להבדיל מהעבים; אלפא גבוהה יותר מלפני לנראות על רקע בהיר */
+  const minorStroke = "rgba(99, 102, 241, 0.26)";
+
   for (let x = 0; x <= w; x += minor) {
     const isMajor = x % major === 0;
-    ctx.strokeStyle = isMajor ? "rgba(24, 24, 27, 0.14)" : "rgba(24, 24, 27, 0.06)";
+    ctx.strokeStyle = isMajor ? majorStroke : minorStroke;
     ctx.beginPath();
     ctx.moveTo(x + 0.5, 0);
     ctx.lineTo(x + 0.5, h);
@@ -23,7 +27,7 @@ export function drawPixelGrid(
 
   for (let y = 0; y <= h; y += minor) {
     const isMajor = y % major === 0;
-    ctx.strokeStyle = isMajor ? "rgba(24, 24, 27, 0.14)" : "rgba(24, 24, 27, 0.06)";
+    ctx.strokeStyle = isMajor ? majorStroke : minorStroke;
     ctx.beginPath();
     ctx.moveTo(0, y + 0.5);
     ctx.lineTo(w, y + 0.5);
