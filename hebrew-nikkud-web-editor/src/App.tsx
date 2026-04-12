@@ -3,23 +3,19 @@ import { EditorCanvas } from "./components/EditorCanvas";
 import { HEBREW_LETTERS, NIKKUD_AND_CANTILLATION } from "./data/codepoints";
 import { useFontLoader } from "./hooks/useFontLoader";
 import type { MarkInstance } from "./types";
-import { markZoneForCodePoint } from "./lib/markZones";
 import { nudgeOutOfCenterOverlap } from "./lib/collision";
 import type { BBox } from "./lib/collision";
+import type { ProjectRule } from "./lib/projectSchema";
+import {
+  buildProjectFile,
+  downloadJson,
+  fileToUiRules,
+  parseProjectFileJson,
+} from "./lib/projectIO";
 
-function defaultOffsetsForMark(cp: number): { offsetX: number; offsetY: number } {
-  const z = markZoneForCodePoint(cp);
-  switch (z) {
-    case "center":
-      return { offsetX: 0, offsetY: 40 };
-    case "lower":
-      return { offsetX: 0, offsetY: 120 };
-    case "meteg":
-      return { offsetX: -120, offsetY: -20 };
-    case "upper":
-    default:
-      return { offsetX: 0, offsetY: -120 };
-  }
+/** ברירת מחדל 0,0 — ההיסטים נשמרים כדלתא לעוגן ה-Mark בפונט (ראו scripts/apply_nikkud_project.py) */
+function defaultOffsetsForMark(): { offsetX: number; offsetY: number } {
+  return { offsetX: 0, offsetY: 0 };
 }
 
 function newMarkId(): string {
@@ -27,6 +23,13 @@ function newMarkId(): string {
     return crypto.randomUUID();
   }
   return `m-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function newRuleId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return `r-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
 export default function App() {
@@ -38,9 +41,17 @@ export default function App() {
   const [showGrid, setShowGrid] = useState(true);
   const [gridMinorPx, setGridMinorPx] = useState(10);
   const [showAnchorGuides, setShowAnchorGuides] = useState(true);
+  const [rules, setRules] = useState<ProjectRule[]>([]);
+  const [selectedRuleId, setSelectedRuleId] = useState<string | null>(null);
   const markBoxesRef = useRef<Map<string, BBox>>(new Map());
+  const projectFileInputRef = useRef<HTMLInputElement>(null);
 
   const gridMajorPx = gridMinorPx * 5;
+
+  const projectFile = useMemo(
+    () => buildProjectFile(rules, fileName || undefined),
+    [rules, fileName],
+  );
 
   const handleBoxesMeasured = useCallback((boxes: Map<string, BBox>) => {
     markBoxesRef.current = boxes;
@@ -98,7 +109,7 @@ export default function App() {
   }, [selectedMarkId, updateSelectedOffset]);
 
   const addMark = () => {
-    const { offsetX, offsetY } = defaultOffsetsForMark(markToAdd);
+    const { offsetX, offsetY } = defaultOffsetsForMark();
     const id = newMarkId();
     setMarks((prev) => [...prev, { id, codePoint: markToAdd, offsetX, offsetY }]);
     setSelectedMarkId(id);
@@ -116,12 +127,65 @@ export default function App() {
 
   const bump = (dx: number, dy: number) => updateSelectedOffset(dx, dy);
 
+  const saveCurrentToProject = () => {
+    if (!marks.length) return;
+    setRules((prev) => {
+      const idx = prev.findIndex((r) => r.baseCodePoint === baseCodePoint);
+      const cloned = marks.map((m) => ({ ...m, id: newMarkId() }));
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = { ...next[idx], marks: cloned };
+        return next;
+      }
+      return [...prev, { id: newRuleId(), baseCodePoint, marks: cloned }];
+    });
+  };
+
+  const loadRuleIntoEditor = (rule: ProjectRule) => {
+    setBaseCodePoint(rule.baseCodePoint);
+    setMarks(rule.marks.map((m) => ({ ...m, id: newMarkId() })));
+    setSelectedMarkId(null);
+    setSelectedRuleId(rule.id);
+  };
+
+  const deleteRule = (ruleId: string) => {
+    setRules((prev) => prev.filter((r) => r.id !== ruleId));
+    if (selectedRuleId === ruleId) setSelectedRuleId(null);
+  };
+
+  const onDownloadProject = () => {
+    downloadJson("nikkud-project.json", projectFile);
+  };
+
+  const onPickProjectFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const text = String(reader.result ?? "");
+        const parsed = parseProjectFileJson(text);
+        const ui = fileToUiRules(parsed);
+        setRules(ui);
+        if (ui.length) loadRuleIntoEditor(ui[0]);
+        else {
+          setMarks([]);
+          setSelectedMarkId(null);
+        }
+      } catch (err) {
+        alert(err instanceof Error ? err.message : "טעינת פרויקט נכשלה");
+      }
+    };
+    reader.readAsText(f, "UTF-8");
+    e.target.value = "";
+  };
+
   return (
     <div className="app-shell">
       <header className="app-header">
         <h1>עורך עוגני ניקוד — שלד Frontend</h1>
         <p className="app-sub">
-          טעינת גופן עם opentype.js, קנבס, היסטים ביחידות עיצוב הפונט, תמיכה במספר סימנים
+          טעינת גופן עם opentype.js, פרויקט JSON לכל האותיות, ובניית גופן דרך סקריפט Python
         </p>
       </header>
 
@@ -195,6 +259,52 @@ export default function App() {
         </div>
 
         <aside className="side">
+          <div className="field project-block">
+            <label>פרויקט (כל האותיות)</label>
+            <p className="hint project-hint">
+              שמירת צירוף נוכחי לאוסף הכללים. ההיסטים בקובץ מתפרשים כדלתא לעוגן ה-Mark ב-GPOS
+              (נדרש גופן עם MarkToBase; ראו{" "}
+              <code className="inline-code">scripts/apply_nikkud_project.py</code>).
+            </p>
+            <div className="field row">
+              <button type="button" className="primary" onClick={saveCurrentToProject} disabled={!marks.length}>
+                שמור צירוף נוכחי לפרויקט
+              </button>
+            </div>
+            <ul className="rule-list">
+              {rules.map((r) => (
+                <li key={r.id} className="rule-row">
+                  <button
+                    type="button"
+                    className={r.id === selectedRuleId ? "mark-sel" : "mark-btn"}
+                    onClick={() => loadRuleIntoEditor(r)}
+                  >
+                    {String.fromCodePoint(r.baseCodePoint)} · {r.marks.length} סימנים
+                  </button>
+                  <button type="button" className="rule-del" onClick={() => deleteRule(r.id)} aria-label="מחק">
+                    ✕
+                  </button>
+                </li>
+              ))}
+            </ul>
+            {rules.length === 0 ? <p className="muted">אין כללים בפרויקט</p> : null}
+            <div className="field row">
+              <button type="button" onClick={onDownloadProject}>
+                הורד nikkud-project.json
+              </button>
+              <button type="button" onClick={() => projectFileInputRef.current?.click()}>
+                טען פרויקט…
+              </button>
+              <input
+                ref={projectFileInputRef}
+                type="file"
+                accept=".json,application/json"
+                hidden
+                onChange={onPickProjectFile}
+              />
+            </div>
+          </div>
+
           <div className="field">
             <label>אות בסיס</label>
             <select
@@ -261,7 +371,7 @@ export default function App() {
                 →
               </button>
             </div>
-            <p className="hint">חיצים במקלדת: 5 יחידות; Shift: 25</p>
+            <p className="hint">חיצים במקלדת: 5 יחידות; Shift: 25 · סימן חדש מתחיל ב־0,0 (דלתא לייצוא)</p>
           </div>
 
           <div className="field row">
@@ -274,13 +384,22 @@ export default function App() {
           </div>
 
           <div className="field">
-            <label>ייצוא JSON (שלד)</label>
+            <label>תצוגת פרויקט (JSON)</label>
             <textarea
               readOnly
-              rows={6}
-              value={JSON.stringify({ baseCodePoint, marks }, null, 2)}
+              rows={8}
+              value={JSON.stringify(projectFile, null, 2)}
               className="json-out"
             />
+          </div>
+
+          <div className="field cli-hint">
+            <strong>בניית גופן (מקומי):</strong>
+            <pre className="cli-pre">
+{`pip install -r hebrew-nikkud-web-editor/scripts/requirements.txt
+python hebrew-nikkud-web-editor/scripts/apply_nikkud_project.py ^
+  --input MyFont.ttf --project nikkud-project.json -o MyFont-nikkud.ttf`}
+            </pre>
           </div>
         </aside>
       </div>
