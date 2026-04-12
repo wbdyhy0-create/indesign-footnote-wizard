@@ -10,7 +10,11 @@ import {
   CANVAS_W,
   VIEW_BASE_FONT_PX,
 } from "../lib/canvasLayout";
-import { drawHebrewMarkWithFallback, hitTestHebrewMark } from "../lib/canvasMarkFallback";
+import {
+  bboxForMarkGeometry,
+  drawHebrewMarkWithFallback,
+  markGeometry,
+} from "../lib/canvasMarkFallback";
 
 export interface EditorCanvasProps {
   font: Font | null;
@@ -212,11 +216,20 @@ function hitTestMarks(
   const anchorX = (baseBBox.x1 + baseBBox.x2) / 2;
   const anchorY = baseBBox.y1;
 
-  const sorted = sortMarksForDraw(marks).reverse();
-  for (const m of sorted) {
+  const sorted = sortMarksForDraw(marks);
+  const topFirst = [...sorted].reverse();
+  /** כמה סימונים עם bbox גדול (מתאר notdef/ניקוד בפונט) חופפים לקליק; נבחר bbox הקטן ביותר ואז את העליון בשכבה */
+  const hits: { id: string; area: number; revIdx: number }[] = [];
+  topFirst.forEach((m, revIdx) => {
     const ox = anchorX + m.offsetX * markScale;
     const oy = anchorY + m.offsetY * markScale;
-    if (hitTestHebrewMark(font, m.codePoint, ox, oy, markFontPx, sx, sy)) return m.id;
-  }
-  return null;
+    const geom = markGeometry(font, m.codePoint, ox, oy, markFontPx);
+    const bb = bboxForMarkGeometry(geom);
+    if (sx < bb.x1 || sx > bb.x2 || sy < bb.y1 || sy > bb.y2) return;
+    const area = Math.max(1e-6, (bb.x2 - bb.x1) * (bb.y2 - bb.y1));
+    hits.push({ id: m.id, area, revIdx });
+  });
+  if (!hits.length) return null;
+  hits.sort((a, b) => a.area - b.area || a.revIdx - b.revIdx);
+  return hits[0].id;
 }
