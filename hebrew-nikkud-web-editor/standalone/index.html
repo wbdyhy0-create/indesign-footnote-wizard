@@ -843,12 +843,18 @@
           }
         }
 
-        function postFormDataXHR(url, formData, signal, onUploadProgress) {
+        function postFormDataXHR(url, formData, signal, onUploadProgress, onServerWaitTick) {
           return new Promise(function (resolve, reject) {
             var xhr = new XMLHttpRequest();
             xhr.open("POST", url);
             xhr.responseType = "blob";
             xhr.timeout = 920000;
+            function clearServerWait() {
+              if (xhr._serverWaitIv) {
+                clearInterval(xhr._serverWaitIv);
+                xhr._serverWaitIv = null;
+              }
+            }
             xhr.upload.onprogress = function (ev) {
               if (onUploadProgress && ev.lengthComputable) {
                 onUploadProgress(ev.loaded, ev.total);
@@ -856,8 +862,13 @@
             };
             xhr.upload.onload = function () {
               if (onUploadProgress) onUploadProgress(-1, -1);
+              if (onServerWaitTick) {
+                onServerWaitTick();
+                xhr._serverWaitIv = setInterval(onServerWaitTick, 1000);
+              }
             };
             xhr.onload = function () {
+              clearServerWait();
               resolve({
                 ok: xhr.status >= 200 && xhr.status < 300,
                 status: xhr.status,
@@ -865,12 +876,15 @@
               });
             };
             xhr.onerror = function () {
+              clearServerWait();
               reject(new Error("שגיאת רשת"));
             };
             xhr.ontimeout = function () {
+              clearServerWait();
               reject(new Error("פג זמן בקשה"));
             };
             xhr.onabort = function () {
+              clearServerWait();
               var err = new Error("Aborted");
               err.name = "AbortError";
               reject(err);
@@ -981,25 +995,36 @@
             var blob;
             if (hybrid) {
               setMsg("היברידי: מתחיל העלאה (שני פונטים + JSON)…");
-              var hres = await postFormDataXHR(url, fd, exportAbort.signal, function (loaded, total) {
-                var sec = Math.floor((Date.now() - startTs) / 1000);
-                if (loaded < 0) {
+              var hres = await postFormDataXHR(
+                url,
+                fd,
+                exportAbort.signal,
+                function (loaded, total) {
+                  var sec = Math.floor((Date.now() - startTs) / 1000);
+                  if (loaded < 0) {
+                    setMsg(
+                      "היברידי: ההעלאה הסתיימה — השרת ממזג אותיות ומיישם ניקוד (המספר למטה = שניות המתנה, לא אחוז).",
+                    );
+                    return;
+                  }
+                  var pct = total > 0 ? Math.round((100 * loaded) / total) : 0;
                   setMsg(
-                    "היברידי: ההעלאה הסתיימה — השרת ממזג את כל האותיות ומיישם ניקוד (עדיין לא סיימנו) · " +
+                    "היברידי: מעלה " +
+                      pct +
+                      "% · " +
                       sec +
-                      "s",
+                      "s — אחרי 100% השרת מעבד את כל הגופן (לא רק הניקוד שהוספת).",
                   );
-                  return;
-                }
-                var pct = total > 0 ? Math.round((100 * loaded) / total) : 0;
-                setMsg(
-                  "היברידי: מעלה " +
-                    pct +
-                    "% · " +
-                    sec +
-                    "s — אחרי 100% השרת מעבד את כל הגופן (לא רק הניקוד שהוספת).",
-                );
-              });
+                },
+                function serverTick() {
+                  var sec = Math.floor((Date.now() - startTs) / 1000);
+                  setMsg(
+                    "היברידי: השרת מעבד מיזוג + ניקוד · " +
+                      sec +
+                      "s (זה נורמלי שיעלה — לא תלוי בכמה סימנים הוספת).",
+                  );
+                },
+              );
               if (!hres.ok) {
                 var errT = await hres.blob.text();
                 setMsg("שגיאה " + hres.status + ": " + (errT || "").slice(0, 4000));
