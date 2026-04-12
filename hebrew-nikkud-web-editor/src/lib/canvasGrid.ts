@@ -1,3 +1,10 @@
+/** שורת רשת ראשונה מתחת לאות — קווי תאים בולטים רק בפס אנכי זה */
+export type PixelGridBelowLetterOpts = {
+  yRowTop: number;
+  x1: number;
+  x2: number;
+};
+
 /** רשת פיקסלים לדיוק — מצוירת לפני הגליפים */
 export function drawPixelGrid(
   ctx: CanvasRenderingContext2D,
@@ -5,6 +12,7 @@ export function drawPixelGrid(
   h: number,
   minorPx: number,
   majorPx: number,
+  belowLetter?: PixelGridBelowLetterOpts | null,
 ): void {
   const minor = Math.max(2, Math.round(minorPx));
   const major = Math.max(minor, Math.round(majorPx));
@@ -32,6 +40,44 @@ export function drawPixelGrid(
     ctx.moveTo(0, y + 0.5);
     ctx.lineTo(w, y + 0.5);
     ctx.stroke();
+  }
+
+  if (belowLetter) {
+    const { yRowTop, x1, x2 } = belowLetter;
+    if (yRowTop >= 0 && yRowTop < h) {
+      const accent = "rgba(29, 78, 216, 0.92)";
+      const xLo = Math.max(0, Math.min(x1, x2) - minor);
+      const xHi = Math.min(w, Math.max(x1, x2) + minor);
+      const yTop = Math.min(h, yRowTop);
+      const yBot = Math.min(h, yRowTop + minor);
+      const xStart = Math.floor(xLo / minor) * minor;
+      const xEnd = Math.ceil(xHi / minor) * minor;
+
+      ctx.strokeStyle = accent;
+      ctx.lineWidth = 1.35;
+
+      ctx.beginPath();
+      ctx.moveTo(xLo, yTop + 0.5);
+      ctx.lineTo(xHi, yTop + 0.5);
+      ctx.stroke();
+
+      if (yBot > yTop + 0.5) {
+        ctx.beginPath();
+        ctx.moveTo(xLo, yBot + 0.5);
+        ctx.lineTo(xHi, yBot + 0.5);
+        ctx.stroke();
+      }
+
+      for (let x = xStart; x <= xEnd; x += minor) {
+        const xs = x + 0.5;
+        ctx.beginPath();
+        ctx.moveTo(xs, yTop);
+        ctx.lineTo(xs, yBot);
+        ctx.stroke();
+      }
+
+      ctx.lineWidth = 1;
+    }
   }
 
   ctx.restore();

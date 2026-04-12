@@ -1,9 +1,13 @@
 import { useEffect, useRef } from "react";
-import type { Font } from "opentype.js";
+import type { Font, Path } from "opentype.js";
 import type { MarkInstance } from "../types";
 import { markLayerOrder, markZoneForCodePoint } from "../lib/markZones";
 import { expandBBoxToMinSide, type BBox } from "../lib/collision";
-import { drawAnchorGuides, drawPixelGrid } from "../lib/canvasGrid";
+import {
+  drawAnchorGuides,
+  drawPixelGrid,
+  type PixelGridBelowLetterOpts,
+} from "../lib/canvasGrid";
 import {
   BASELINE_RATIO,
   CANVAS_H,
@@ -75,8 +79,37 @@ export function EditorCanvas({
     ctx.fillStyle = "#f4f4f5";
     ctx.fillRect(0, 0, w, h);
 
-    if (showGrid) {
-      drawPixelGrid(ctx, w, h, gridMinorPx, gridMajorPx);
+    let basePathForLetter: Path | null = null;
+    let baseline = 0;
+    let markFontPx = 0;
+    let markScale = 0;
+    let anchorX = w / 2;
+    let anchorY = 0;
+
+    if (font) {
+      const scale = VIEW_BASE_FONT_PX / font.unitsPerEm;
+      markFontPx = VIEW_BASE_FONT_PX * mScale;
+      markScale = markFontPx / font.unitsPerEm;
+      baseline = h * BASELINE_RATIO;
+      const baseGlyph = font.charToGlyph(String.fromCodePoint(baseCodePoint));
+      const advancePx = baseGlyph.advanceWidth * scale;
+      const originX = w / 2 - advancePx / 2;
+      basePathForLetter = baseGlyph.getPath(originX, baseline, VIEW_BASE_FONT_PX);
+      const baseBBox = basePathForLetter.getBoundingBox();
+      anchorX = (baseBBox.x1 + baseBBox.x2) / 2;
+      anchorY = baseBBox.y1;
+
+      if (showGrid) {
+        const minor = Math.max(2, Math.round(gridMinorPx));
+        const yRowTop = Math.floor(baseBBox.y2 / minor) * minor + minor;
+        let band: PixelGridBelowLetterOpts | null = null;
+        if (yRowTop < h) {
+          band = { yRowTop, x1: baseBBox.x1, x2: baseBBox.x2 };
+        }
+        drawPixelGrid(ctx, w, h, gridMinorPx, gridMajorPx, band);
+      }
+    } else if (showGrid) {
+      drawPixelGrid(ctx, w, h, gridMinorPx, gridMajorPx, null);
     }
 
     if (!font) {
@@ -88,22 +121,8 @@ export function EditorCanvas({
       return;
     }
 
-    const scale = VIEW_BASE_FONT_PX / font.unitsPerEm;
-    const markFontPx = VIEW_BASE_FONT_PX * mScale;
-    const markScale = markFontPx / font.unitsPerEm;
-    const baseline = h * BASELINE_RATIO;
-    const baseChar = String.fromCodePoint(baseCodePoint);
-    const baseGlyph = font.charToGlyph(baseChar);
-    const advancePx = baseGlyph.advanceWidth * scale;
-    const originX = w / 2 - advancePx / 2;
-
-    const basePath = baseGlyph.getPath(originX, baseline, VIEW_BASE_FONT_PX);
-    basePath.fill = "#18181b";
-    basePath.draw(ctx);
-
-    const baseBBox = basePath.getBoundingBox();
-    const anchorX = (baseBBox.x1 + baseBBox.x2) / 2;
-    const anchorY = baseBBox.y1;
+    basePathForLetter!.fill = "#18181b";
+    basePathForLetter!.draw(ctx);
 
     if (showAnchorGuides) {
       drawAnchorGuides(ctx, w, h, anchorX, anchorY);
