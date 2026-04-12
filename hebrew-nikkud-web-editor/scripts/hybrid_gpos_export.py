@@ -18,10 +18,10 @@ from __future__ import annotations
 import argparse
 import subprocess
 import sys
-from copy import deepcopy
 from pathlib import Path
-from typing import List
+from typing import List, Tuple
 
+from fontTools.pens.ttGlyphPen import TTGlyphPen
 from fontTools.ttLib import TTFont
 
 
@@ -43,14 +43,36 @@ def _scale_simple_glyph(font: TTFont, gname: str, factor: float) -> None:
     if g.isComposite():
         return
     coords, _end, _flags = g.getCoordinates(glyf)
-    for i in range(len(coords)):
-        x, y = coords[i]
-        coords[i] = (int(round(x * factor)), int(round(y * factor)))
-    g.setCoordinates(coords, glyf)
+    if coords is None or len(coords) == 0:
+        return
+    new_pts = [
+        (int(round(x * factor)), int(round(y * factor))) for x, y in list(coords)
+    ]
+    g.setCoordinates(new_pts, glyf)
     try:
         g.recalcBounds(glyf)
     except Exception:
         pass
+
+
+def _copy_simple_glyph_outline(
+    legacy: TTFont, lg: str, engine: TTFont, eg: str
+) -> Tuple[bool, str]:
+    """
+    מעתיק מתאר מ־legacy ל־engine דרך TTGlyphPen (בטוח יותר מ־deepcopy בין פונטים).
+    """
+    leg_glyf = legacy["glyf"]
+    eng_glyf = engine["glyf"]
+    sg = leg_glyf[lg]
+    if sg.isComposite():
+        return False, "legacy composite"
+    try:
+        pen = TTGlyphPen(eng_glyf)
+        sg.draw(pen, leg_glyf)
+        eng_glyf[eg] = pen.glyph()
+    except Exception as e:
+        return False, str(e)
+    return True, ""
 
 
 def merge_hebrew_letter_outlines(legacy: TTFont, engine: TTFont) -> List[str]:
@@ -92,12 +114,19 @@ def merge_hebrew_letter_outlines(legacy: TTFont, engine: TTFont) -> List[str]:
             warnings.append(f"U+{cp:04X}: legacy {lg} מרוכב — דילוג")
             continue
 
-        eng_glyf[eg] = deepcopy(sg)
-        if abs(factor - 1.0) > 1e-9:
-            _scale_simple_glyph(engine, eg, factor)
+        ok, err = _copy_simple_glyph_outline(legacy, lg, engine, eg)
+        if not ok:
+            warnings.append(f"U+{cp:04X} {lg}->{eg}: {err}")
+            continue
 
-        aw, lsb = legacy["hmtx"][lg]
-        engine["hmtx"][eg] = (int(round(aw * factor)), int(round(lsb * factor)))
+        try:
+            if abs(factor - 1.0) > 1e-9:
+                _scale_simple_glyph(engine, eg, factor)
+
+            aw, lsb = legacy["hmtx"][lg]
+            engine["hmtx"][eg] = (int(round(aw * factor)), int(round(lsb * factor)))
+        except Exception as e:
+            warnings.append(f"U+{cp:04X} hmtx/scale: {e}")
 
     return warnings
 
