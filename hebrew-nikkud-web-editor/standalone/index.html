@@ -228,7 +228,9 @@
             <input type="number" id="offY" step="1" />
           </div>
         </div>
-        <p class="hint">חיצים (בלי Ctrl): הזזה ב־5 יחידות, Shift: 25 · Delete — מחק נבחר</p>
+        <p class="hint">
+          גרירה בעכבר על הניקוד בקנבס · חיצים (בלי Ctrl): הזזה ב־5, Shift: 25 · Delete — מחק נבחר
+        </p>
 
         <label class="field">כתובת שרת ייצוא (אופציונלי)</label>
         <input class="export-url" id="exportUrl" type="text" value="http://127.0.0.1:8765/export" dir="ltr" />
@@ -275,6 +277,9 @@
         /** כללים שצברת לאותיות שונות לפני ייצוא (אם ריק — הייצוא משתמש רק באות + שכבה הנוכחיים) */
         let rulesBundle = [];
         let selId = null;
+        /** גרירת ניקוד בקנבס */
+        let dragMarkId = null;
+        let dragLastCanvas = null;
         function cpStr(cp) {
           return String.fromCodePoint(cp);
         }
@@ -650,6 +655,37 @@
           selId = hits[0].id;
         }
 
+        function canvasDeviceXY(clientX, clientY) {
+          var canvas = document.getElementById("cv");
+          var r = canvas.getBoundingClientRect();
+          var scalePx = canvas.width / r.width;
+          return {
+            sx: (clientX - r.left) * scalePx,
+            sy: (clientY - r.top) * scalePx,
+          };
+        }
+
+        function endMarkDrag() {
+          if (!dragMarkId) {
+            dragLastCanvas = null;
+            return;
+          }
+          var m = marks.filter(function (x) {
+            return x.id === dragMarkId;
+          })[0];
+          if (m) {
+            m.offsetX = Math.round(m.offsetX);
+            m.offsetY = Math.round(m.offsetY);
+            renderList();
+            syncInputs();
+            drawAll();
+          }
+          dragMarkId = null;
+          dragLastCanvas = null;
+          var cvEl = document.getElementById("cv");
+          if (cvEl) cvEl.style.cursor = "";
+        }
+
         function initSidebar() {
           var sel = document.getElementById("baseSel");
           for (var c = 0x05d0; c <= HEBREW_LAST; c++) {
@@ -936,12 +972,53 @@
         };
 
         var cv = document.getElementById("cv");
-        cv.onclick = function (e) {
+        cv.addEventListener("mousedown", function (e) {
+          if (e.button !== 0) return;
           pickFromCanvas(e.clientX, e.clientY);
+          if (selId) {
+            dragMarkId = selId;
+            dragLastCanvas = canvasDeviceXY(e.clientX, e.clientY);
+            cv.style.cursor = "grabbing";
+            e.preventDefault();
+          } else {
+            dragMarkId = null;
+            dragLastCanvas = null;
+          }
           renderList();
           syncInputs();
           drawAll();
-        };
+        });
+        window.addEventListener("mousemove", function (e) {
+          if (!dragMarkId || !font || !dragLastCanvas) return;
+          if (e.buttons !== undefined && (e.buttons & 1) === 0) {
+            endMarkDrag();
+            return;
+          }
+          var pt = canvasDeviceXY(e.clientX, e.clientY);
+          var upe = font.unitsPerEm || 1000;
+          var markScale = VIEW_BASE / upe;
+          var dsx = pt.sx - dragLastCanvas.sx;
+          var dsy = pt.sy - dragLastCanvas.sy;
+          if (Math.abs(dsx) < 0.01 && Math.abs(dsy) < 0.01) return;
+          var m = marks.filter(function (x) {
+            return x.id === dragMarkId;
+          })[0];
+          if (!m) {
+            endMarkDrag();
+            return;
+          }
+          m.offsetX += dsx / markScale;
+          m.offsetY += dsy / markScale;
+          dragLastCanvas = { sx: pt.sx, sy: pt.sy };
+          renderList();
+          syncInputs();
+          drawAll();
+        });
+        window.addEventListener("mouseup", function (e) {
+          if (e.button !== 0) return;
+          endMarkDrag();
+        });
+        window.addEventListener("blur", endMarkDrag);
 
         window.addEventListener("keydown", function (e) {
           if (e.target.matches("input,textarea,select")) return;
