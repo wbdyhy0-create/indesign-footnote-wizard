@@ -19,7 +19,10 @@ from __future__ import annotations
 import subprocess
 import sys
 import tempfile
+import traceback
 from pathlib import Path
+
+from werkzeug.exceptions import HTTPException
 
 
 def _tail_text_file(path: Path, max_chars: int = 12000) -> str:
@@ -116,6 +119,21 @@ APP = Flask(__name__)
 # פונטים + JSON — גבול גבוה כדי שלא ייחתך בשקט
 APP.config["MAX_CONTENT_LENGTH"] = 512 * 1024 * 1024
 
+
+@APP.errorhandler(Exception)
+def _unhandled_exception(exc: Exception):
+    """מונע דף HTML גנרי של Flask — הודעה קריאה + traceback לחלון השרת."""
+    if isinstance(exc, HTTPException):
+        return exc.get_response()
+    traceback.print_exc(file=sys.stderr)
+    return Response(
+        "שגיאה בלתי צפויה בשרת הייצוא. פירוט טכני הודפס לחלון CMD/טרמינל שבו רץ השרת.\n"
+        f"{type(exc).__name__}: {exc}",
+        status=500,
+        mimetype="text/plain; charset=utf-8",
+    )
+
+
 STANDALONE_DIR = Path(__file__).resolve().parent
 INDEX_HTML = STANDALONE_DIR / "index.html"
 NIKKUD_EDITOR = STANDALONE_DIR.parent
@@ -154,6 +172,17 @@ def ping() -> Response:
 @APP.route("/export", methods=["OPTIONS"])
 def export_options() -> Response:
     return _cors(Response("", status=204))
+
+
+@APP.route("/export", methods=["GET"])
+def export_get_hint() -> Response:
+    """מי שפותח /export בכתובת — מקבל הסבר במקום דף שגיאה HTML."""
+    return Response(
+        "ייצוא פונט: השתמשו בכפתור «ייצוא פונט (שרת)» בעורך (POST multipart). "
+        "לא לפתוח ידנית את /export בלשונית דפדפן.",
+        status=405,
+        mimetype="text/plain; charset=utf-8",
+    )
 
 
 @APP.route("/export", methods=["POST"])
@@ -231,6 +260,15 @@ def export_font() -> Response:
 @APP.route("/export_hybrid", methods=["OPTIONS"])
 def hybrid_options() -> Response:
     return _cors(Response("", status=204))
+
+
+@APP.route("/export_hybrid", methods=["GET"])
+def export_hybrid_get_hint() -> Response:
+    return Response(
+        "ייצוא היברידי: רק POST מהעורך (שני פונטים + JSON). לא לפתוח כתובת זו ידנית.",
+        status=405,
+        mimetype="text/plain; charset=utf-8",
+    )
 
 
 @APP.route("/export_hybrid", methods=["POST"])
