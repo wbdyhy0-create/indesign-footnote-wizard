@@ -99,6 +99,14 @@ def serve_index() -> Response:
     return send_file(INDEX_HTML, mimetype="text/html; charset=utf-8")
 
 
+@APP.route("/ping", methods=["GET", "OPTIONS"])
+def ping() -> Response:
+    """בדיקת חיבור מהירה מהדפדפן לפני ייצוא כבד."""
+    if request.method == "OPTIONS":
+        return _cors(Response("", status=204))
+    return _cors(Response("ok\n", mimetype="text/plain; charset=utf-8"))
+
+
 @APP.route("/export", methods=["OPTIONS"])
 def export_options() -> Response:
     return _cors(Response("", status=204))
@@ -293,6 +301,7 @@ def _pause_exit(msg: str, code: int = 1) -> None:
 
 if __name__ == "__main__":
     print("ממשק עורך (מומלץ): http://127.0.0.1:8765/")
+    print("בדיקת חיבור: GET http://127.0.0.1:8765/ping")
     print("ייצוא רגיל: POST http://127.0.0.1:8765/export")
     print("ייצוא היברידי: POST http://127.0.0.1:8765/export_hybrid")
     print(f"סקריפט יישום: {APPLY_SCRIPT}")
