@@ -383,10 +383,17 @@ export default function App() {
                 <li key={m.id}>
                   <button
                     type="button"
-                    className={m.id === selectedMarkId ? "mark-sel" : "mark-btn"}
+                    className={
+                      m.id === selectedMarkId ? "mark-row mark-row--sel" : "mark-row mark-row--plain"
+                    }
                     onClick={() => setSelectedMarkId(m.id)}
                   >
-                    {String.fromCodePoint(m.codePoint)} · ΔX {m.offsetX} · ΔY {m.offsetY}
+                    <span className="mark-row-glyph" aria-hidden>
+                      {String.fromCodePoint(m.codePoint)}
+                    </span>
+                    <span className="mark-row-meta">
+                      ΔX {m.offsetX} · ΔY {m.offsetY}
+                    </span>
                   </button>
                 </li>
               ))}

@@ -237,6 +237,62 @@ body {
   overflow: auto;
 }
 
+.mark-row {
+  width: 100%;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+  text-align: right;
+  padding: 0.35rem 0.45rem;
+  border-radius: 8px;
+  border: 1px solid #e4e4e7;
+  background: #fafafa;
+  cursor: pointer;
+  font: inherit;
+}
+
+.mark-row--plain:hover {
+  border-color: #d4d4d8;
+  background: #f4f4f5;
+}
+
+.mark-row--sel {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
+.mark-row-glyph {
+  flex: 0 0 auto;
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.35rem;
+  line-height: 1;
+  font-family: "Segoe UI Historic", "David", "Frank Ruhl Libre", "Noto Sans Hebrew", "Segoe UI", serif;
+  border: 1px solid #d4d4d8;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 40%, #fff 0%, #f4f4f5 100%);
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.mark-row--sel .mark-row-glyph {
+  border-color: #2563eb;
+  background: radial-gradient(circle at 50% 40%, #fff 0%, #eff6ff 100%);
+}
+
+.mark-row-meta {
+  flex: 1;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.82rem;
+  color: #3f3f46;
+}
+
+/* כפתורי כללי פרויקט (לא רשימת שכבה) */
 .mark-btn,
 .mark-sel {
   width: 100%;
@@ -413,19 +469,29 @@ body {
   box-shadow: 0 0 0 1px #2563eb33;
 }
 
+.nikkud-row--selected .nikkud-glyph {
+  border-color: #2563eb;
+  background: radial-gradient(circle at 50% 42%, #fff 0%, #eff6ff 100%);
+  box-shadow: inset 0 1px 0 #fff, 0 0 0 1px #2563eb22;
+}
+
+/* תא התו — עיגול מלא (נקודות שין/סין, דגש, חולם וכו׳ לא נראות בתוך ריבוע) */
 .nikkud-glyph {
   flex: 0 0 auto;
-  width: 2.75rem;
-  height: 2.75rem;
+  width: 2.85rem;
+  height: 2.85rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 2.15rem;
+  font-size: 2.05rem;
   line-height: 1;
   font-family: "Segoe UI Historic", "David", "Frank Ruhl Libre", "Noto Sans Hebrew", "Segoe UI", serif;
-  background: #fff;
-  border: 1px solid #e4e4e7;
-  border-radius: 8px;
+  background: radial-gradient(circle at 50% 42%, #fff 0%, #f4f4f5 100%);
+  border: 1px solid #d4d4d8;
+  border-radius: 50%;
+  box-sizing: border-box;
+  overflow: hidden;
+  box-shadow: inset 0 1px 0 #fff;
 }
 
 .nikkud-meta {
