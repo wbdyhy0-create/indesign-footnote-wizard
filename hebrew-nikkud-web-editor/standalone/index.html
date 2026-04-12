@@ -706,7 +706,11 @@
             }),
             "nikkud-project.json",
           );
-          setMsg(hybrid ? "מייצא (היברידי)… (פונט גדול = כמה דקות)" : "מייצא…");
+          setMsg(
+            hybrid
+              ? "מייצא (היברידי)… ממזגים את כל האותיות העבריות לתוך ה־Engine וכותבים גופן מלא — לא רק את הניקוד שהוספת."
+              : "מייצא…",
+          );
           var exportAbort = new AbortController();
           var exportTimer = setTimeout(function () {
             exportAbort.abort();
