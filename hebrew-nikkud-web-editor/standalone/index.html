@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>עורך ניקוד עברי — Standalone + ייצוא GPOS</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: system-ui, "Segoe UI", sans-serif;
+        background: #fafafa;
+        color: #18181b;
+      }
+      h1 {
+        margin: 0 0 0.35rem;
+        font-size: 1.15rem;
+      }
+      .app {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0;
+        min-height: 100vh;
+      }
+      .sidebar {
+        width: min(380px, 100%);
+        padding: 1rem;
+        background: #fff;
+        border-inline-end: 1px solid #e4e4e7;
+      }
+      .main {
+        flex: 1;
+        padding: 1rem;
+        min-width: 280px;
+      }
+      .drop {
+        border: 2px dashed #a1a1aa;
+        border-radius: 10px;
+        padding: 0.75rem;
+        text-align: center;
+        margin-bottom: 0.75rem;
+        background: #fafafa;
+        cursor: pointer;
+      }
+      .drop.drag {
+        border-color: #2563eb;
+        background: #eff6ff;
+      }
+      label.field {
+        display: block;
+        margin: 0.6rem 0;
+        font-size: 0.85rem;
+      }
+      select,
+      input[type="number"] {
+        width: 100%;
+        padding: 0.35rem 0.5rem;
+        margin-top: 0.2rem;
+        border-radius: 6px;
+        border: 1px solid #d4d4d8;
+      }
+      .nik-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+        margin-top: 0.35rem;
+        max-height: 180px;
+        overflow: auto;
+      }
+      .nik-grid button {
+        width: 2.1rem;
+        height: 2.1rem;
+        border-radius: 50%;
+        border: 1px solid #d4d4d8;
+        background: #fff;
+        cursor: pointer;
+        font-size: 1rem;
+        padding: 0;
+      }
+      .nik-grid button.on {
+        border-color: #2563eb;
+        background: #eff6ff;
+      }
+      .btn {
+        margin-top: 0.5rem;
+        padding: 0.45rem 0.75rem;
+        border-radius: 8px;
+        border: 1px solid #d4d4d8;
+        background: #fff;
+        cursor: pointer;
+        font: inherit;
+      }
+      .btn.primary {
+        background: #2563eb;
+        color: #fff;
+        border-color: #1d4ed8;
+      }
+      .btn.warn {
+        background: #fef2f2;
+        border-color: #fecaca;
+        color: #991b1b;
+      }
+      .marks {
+        list-style: none;
+        padding: 0;
+        margin: 0.5rem 0 0;
+      }
+      .marks li {
+        margin: 0.25rem 0;
+      }
+      .marks button {
+        width: 100%;
+        text-align: right;
+        padding: 0.35rem 0.5rem;
+        border-radius: 6px;
+        border: 1px solid #e4e4e7;
+        background: #fafafa;
+        cursor: pointer;
+        font: inherit;
+      }
+      .marks button.sel {
+        border-color: #2563eb;
+        background: #eff6ff;
+      }
+      .row {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+      }
+      .row > * {
+        flex: 1;
+        min-width: 100px;
+      }
+      canvas {
+        display: block;
+        max-width: 100%;
+        height: auto;
+        border: 1px solid #e4e4e7;
+        border-radius: 8px;
+        background: #f4f4f5;
+        touch-action: none;
+      }
+      .hint {
+        font-size: 0.75rem;
+        color: #71717a;
+        margin: 0.35rem 0 0;
+        line-height: 1.35;
+      }
+      code {
+        font-size: 0.72rem;
+        background: #f4f4f5;
+        padding: 0.1rem 0.25rem;
+        border-radius: 4px;
+      }
+      input.export-url {
+        width: 100%;
+        margin-top: 0.35rem;
+        font-size: 0.8rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <aside class="sidebar">
+        <h1>עורך ניקוד (Standalone)</h1>
+        <p class="hint">
+          ציור: opentype.js. ייצוא פונט אמיתי עם MarkToBase דורש שרת Python מקומי (לא ניתן
+          מ־opentype.js לבד).
+        </p>
+        <div id="drop" class="drop" tabindex="0">
+          גרור לכאן <code>.ttf</code> / <code>.otf</code> או לחץ לבחירה
+        </div>
+        <input id="fileIn" type="file" accept=".ttf,.otf,.woff,.woff2" hidden />
+
+        <label class="field">אות בסיס</label>
+        <select id="baseSel"></select>
+
+        <label class="field">ניקוד להוספה (טווח U+05B0–U+05C7)</label>
+        <div id="nikGrid" class="nik-grid"></div>
+        <button type="button" class="btn primary" id="btnAdd">הוסף ניקוד נבחר</button>
+
+        <label class="field">סימונים בשכבה</label>
+        <ul class="marks" id="markList"></ul>
+        <button type="button" class="btn warn" id="btnClear">נקה כל הסימנים</button>
+
+        <label class="field">היסט נבחר (יחידות פונט)</label>
+        <div class="row">
+          <div>
+            <span class="hint">ΔX</span>
+            <input type="number" id="offX" step="1" />
+          </div>
+          <div>
+            <span class="hint">ΔY</span>
+            <input type="number" id="offY" step="1" />
+          </div>
+        </div>
+        <p class="hint">חיצים (בלי Ctrl): הזזה ב־5 יחידות, Shift: 25 · Delete — מחק נבחר</p>
+
+        <label class="field">כתובת שרת ייצוא (אופציונלי)</label>
+        <input class="export-url" id="exportUrl" type="text" value="http://127.0.0.1:8765/export" dir="ltr" />
+        <div class="row" style="margin-top: 0.75rem">
+          <button type="button" class="btn" id="btnJson">הורד JSON</button>
+          <button type="button" class="btn primary" id="btnFont">ייצוא פונט (שרת)</button>
+        </div>
+        <p id="msg" class="hint" dir="ltr"></p>
+      </aside>
+      <main class="main">
+        <canvas id="cv" width="920" height="440"></canvas>
+        <p class="hint">
+          אחרי <code>pip install flask</code>: מתוך תיקיית
+          <code>standalone</code> הרץ
+          <code>python export_server.py</code>
+          ואז לחץ «ייצוא פונט».
+        </p>
+      </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js"></script>
+    <script>
+      (function () {
+        const CANVAS_W = 920,
+          CANVAS_H = 440,
+          VIEW_BASE = 220,
+          BASELINE_Y = 0.72,
+          EXPORT_URL_KEY = "nikkud_export_server_url";
+
+        const HEBREW_LAST = 0x05ea;
+        const NIKKUD_FIRST = 0x05b0,
+          NIKKUD_LAST = 0x05c7;
+
+        let font = null;
+        let fontFile = null;
+        let fontName = "";
+        let baseCP = 0x05d0;
+        let pickNikkud = 0x05b8;
+        let marks = [];
+        let selId = null;
+        function cpStr(cp) {
+          return String.fromCodePoint(cp);
+        }
+
+        function newId() {
+          return "m-" + Math.random().toString(16).slice(2) + Date.now();
+        }
+
+        function isHebrewMark(cp) {
+          return cp >= 0x0591 && cp <= 0x05c7;
+        }
+
+        function shouldCircle(g, cp, stubBb, markFontPx) {
+          if (!isHebrewMark(cp)) return false;
+          if (g.index === 0) return true;
+          var bw = stubBb.x2 - stubBb.x1,
+            bh = stubBb.y2 - stubBb.y1;
+          if (bw < 4 || bh < 4) return true;
+          var asp = bw / Math.max(bh, 0.01);
+          if (asp < 0.9 || asp > 1.11) return false;
+          return bw < markFontPx * 0.34 && bh < markFontPx * 0.34;
+        }
+
+        function markGeom(font, cp, ox, oy, markFontPx) {
+          var g = font.charToGlyph(cpStr(cp));
+          var stubPath = g.getPath(ox, oy, markFontPx);
+          var stubBb = stubPath.getBoundingBox();
+          if (shouldCircle(g, cp, stubBb, markFontPx)) {
+            var cx = (stubBb.x1 + stubBb.x2) / 2,
+              cy = (stubBb.y1 + stubBb.y2) / 2;
+            var stubMin = Math.min(stubBb.x2 - stubBb.x1, stubBb.y2 - stubBb.y1);
+            var isNd = (g.index || -1) === 0;
+            var r = isNd
+              ? markFontPx * 0.065
+              : Math.max(markFontPx * 0.055, Math.min(stubMin * 0.48, markFontPx * 0.1));
+            return { kind: "circle", cx: cx, cy: cy, r: r };
+          }
+          return { kind: "path", path: stubPath };
+        }
+
+        function drawMark(ctx, font, cp, ox, oy, markFontPx, fill) {
+          var geom = markGeom(font, cp, ox, oy, markFontPx);
+          if (geom.kind === "circle") {
+            ctx.beginPath();
+            ctx.arc(geom.cx, geom.cy, geom.r, 0, Math.PI * 2);
+            ctx.fillStyle = fill;
+            ctx.fill();
+            return {
+              x1: geom.cx - geom.r,
+              y1: geom.cy - geom.r,
+              x2: geom.cx + geom.r,
+              y2: geom.cy + geom.r,
+            };
+          }
+          geom.path.fill = fill;
+          geom.path.draw(ctx);
+          return geom.path.getBoundingBox();
+        }
+
+        function buildProject() {
+          return {
+            version: 1,
+            sourceFontHint: fontName || undefined,
+            rules: [
+              {
+                baseCodePoint: baseCP,
+                marks: marks.map(function (m) {
+                  return {
+                    codePoint: m.codePoint,
+                    offsetX: Math.round(m.offsetX),
+                    offsetY: Math.round(m.offsetY),
+                  };
+                }),
+              },
+            ],
+          };
+        }
+
+        function drawAll() {
+          var canvas = document.getElementById("cv");
+          var ctx = canvas.getContext("2d");
+          ctx.fillStyle = "#f4f4f5";
+          ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+          if (!font) {
+            ctx.fillStyle = "#71717a";
+            ctx.font = "18px system-ui,sans-serif";
+            ctx.textAlign = "center";
+            ctx.fillText("טען גופן", CANVAS_W / 2, CANVAS_H / 2);
+            return;
+          }
+          var upe = font.unitsPerEm || 1000;
+          var scale = VIEW_BASE / upe;
+          var markFontPx = VIEW_BASE;
+          var markScale = markFontPx / upe;
+          var baseline = CANVAS_H * BASELINE_Y;
+          var bg = font.charToGlyph(cpStr(baseCP));
+          var adv = bg.advanceWidth * scale;
+          var ox0 = CANVAS_W / 2 - adv / 2;
+          var bp = bg.getPath(ox0, baseline, VIEW_BASE);
+          bp.fill = "#18181b";
+          bp.draw(ctx);
+          var bb = bp.getBoundingBox();
+          var ax = (bb.x1 + bb.x2) / 2,
+            ay = bb.y1;
+
+          ctx.strokeStyle = "rgba(37, 99, 235, 0.45)";
+          ctx.setLineDash([5, 6]);
+          ctx.beginPath();
+          ctx.moveTo(ax + 0.5, 0);
+          ctx.lineTo(ax + 0.5, CANVAS_H);
+          ctx.moveTo(0, ay + 0.5);
+          ctx.lineTo(CANVAS_W, ay + 0.5);
+          ctx.stroke();
+          ctx.setLineDash([]);
+
+          var sorted = marks.slice().sort(function (a, b) {
+            return (a.codePoint & 7) - (b.codePoint & 7);
+          });
+          for (var i = 0; i < sorted.length; i++) {
+            var m = sorted[i];
+            var sx = ax + m.offsetX * markScale;
+            var sy = ay + m.offsetY * markScale;
+            var fill = m.id === selId ? "#1d4ed8" : "#991b1b";
+            drawMark(ctx, font, m.codePoint, sx, sy, markFontPx, fill);
+          }
+
+          ctx.strokeStyle = "#d4d4d8";
+          ctx.setLineDash([6, 6]);
+          ctx.beginPath();
+          ctx.moveTo(CANVAS_W * 0.08, baseline);
+          ctx.lineTo(CANVAS_W * 0.92, baseline);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+
+        function syncInputs() {
+          var m = marks.filter(function (x) {
+            return x.id === selId;
+          })[0];
+          document.getElementById("offX").value = m ? m.offsetX : "";
+          document.getElementById("offY").value = m ? m.offsetY : "";
+          document.getElementById("offX").disabled = !m;
+          document.getElementById("offY").disabled = !m;
+        }
+
+        function renderList() {
+          var ul = document.getElementById("markList");
+          ul.innerHTML = "";
+          marks.forEach(function (m) {
+            var li = document.createElement("li");
+            var b = document.createElement("button");
+            b.type = "button";
+            b.textContent = cpStr(m.codePoint) + " — ΔX " + m.offsetX + " · ΔY " + m.offsetY;
+            if (m.id === selId) b.className = "sel";
+            b.onclick = function () {
+              selId = m.id;
+              renderList();
+              drawAll();
+              syncInputs();
+            };
+            li.appendChild(b);
+            ul.appendChild(li);
+          });
+        }
+
+        function setMsg(t) {
+          document.getElementById("msg").textContent = t || "";
+        }
+
+        function loadFontArrayBuffer(buf, name) {
+          try {
+            font = opentype.parse(buf);
+            fontFile = new File([buf], name || "font.ttf");
+            fontName = name || "";
+            setMsg(name + " נטען");
+            drawAll();
+          } catch (e) {
+            font = null;
+            fontFile = null;
+            setMsg(String(e));
+            drawAll();
+          }
+        }
+
+        function pickFromCanvas(clientX, clientY) {
+          if (!font) return;
+          var canvas = document.getElementById("cv");
+          var r = canvas.getBoundingClientRect();
+          var scalePx = canvas.width / r.width;
+          var sx = (clientX - r.left) * scalePx;
+          var sy = (clientY - r.top) * scalePx;
+          var upe = font.unitsPerEm || 1000;
+          var markFontPx = VIEW_BASE;
+          var markScale = markFontPx / upe;
+          var baseline = CANVAS_H * BASELINE_Y;
+          var bg = font.charToGlyph(cpStr(baseCP));
+          var adv = bg.advanceWidth * (VIEW_BASE / upe);
+          var ox0 = CANVAS_W / 2 - adv / 2;
+          var bp = bg.getPath(ox0, baseline, VIEW_BASE);
+          var bb = bp.getBoundingBox();
+          var ax = (bb.x1 + bb.x2) / 2,
+            ay = bb.y1;
+          var minor = 44;
+          var hits = [];
+          for (var i = marks.length - 1; i >= 0; i--) {
+            var m = marks[i];
+            var ox = ax + m.offsetX * markScale;
+            var oy = ay + m.offsetY * markScale;
+            var geom = markGeom(font, m.codePoint, ox, oy, markFontPx);
+            var raw =
+              geom.kind === "circle"
+                ? {
+                    x1: geom.cx - geom.r,
+                    y1: geom.cy - geom.r,
+                    x2: geom.cx + geom.r,
+                    y2: geom.cy + geom.r,
+                  }
+                : geom.path.getBoundingBox();
+            var cx = (raw.x1 + raw.x2) / 2,
+              cy = (raw.y1 + raw.y2) / 2;
+            var ew = Math.max(raw.x2 - raw.x1, minor);
+            var eh = Math.max(raw.y2 - raw.y1, minor);
+            var hbb = {
+              x1: cx - ew / 2,
+              y1: cy - eh / 2,
+              x2: cx + ew / 2,
+              y2: cy + eh / 2,
+            };
+            if (sx >= hbb.x1 && sx <= hbb.x2 && sy >= hbb.y1 && sy <= hbb.y2) {
+              hits.push({
+                id: m.id,
+                area: Math.max(1e-6, (raw.x2 - raw.x1) * (raw.y2 - raw.y1)),
+                z: marks.length - 1 - i,
+              });
+            }
+          }
+          if (!hits.length) {
+            selId = null;
+            return;
+          }
+          hits.sort(function (a, b) {
+            return a.area - b.area || a.z - b.z;
+          });
+          selId = hits[0].id;
+        }
+
+        function initSidebar() {
+          var sel = document.getElementById("baseSel");
+          for (var c = 0x05d0; c <= HEBREW_LAST; c++) {
+            var o = document.createElement("option");
+            o.value = c;
+            o.textContent = cpStr(c) + " U+" + c.toString(16).toUpperCase();
+            sel.appendChild(o);
+          }
+          sel.value = baseCP;
+          sel.onchange = function () {
+            baseCP = +sel.value;
+            drawAll();
+          };
+
+          var grid = document.getElementById("nikGrid");
+          for (var n = NIKKUD_FIRST; n <= NIKKUD_LAST; n++) {
+            var b = document.createElement("button");
+            b.type = "button";
+            b.textContent = cpStr(n);
+            b.title = "U+" + n.toString(16).toUpperCase();
+            if (n === pickNikkud) b.className = "on";
+            b.onclick = (function (cp) {
+              return function () {
+                pickNikkud = cp;
+                grid.querySelectorAll("button").forEach(function (x) {
+                  x.className = "";
+                });
+                b.className = "on";
+              };
+            })(n);
+            grid.appendChild(b);
+          }
+        }
+
+        document.getElementById("btnAdd").onclick = function () {
+          if (!font) return setMsg("טען גופן תחילה");
+          var id = newId();
+          marks.push({ id: id, codePoint: pickNikkud, offsetX: 0, offsetY: 0 });
+          selId = id;
+          renderList();
+          syncInputs();
+          drawAll();
+        };
+
+        document.getElementById("btnClear").onclick = function () {
+          marks = [];
+          selId = null;
+          renderList();
+          syncInputs();
+          drawAll();
+        };
+
+        document.getElementById("offX").onchange = function () {
+          var m = marks.filter(function (x) {
+            return x.id === selId;
+          })[0];
+          if (!m) return;
+          m.offsetX = +document.getElementById("offX").value || 0;
+          renderList();
+          drawAll();
+        };
+        document.getElementById("offY").onchange = function () {
+          var m = marks.filter(function (x) {
+            return x.id === selId;
+          })[0];
+          if (!m) return;
+          m.offsetY = +document.getElementById("offY").value || 0;
+          renderList();
+          drawAll();
+        };
+
+        document.getElementById("btnJson").onclick = function () {
+          var blob = new Blob([JSON.stringify(buildProject(), null, 2)], {
+            type: "application/json;charset=utf-8",
+          });
+          var a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = "nikkud-project.json";
+          a.click();
+          URL.revokeObjectURL(a.href);
+        };
+
+        document.getElementById("btnFont").onclick = async function () {
+          if (!font || !fontFile) return setMsg("חסר גופן");
+          if (!marks.length) return setMsg("אין סימונים לייצוא");
+          var url =
+            document.getElementById("exportUrl").value.trim() ||
+            "http://127.0.0.1:8765/export";
+          localStorage.setItem(EXPORT_URL_KEY, url);
+          var fd = new FormData();
+          fd.append("font", fontFile, fontFile.name || "font.ttf");
+          fd.append(
+            "project",
+            new Blob([JSON.stringify(buildProject())], {
+              type: "application/json",
+            }),
+            "nikkud-project.json",
+          );
+          setMsg("מייצא…");
+          try {
+            var res = await fetch(url, { method: "POST", body: fd });
+            if (!res.ok) {
+              var errTxt = await res.text();
+              setMsg("שגיאה " + res.status + ": " + errTxt.slice(0, 400));
+              return;
+            }
+            var blob = await res.blob();
+            var a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            var nm = fontFile.name || "font.ttf";
+            var base = nm.replace(/\.[^.]+$/, "");
+            var ext = /\.otf$/i.test(nm) ? ".otf" : ".ttf";
+            a.download = base + "-nikkud" + ext;
+            a.click();
+            URL.revokeObjectURL(a.href);
+            setMsg("הורדה הושלמה");
+          } catch (e) {
+            setMsg(String(e));
+          }
+        };
+
+        var drop = document.getElementById("drop");
+        var fileIn = document.getElementById("fileIn");
+        drop.onclick = function () {
+          fileIn.click();
+        };
+        fileIn.onchange = function () {
+          var f = fileIn.files && fileIn.files[0];
+          if (!f) return;
+          var r = new FileReader();
+          r.onload = function () {
+            loadFontArrayBuffer(r.result, f.name);
+          };
+          r.readAsArrayBuffer(f);
+        };
+        drop.ondragover = function (e) {
+          e.preventDefault();
+          drop.classList.add("drag");
+        };
+        drop.ondragleave = function () {
+          drop.classList.remove("drag");
+        };
+        drop.ondrop = function (e) {
+          e.preventDefault();
+          drop.classList.remove("drag");
+          var f = e.dataTransfer.files[0];
+          if (f) {
+            var r = new FileReader();
+            r.onload = function () {
+              loadFontArrayBuffer(r.result, f.name);
+            };
+            r.readAsArrayBuffer(f);
+          }
+        };
+
+        var cv = document.getElementById("cv");
+        cv.onclick = function (e) {
+          pickFromCanvas(e.clientX, e.clientY);
+          renderList();
+          syncInputs();
+          drawAll();
+        };
+
+        window.addEventListener("keydown", function (e) {
+          if (e.target.matches("input,textarea,select")) return;
+          var mod = e.ctrlKey || e.metaKey;
+          if (mod) return;
+          if ((e.key === "Delete" || e.key === "Backspace") && selId) {
+            e.preventDefault();
+            marks = marks.filter(function (x) {
+              return x.id !== selId;
+            });
+            selId = null;
+            renderList();
+            syncInputs();
+            drawAll();
+            return;
+          }
+          var m = marks.filter(function (x) {
+            return x.id === selId;
+          })[0];
+          if (!m) return;
+          var step = e.shiftKey ? 25 : 5;
+          if (e.key === "ArrowRight") {
+            e.preventDefault();
+            m.offsetX += step;
+          } else if (e.key === "ArrowLeft") {
+            e.preventDefault();
+            m.offsetX -= step;
+          } else if (e.key === "ArrowDown") {
+            e.preventDefault();
+            m.offsetY += step;
+          } else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            m.offsetY -= step;
+          } else return;
+          renderList();
+          syncInputs();
+          drawAll();
+        });
+
+        var savedU = localStorage.getItem(EXPORT_URL_KEY);
+        if (savedU) document.getElementById("exportUrl").value = savedU;
+
+        initSidebar();
+        drawAll();
+      })();
+    </script>
+  </body>
+</html>
