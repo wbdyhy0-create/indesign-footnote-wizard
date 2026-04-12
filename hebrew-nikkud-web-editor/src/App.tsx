@@ -35,7 +35,12 @@ export default function App() {
   const [marks, setMarks] = useState<MarkInstance[]>([]);
   const [selectedMarkId, setSelectedMarkId] = useState<string | null>(null);
   const [markToAdd, setMarkToAdd] = useState(0x05b8);
+  const [showGrid, setShowGrid] = useState(true);
+  const [gridMinorPx, setGridMinorPx] = useState(10);
+  const [showAnchorGuides, setShowAnchorGuides] = useState(true);
   const markBoxesRef = useRef<Map<string, BBox>>(new Map());
+
+  const gridMajorPx = gridMinorPx * 5;
 
   const handleBoxesMeasured = useCallback((boxes: Map<string, BBox>) => {
     markBoxesRef.current = boxes;
@@ -152,7 +157,41 @@ export default function App() {
             selectedMarkId={selectedMarkId}
             onSelectMark={setSelectedMarkId}
             onBoxesMeasured={handleBoxesMeasured}
+            showGrid={showGrid}
+            gridMinorPx={gridMinorPx}
+            gridMajorPx={gridMajorPx}
+            showAnchorGuides={showAnchorGuides}
           />
+          <div className="canvas-tools">
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={showGrid}
+                onChange={(e) => setShowGrid(e.target.checked)}
+              />
+              רשת פיקסלים
+            </label>
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={showAnchorGuides}
+                onChange={(e) => setShowAnchorGuides(e.target.checked)}
+              />
+              קווי עוגן (מרכז אופקי + עליון האות)
+            </label>
+            <label className="grid-step">
+              צעד רשת
+              <select
+                value={gridMinorPx}
+                onChange={(e) => setGridMinorPx(Number(e.target.value))}
+                disabled={!showGrid}
+              >
+                <option value={5}>5 פיקסלים</option>
+                <option value={10}>10 פיקסלים</option>
+                <option value={20}>20 פיקסלים</option>
+              </select>
+            </label>
+          </div>
         </div>
 
         <aside className="side">

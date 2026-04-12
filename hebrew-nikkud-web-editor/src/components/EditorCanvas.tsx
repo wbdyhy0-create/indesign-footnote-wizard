@@ -3,6 +3,7 @@ import type { Font } from "opentype.js";
 import type { MarkInstance } from "../types";
 import { markLayerOrder, markZoneForCodePoint } from "../lib/markZones";
 import type { BBox } from "../lib/collision";
+import { drawAnchorGuides, drawPixelGrid } from "../lib/canvasGrid";
 
 const VIEW_FONT_PX = 220;
 
@@ -13,6 +14,14 @@ export interface EditorCanvasProps {
   selectedMarkId: string | null;
   onSelectMark: (id: string | null) => void;
   onBoxesMeasured?: (boxes: Map<string, BBox>) => void;
+  /** רשת פיקסלים (עדינה + קווים חזקים כל majorPx) */
+  showGrid?: boolean;
+  /** מרווח רשת עדינה בפיקסלים */
+  gridMinorPx?: number;
+  /** מרווח קווים בולטים יותר (מומלץ כפולה של minor) */
+  gridMajorPx?: number;
+  /** קו אנכי במרכז האות + קו אופקי בעוגן הניקוד */
+  showAnchorGuides?: boolean;
 }
 
 function sortMarksForDraw(marks: MarkInstance[]): MarkInstance[] {
@@ -30,6 +39,10 @@ export function EditorCanvas({
   selectedMarkId,
   onSelectMark,
   onBoxesMeasured,
+  showGrid = true,
+  gridMinorPx = 10,
+  gridMajorPx = 50,
+  showAnchorGuides = true,
 }: EditorCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -44,6 +57,10 @@ export function EditorCanvas({
     ctx.clearRect(0, 0, w, h);
     ctx.fillStyle = "#f4f4f5";
     ctx.fillRect(0, 0, w, h);
+
+    if (showGrid) {
+      drawPixelGrid(ctx, w, h, gridMinorPx, gridMajorPx);
+    }
 
     if (!font) {
       ctx.fillStyle = "#71717a";
@@ -68,6 +85,10 @@ export function EditorCanvas({
     const baseBBox = basePath.getBoundingBox();
     const anchorX = (baseBBox.x1 + baseBBox.x2) / 2;
     const anchorY = baseBBox.y1;
+
+    if (showAnchorGuides) {
+      drawAnchorGuides(ctx, w, h, anchorX, anchorY);
+    }
 
     const boxes = new Map<string, BBox>();
     const sorted = sortMarksForDraw(marks);
@@ -94,7 +115,17 @@ export function EditorCanvas({
     ctx.setLineDash([]);
 
     onBoxesMeasured?.(boxes);
-  }, [font, baseCodePoint, marks, selectedMarkId, onBoxesMeasured]);
+  }, [
+    font,
+    baseCodePoint,
+    marks,
+    selectedMarkId,
+    onBoxesMeasured,
+    showGrid,
+    gridMinorPx,
+    gridMajorPx,
+    showAnchorGuides,
+  ]);
 
   const handleClick = (ev: React.MouseEvent<HTMLCanvasElement>) => {
     if (!font) return;

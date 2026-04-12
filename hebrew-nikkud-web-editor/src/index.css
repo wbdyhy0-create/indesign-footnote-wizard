@@ -92,6 +92,36 @@ body {
   overflow: auto;
 }
 
+.canvas-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1.25rem;
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  color: #3f3f46;
+}
+
+.canvas-tools .check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+}
+
+.canvas-tools .grid-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.canvas-tools .grid-step select {
+  font: inherit;
+  padding: 0.2rem 0.35rem;
+  border-radius: 4px;
+  border: 1px solid #d4d4d8;
+}
+
 .editor-canvas {
   display: block;
   width: 100%;
