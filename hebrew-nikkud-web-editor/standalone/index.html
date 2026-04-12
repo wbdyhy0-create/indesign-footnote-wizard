@@ -241,10 +241,11 @@
       <main class="main">
         <canvas id="cv" width="920" height="440"></canvas>
         <p class="hint">
-          להרצת השרת ב־Windows: לחץ פעמיים על
-          <code>run-export-server.bat</code> (חלון נשאר פתוח). אל תלחץ פעמיים רק על
-          <code>export_server.py</code> — החלון נסגר מיד אם יש שגיאה. חלופה:
-          <code>pip install flask</code> ואז <code>python export_server.py</code> מ־CMD.
+          להרצת השרת: <code>run-export-server.bat</code> (חלון נשאר פתוח). אחרי ההפעלה
+          <strong>פתחו בדפדפן את</strong> <code dir="ltr">http://127.0.0.1:8765/</code>
+          — לא את קובץ ה־HTML מהדיסק (<code>file://</code>), כדי שייצוא לשרת לא ייתקע.
+          חלופה: <code>pip install flask</code> ואז <code>python export_server.py</code> מתוך תיקיית
+          <code>standalone</code>.
         </p>
       </main>
     </div>
@@ -679,6 +680,11 @@
             return r.marks && r.marks.length;
           });
           if (!hasMarks) return setMsg("אין סימונים בכללים — הוסף שכבה או שמור אות למכלול");
+          if (window.location.protocol === "file:") {
+            return setMsg(
+              "העמוד נפתח מקובץ (file://) — ייצוא לשרת עלול להיתקע. הריצו run-export-server.bat ופתחו בדפדפן: http://127.0.0.1:8765/ (אותו מקור כמו השרת).",
+            );
+          }
           var hybrid = !!engineFile;
           var rawUrl = document.getElementById("exportUrl").value.trim();
           var url = exportEndpoint(rawUrl, hybrid);
@@ -700,7 +706,7 @@
             }),
             "nikkud-project.json",
           );
-          setMsg(hybrid ? "מייצא (היברידי)…" : "מייצא…");
+          setMsg(hybrid ? "מייצא (היברידי)… (פונט גדול = כמה דקות)" : "מייצא…");
           var exportAbort = new AbortController();
           var exportTimer = setTimeout(function () {
             exportAbort.abort();
@@ -716,6 +722,11 @@
               setMsg("שגיאה " + res.status + ": " + errTxt.slice(0, 4000));
               return;
             }
+            setMsg(
+              hybrid
+                ? "השרת סיים — מוריד קובץ (גדול = כמה שניות)…"
+                : "מוריד קובץ…",
+            );
             var blob = await res.blob();
             var a = document.createElement("a");
             a.href = URL.createObjectURL(blob);
@@ -863,8 +874,14 @@
           drawAll();
         });
 
-        var savedU = localStorage.getItem(EXPORT_URL_KEY);
-        if (savedU) document.getElementById("exportUrl").value = savedU;
+        if (window.location.protocol !== "file:" && window.location.port) {
+          var sameOriginExport = window.location.origin + "/export";
+          document.getElementById("exportUrl").value = sameOriginExport;
+          localStorage.setItem(EXPORT_URL_KEY, sameOriginExport);
+        } else {
+          var savedU = localStorage.getItem(EXPORT_URL_KEY);
+          if (savedU) document.getElementById("exportUrl").value = savedU;
+        }
         var savedFn = localStorage.getItem(EXPORT_FONT_NAME_KEY);
         if (savedFn != null) document.getElementById("exportFontName").value = savedFn;
 

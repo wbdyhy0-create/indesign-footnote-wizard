@@ -51,7 +51,7 @@ def _run_script_logged(
     return proc.returncode, _tail_text_file(log_path)
 
 try:
-    from flask import Flask, Response, request
+    from flask import Flask, Response, request, send_file
 except ImportError as e:
     print(
         "חסר מודול Flask.\n"
@@ -69,8 +69,11 @@ except ImportError as e:
     sys.exit(1)
 
 APP = Flask(__name__)
+# פונטים + JSON — גבול גבוה כדי שלא ייחתך בשקט
+APP.config["MAX_CONTENT_LENGTH"] = 512 * 1024 * 1024
 
 STANDALONE_DIR = Path(__file__).resolve().parent
+INDEX_HTML = STANDALONE_DIR / "index.html"
 NIKKUD_EDITOR = STANDALONE_DIR.parent
 REPO_ROOT = NIKKUD_EDITOR.parent
 APPLY_SCRIPT = NIKKUD_EDITOR / "scripts" / "apply_nikkud_project.py"
@@ -82,6 +85,18 @@ def _cors(resp: Response) -> Response:
     resp.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
     resp.headers["Access-Control-Allow-Headers"] = "*"
     return resp
+
+
+@APP.get("/")
+def serve_index() -> Response:
+    """ממשק העורך מאותו מקור כמו הייצוא — מונע תקיעות fetch מ־file:// ל־localhost."""
+    if not INDEX_HTML.is_file():
+        return Response(
+            f"לא נמצא index.html ב־{INDEX_HTML}",
+            status=404,
+            mimetype="text/plain; charset=utf-8",
+        )
+    return send_file(INDEX_HTML, mimetype="text/html; charset=utf-8")
 
 
 @APP.route("/export", methods=["OPTIONS"])
@@ -277,6 +292,7 @@ def _pause_exit(msg: str, code: int = 1) -> None:
 
 
 if __name__ == "__main__":
+    print("ממשק עורך (מומלץ): http://127.0.0.1:8765/")
     print("ייצוא רגיל: POST http://127.0.0.1:8765/export")
     print("ייצוא היברידי: POST http://127.0.0.1:8765/export_hybrid")
     print(f"סקריפט יישום: {APPLY_SCRIPT}")

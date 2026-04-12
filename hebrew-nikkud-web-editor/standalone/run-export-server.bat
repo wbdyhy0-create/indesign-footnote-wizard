@@ -24,8 +24,10 @@ if errorlevel 1 (
   )
 )
 echo.
-echo Server: http://127.0.0.1:8765  (POST /export)
+echo Editor + export: http://127.0.0.1:8765/
+echo API: POST /export  or  POST /export_hybrid
 echo Keep this window open. Close it to stop the server.
+echo Open the URL above in the browser ^(not file://^).
 echo.
 python export_server.py
 echo.
