@@ -1,0 +1,249 @@
+:root {
+  color-scheme: light;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  background: #e4e4e7;
+  color: #18181b;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+.app-shell {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 1rem 1.25rem 2rem;
+}
+
+.app-header h1 {
+  margin: 0 0 0.35rem;
+  font-size: 1.35rem;
+  font-weight: 650;
+}
+
+.app-sub {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #52525b;
+}
+
+.panel {
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  background: #fff;
+  border: 1px solid #d4d4d8;
+  border-radius: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.file-label input[type="file"] {
+  max-width: 100%;
+}
+
+.file-meta {
+  font-size: 0.85rem;
+  color: #3f3f46;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.linkish {
+  border: none;
+  background: none;
+  color: #2563eb;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+  font: inherit;
+}
+
+.error {
+  color: #b91c1c;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+@media (max-width: 960px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.canvas-wrap {
+  background: #fff;
+  border: 1px solid #d4d4d8;
+  border-radius: 8px;
+  padding: 0.5rem;
+  overflow: auto;
+}
+
+.editor-canvas {
+  display: block;
+  width: 100%;
+  max-width: 900px;
+  height: auto;
+  border-radius: 6px;
+  cursor: crosshair;
+}
+
+.side {
+  background: #fff;
+  border: 1px solid #d4d4d8;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.field label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #3f3f46;
+}
+
+.field select,
+.field button,
+.json-out {
+  font: inherit;
+}
+
+.field select {
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid #d4d4d8;
+}
+
+.field .primary {
+  margin-top: 0.25rem;
+  padding: 0.45rem 0.65rem;
+  border-radius: 6px;
+  border: none;
+  background: #1d4ed8;
+  color: #fff;
+  cursor: pointer;
+}
+
+.field .primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.field.row {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.field.row button {
+  flex: 1;
+  min-width: 120px;
+  padding: 0.4rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid #d4d4d8;
+  background: #fafafa;
+  cursor: pointer;
+}
+
+.field.row button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.mark-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-height: 200px;
+  overflow: auto;
+}
+
+.mark-btn,
+.mark-sel {
+  width: 100%;
+  text-align: right;
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid #e4e4e7;
+  background: #fafafa;
+  cursor: pointer;
+  font: inherit;
+}
+
+.mark-sel {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
+.readout {
+  display: flex;
+  gap: 1rem;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.95rem;
+}
+
+.arrows {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.35rem;
+}
+
+.arrows button {
+  padding: 0.4rem;
+  font-size: 1rem;
+  border-radius: 6px;
+  border: 1px solid #d4d4d8;
+  background: #fff;
+  cursor: pointer;
+}
+
+.arrows button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.hint {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #71717a;
+}
+
+.muted {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #71717a;
+}
+
+.json-out {
+  width: 100%;
+  resize: vertical;
+  border-radius: 6px;
+  border: 1px solid #d4d4d8;
+  padding: 0.5rem;
+  font-size: 0.75rem;
+  font-family: ui-monospace, monospace;
+}
