@@ -41,10 +41,16 @@ export function markGeometry(
   if (shouldDrawHebrewMarkAsCircle(g, codePoint, stubBb, markFontPx)) {
     const cx = (stubBb.x1 + stubBb.x2) / 2;
     const cy = (stubBb.y1 + stubBb.y2) / 2;
-    const r = Math.max(
-      markFontPx * 0.09,
-      Math.min(stubBb.x2 - stubBb.x1, stubBb.y2 - stubBb.y1) * 0.48,
-    );
+    const stubMin = Math.min(stubBb.x2 - stubBb.x1, stubBb.y2 - stubBb.y1);
+    // .notdef is usually drawn as a full-em box; using stubMin*0.48 made a dot
+    // almost half the letter height. Real niqqud is a small fraction of the em.
+    const isNotdef = (g.index ?? -1) === 0;
+    const r = isNotdef
+      ? markFontPx * 0.065
+      : Math.max(
+          markFontPx * 0.055,
+          Math.min(stubMin * 0.48, markFontPx * 0.1),
+        );
     return { kind: "circle", cx, cy, r: r };
   }
   return { kind: "path", path: stubPath };
