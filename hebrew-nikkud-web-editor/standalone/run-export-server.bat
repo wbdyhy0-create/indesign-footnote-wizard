@@ -12,11 +12,15 @@ if errorlevel 1 (
 python -c "import flask" 2>nul
 if errorlevel 1 (
   echo Installing Flask...
-  pip install flask
+  python -m pip install flask
   if errorlevel 1 (
-    echo pip failed. Try: py -m pip install flask
-    pause
-    exit /b 1
+    echo Trying py launcher...
+    py -m pip install flask
+    if errorlevel 1 (
+      echo Install failed. Run manually:  python -m pip install flask
+      pause
+      exit /b 1
+    )
   )
 )
 echo.
