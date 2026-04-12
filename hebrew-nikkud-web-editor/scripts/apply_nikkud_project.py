@@ -15,8 +15,9 @@
 
 הערות:
   - אם אין בגופן בכלל תת־טבלאות MarkToBase, הסקריפט ייכשל (אין יצירת GPOS מאפס).
-  - offsetX/Y בפרויקט מתפרשים כ **דלתא** שמוסיפים לקואורדינטות עוגן ה-Mark הקיימות
-    (לאחר ensure — עוגן ברירת מחדל 0,0 אם חדש).
+    - offsetX/Y בפרויקט מתפרשים כ **דלתא** שמוסיפים ל־**BaseAnchor** של האות עבור זוג MarkToBase
+      (לא ל־MarkAnchor של הסימון — MarkAnchor משותף לכל האותיות שמשתמשות באותו גליף ניקוד,
+      ולכן שינוי שם היה מזיז את כל הקמצים בגופן).
 """
 
 from __future__ import annotations
@@ -45,12 +46,7 @@ def _bootstrap_gpos_editor_path() -> Path:
 
 def main() -> None:
     _bootstrap_gpos_editor_path()
-    from font_loader import (  # type: ignore  # noqa: E402
-        FontLoader,
-        _anchor_xy,
-        _set_anchor_xy,
-        find_mark_base_for_pair,
-    )
+    from font_loader import FontLoader  # type: ignore  # noqa: E402
 
     ap = argparse.ArgumentParser(description="החלת פרויקט ניקוד על גופן")
     ap.add_argument("--input", "-i", required=True, help="קובץ גופן מקור")
@@ -101,13 +97,9 @@ def main() -> None:
                     )
                     skip += 1
                     continue
-                mbi = find_mark_base_for_pair(fl.font, bg, mg)
-                if not mbi:
+                if not fl.nudge_base_anchor(bg, mg, float(dx), float(dy)):
                     skip += 1
                     continue
-                ma = mbi.get_mark_anchor()
-                mx, my = _anchor_xy(ma)
-                _set_anchor_xy(ma, mx + dx, my + dy)
                 ok += 1
         _live(
             "[apply] שומר קובץ פלט (כולל GPOS — שלב כבד בפונטים גדולים, דקות אפשריות)…"
