@@ -19,7 +19,23 @@ import sys
 import tempfile
 from pathlib import Path
 
-from flask import Flask, Response, request
+try:
+    from flask import Flask, Response, request
+except ImportError as e:
+    print(
+        "חסר מודול Flask.\n"
+        "פתחו חלון CMD או PowerShell והריצו:\n"
+        "  pip install flask\n"
+        "ואז שוב: python export_server.py\n"
+        "או לחצו פעמיים על run-export-server.bat בתיקייה זו.\n",
+        file=sys.stderr,
+    )
+    print(repr(e), file=sys.stderr)
+    try:
+        input("\nלחצו Enter לסגירה...")
+    except EOFError:
+        pass
+    sys.exit(1)
 
 APP = Flask(__name__)
 
@@ -106,7 +122,24 @@ def export_font() -> Response:
     return _cors(resp)
 
 
+def _pause_exit(msg: str, code: int = 1) -> None:
+    print(msg, file=sys.stderr)
+    try:
+        input("\nלחצו Enter לסגירה...")
+    except EOFError:
+        pass
+    sys.exit(code)
+
+
 if __name__ == "__main__":
     print("ייצוא פונט: POST http://127.0.0.1:8765/export")
     print(f"סקריפט יישום: {APPLY_SCRIPT}")
-    APP.run(host="127.0.0.1", port=8765, debug=False)
+    print("השארו את החלון פתוח — סגירה עוצרת את השרת.\n")
+    try:
+        APP.run(host="127.0.0.1", port=8765, debug=False)
+    except OSError as e:
+        if "10048" in str(e) or "address already in use" in str(e).lower():
+            _pause_exit(
+                "הפורט 8765 תפוס. סגרו תוכנה אחרת על אותו פורט או שינו פורט בקובץ export_server.py"
+            )
+        _pause_exit(str(e))
