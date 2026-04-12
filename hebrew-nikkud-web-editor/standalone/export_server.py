@@ -157,6 +157,9 @@ REPO_ROOT = NIKKUD_EDITOR.parent
 APPLY_SCRIPT = NIKKUD_EDITOR / "scripts" / "apply_nikkud_project.py"
 HYBRID_SCRIPT = NIKKUD_EDITOR / "scripts" / "hybrid_gpos_export.py"
 
+# מודפס בכל ייבוא היברידי — אם עדיין מופיע _TeeBinary ב־traceback, השרת לא טוען את הקובץ הזה.
+EXPORT_SERVER_BUILD = "2026-04-12-popen-pipe"
+
 
 def _cors(resp: Response) -> Response:
     resp.headers["Access-Control-Allow-Origin"] = "*"
@@ -290,7 +293,13 @@ def export_hybrid_get_hint() -> Response:
 @APP.route("/export_hybrid", methods=["POST"])
 def export_hybrid() -> Response:
     """Legacy = אותיות; Engine = GPOS + ניקוד; מיזוג glyf אותיות ואז apply JSON."""
-    print("export_hybrid: התחלה", flush=True)
+    print(
+        "export_hybrid: התחלה | build="
+        + EXPORT_SERVER_BUILD
+        + " | export_server="
+        + str(Path(__file__).resolve()),
+        flush=True,
+    )
     if not HYBRID_SCRIPT.is_file():
         return _cors(
             Response(
