@@ -413,6 +413,9 @@ export default function App() {
                 onChange={(e) => setGridMinorPx(Number(e.target.value))}
                 disabled={!showGrid}
               >
+                <option value={2}>2 פיקסלים</option>
+                <option value={3}>3 פיקסלים</option>
+                <option value={4}>4 פיקסלים</option>
                 <option value={5}>5 פיקסלים</option>
                 <option value={10}>10 פיקסלים</option>
                 <option value={20}>20 פיקסלים</option>
