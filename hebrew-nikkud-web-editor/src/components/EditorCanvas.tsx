@@ -14,6 +14,8 @@ export interface EditorCanvasProps {
   selectedMarkId: string | null;
   onSelectMark: (id: string | null) => void;
   onBoxesMeasured?: (boxes: Map<string, BBox>) => void;
+  /** מקדם לגודל ציור ניקוד ביחס לאות (1 = ברירת מחדל; גדול מ־1 לגופן עבה) */
+  markDrawScale?: number;
   /** רשת פיקסלים (עדינה + קווים חזקים כל majorPx) */
   showGrid?: boolean;
   /** מרווח רשת עדינה בפיקסלים */
@@ -39,12 +41,14 @@ export function EditorCanvas({
   selectedMarkId,
   onSelectMark,
   onBoxesMeasured,
+  markDrawScale = 1,
   showGrid = true,
   gridMinorPx = 10,
   gridMajorPx = 50,
   showAnchorGuides = true,
 }: EditorCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const mScale = Number.isFinite(markDrawScale) && markDrawScale > 0 ? markDrawScale : 1;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -72,6 +76,8 @@ export function EditorCanvas({
     }
 
     const scale = VIEW_FONT_PX / font.unitsPerEm;
+    const markFontPx = VIEW_FONT_PX * mScale;
+    const markScale = markFontPx / font.unitsPerEm;
     const baseline = h * 0.72;
     const baseChar = String.fromCodePoint(baseCodePoint);
     const baseGlyph = font.charToGlyph(baseChar);
@@ -96,9 +102,9 @@ export function EditorCanvas({
     for (const m of sorted) {
       const ch = String.fromCodePoint(m.codePoint);
       const g = font.charToGlyph(ch);
-      const ox = anchorX + m.offsetX * scale;
-      const oy = anchorY + m.offsetY * scale;
-      const p = g.getPath(ox, oy, VIEW_FONT_PX);
+      const ox = anchorX + m.offsetX * markScale;
+      const oy = anchorY + m.offsetY * markScale;
+      const p = g.getPath(ox, oy, markFontPx);
       const isSel = m.id === selectedMarkId;
       p.fill = isSel ? "#1d4ed8" : "#991b1b";
       p.draw(ctx);
@@ -125,6 +131,7 @@ export function EditorCanvas({
     gridMinorPx,
     gridMajorPx,
     showAnchorGuides,
+    markDrawScale,
   ]);
 
   const handleClick = (ev: React.MouseEvent<HTMLCanvasElement>) => {
@@ -138,7 +145,7 @@ export function EditorCanvas({
     const sx = x * scale;
     const sy = y * scale;
 
-    const hit = hitTestMarks(canvasRef.current, font, baseCodePoint, marks, sx, sy);
+    const hit = hitTestMarks(canvasRef.current, font, baseCodePoint, marks, sx, sy, mScale);
     onSelectMark(hit);
   };
 
@@ -162,11 +169,14 @@ function hitTestMarks(
   marks: MarkInstance[],
   sx: number,
   sy: number,
+  markDrawScale: number,
 ): string | null {
   if (!canvas) return null;
   const w = canvas.width;
   const h = canvas.height;
   const scale = VIEW_FONT_PX / font.unitsPerEm;
+  const markFontPx = VIEW_FONT_PX * markDrawScale;
+  const markScale = markFontPx / font.unitsPerEm;
   const baseline = h * 0.72;
   const baseGlyph = font.charToGlyph(String.fromCodePoint(baseCodePoint));
   const advancePx = baseGlyph.advanceWidth * scale;
@@ -179,9 +189,9 @@ function hitTestMarks(
   const sorted = sortMarksForDraw(marks).reverse();
   for (const m of sorted) {
     const g = font.charToGlyph(String.fromCodePoint(m.codePoint));
-    const ox = anchorX + m.offsetX * scale;
-    const oy = anchorY + m.offsetY * scale;
-    const p = g.getPath(ox, oy, VIEW_FONT_PX);
+    const ox = anchorX + m.offsetX * markScale;
+    const oy = anchorY + m.offsetY * markScale;
+    const p = g.getPath(ox, oy, markFontPx);
     const bb = p.getBoundingBox();
     if (sx >= bb.x1 && sx <= bb.x2 && sy >= bb.y1 && sy <= bb.y2) return m.id;
   }

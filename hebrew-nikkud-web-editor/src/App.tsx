@@ -43,6 +43,8 @@ export default function App() {
   const [showGrid, setShowGrid] = useState(true);
   const [gridMinorPx, setGridMinorPx] = useState(10);
   const [showAnchorGuides, setShowAnchorGuides] = useState(true);
+  /** מקדם גודל ניקוד בתצוגה (עיגולים + קנבס); 1.2–1.5 מתאים לרוב לגופן עבה */
+  const [markViewScale, setMarkViewScale] = useState(1);
   const [rules, setRules] = useState<ProjectRule[]>([]);
   const [selectedRuleId, setSelectedRuleId] = useState<string | null>(null);
   const markBoxesRef = useRef<Map<string, BBox>>(new Map());
@@ -218,8 +220,10 @@ export default function App() {
     [loadFromFile],
   );
 
+  const shellStyle = { "--mark-ui-scale": String(markViewScale) } as React.CSSProperties;
+
   return (
-    <div className="app-shell">
+    <div className="app-shell" style={shellStyle}>
       <header className="app-header">
         <h1>עורך עוגני ניקוד — שלד Frontend</h1>
         <p className="app-sub">
@@ -270,6 +274,7 @@ export default function App() {
             selectedMarkId={selectedMarkId}
             onSelectMark={setSelectedMarkId}
             onBoxesMeasured={handleBoxesMeasured}
+            markDrawScale={markViewScale}
             showGrid={showGrid}
             gridMinorPx={gridMinorPx}
             gridMajorPx={gridMajorPx}
@@ -303,6 +308,23 @@ export default function App() {
                 <option value={10}>10 פיקסלים</option>
                 <option value={20}>20 פיקסלים</option>
               </select>
+            </label>
+            <label className="mark-scale">
+              <span className="mark-scale-head">
+                <span>גודל ניקוד בתצוגה (גופן עבה)</span>
+                <span dir="ltr" className="mark-scale-val">
+                  {Math.round(markViewScale * 100)}%
+                </span>
+              </span>
+              <input
+                type="range"
+                min={0.75}
+                max={2}
+                step={0.05}
+                value={markViewScale}
+                onChange={(e) => setMarkViewScale(Number(e.target.value))}
+                aria-valuetext={`${Math.round(markViewScale * 100)} אחוז`}
+              />
             </label>
           </div>
         </div>

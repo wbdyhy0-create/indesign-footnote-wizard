@@ -14,6 +14,7 @@ body {
 }
 
 .app-shell {
+  --mark-ui-scale: 1;
   max-width: 1100px;
   margin: 0 auto;
   padding: 1rem 1.25rem 2rem;
@@ -147,6 +148,35 @@ body {
   border: 1px solid #d4d4d8;
 }
 
+.canvas-tools .mark-scale {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.2rem;
+  flex: 1 1 220px;
+  min-width: 180px;
+  max-width: 280px;
+}
+
+.canvas-tools .mark-scale-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.35rem;
+}
+
+.canvas-tools .mark-scale input[type="range"] {
+  width: 100%;
+  vertical-align: middle;
+}
+
+.canvas-tools .mark-scale-val {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: #2563eb;
+}
+
 .editor-canvas {
   display: block;
   width: 100%;
@@ -264,12 +294,12 @@ body {
 
 .mark-row-glyph {
   flex: 0 0 auto;
-  width: 2rem;
-  height: 2rem;
+  width: calc(2rem * var(--mark-ui-scale, 1));
+  height: calc(2rem * var(--mark-ui-scale, 1));
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.35rem;
+  font-size: calc(1.35rem * var(--mark-ui-scale, 1));
   line-height: 1;
   font-family: "Segoe UI Historic", "David", "Frank Ruhl Libre", "Noto Sans Hebrew", "Segoe UI", serif;
   border: 1px solid #d4d4d8;
@@ -455,7 +485,7 @@ body {
   cursor: pointer;
   font: inherit;
   color: inherit;
-  min-height: 3.25rem;
+  min-height: max(3.25rem, calc(2.85rem * var(--mark-ui-scale, 1) + 0.5rem));
 }
 
 .nikkud-row:hover {
@@ -475,15 +505,15 @@ body {
   box-shadow: inset 0 1px 0 #fff, 0 0 0 1px #2563eb22;
 }
 
-/* תא התו — עיגול מלא (נקודות שין/סין, דגש, חולם וכו׳ לא נראות בתוך ריבוע) */
+/* תא התו — עיגול מלא; גודל עוקב אחר --mark-ui-scale (בקרה לגופן עבה) */
 .nikkud-glyph {
   flex: 0 0 auto;
-  width: 2.85rem;
-  height: 2.85rem;
+  width: calc(2.85rem * var(--mark-ui-scale, 1));
+  height: calc(2.85rem * var(--mark-ui-scale, 1));
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 2.05rem;
+  font-size: calc(2.05rem * var(--mark-ui-scale, 1));
   line-height: 1;
   font-family: "Segoe UI Historic", "David", "Frank Ruhl Libre", "Noto Sans Hebrew", "Segoe UI", serif;
   background: radial-gradient(circle at 50% 42%, #fff 0%, #f4f4f5 100%);
