@@ -9,6 +9,8 @@ POST /export — multipart: שדה "font" (קובץ TTF/OTF), שדה "project" (
 הרצה מתוך תיקיית standalone:
   python export_server.py
 
+לחלון אחד (דפדפן מובנה + שרת, בלי file://): run-nikkud-desktop.bat או python nikkud_desktop_launcher.py
+
 שורש הריפו חייב להכיל hebrew-mark-editor ו־hebrew-nikkud-web-editor (כמו apply_nikkud_project.py).
 """
 

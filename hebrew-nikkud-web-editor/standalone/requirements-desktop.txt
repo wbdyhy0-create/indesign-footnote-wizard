@@ -1,0 +1,4 @@
+# שולחן עבודה: חלון מובנה + שרת ייצוא מקומי (nikkud_desktop_launcher.py)
+Flask>=2.0
+PyQt5>=5.15
+PyQtWebEngine>=5.15
