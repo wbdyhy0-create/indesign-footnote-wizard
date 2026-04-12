@@ -113,6 +113,16 @@ export default function App() {
         );
         return;
       }
+      if (
+        selectedMarkId &&
+        !mod &&
+        (ev.key === "Delete" || ev.key === "Backspace")
+      ) {
+        ev.preventDefault();
+        setMarks((prev) => prev.filter((m) => m.id !== selectedMarkId));
+        setSelectedMarkId(null);
+        return;
+      }
       if (!selectedMarkId || mod) return;
       const fine = ev.shiftKey ? 25 : 5;
       switch (ev.key) {
@@ -173,6 +183,11 @@ export default function App() {
   const removeSelectedMark = () => {
     if (!selectedMarkId) return;
     setMarks((prev) => prev.filter((m) => m.id !== selectedMarkId));
+    setSelectedMarkId(null);
+  };
+
+  const clearAllMarks = () => {
+    setMarks([]);
     setSelectedMarkId(null);
   };
 
@@ -495,6 +510,9 @@ export default function App() {
 
           <div className="field">
             <label>סימנים בשכבה</label>
+            <p className="hint">
+              לחיצה על שורה ברשימה או על סימון בקנבס בוחרת. כפתור «נקה את כל הסימנים» מסיר את כל השכבה בבת אחת.
+            </p>
             <ul className="mark-list">
               {marks.map((m) => {
                 const sel = m.id === selectedMarkId;
@@ -544,12 +562,18 @@ export default function App() {
                 →
               </button>
             </div>
-            <p className="hint">חיצים במקלדת: 5 יחידות; Shift: 25 · סימן חדש מתחיל ב־0,0 (דלתא לייצוא)</p>
+            <p className="hint">
+              חיצים במקלדת: 5 יחידות; Shift: 25 · Delete / Backspace: מחיקת הנבחר · סימן חדש מתחיל
+              ב־0,0 (דלתא לייצוא)
+            </p>
           </div>
 
           <div className="field row">
             <button type="button" onClick={removeSelectedMark} disabled={!selectedMark}>
               מחק נבחר
+            </button>
+            <button type="button" onClick={clearAllMarks} disabled={!marks.length}>
+              נקה את כל הסימנים
             </button>
             <button type="button" onClick={nudgeAwayFromDagesh} disabled={!marks.length}>
               הרחק מדגש (חפיפה)
