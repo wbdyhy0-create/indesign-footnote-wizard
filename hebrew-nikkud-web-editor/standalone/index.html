@@ -229,7 +229,8 @@
           </div>
         </div>
         <p class="hint">
-          גרירה בעכבר על הניקוד בקנבס · חיצים (בלי Ctrl): הזזה ב־5, Shift: 25 · Delete — מחק נבחר
+          גרירה על הניקוד: קווי סרגל נעים עם הסימון; כחול = לא במרכז, ירוק = אמצע אופקי של האות + גובה עוגן ברירת מחדל (ΔY≈0).
+          חיצים (בלי Ctrl): 5, Shift: 25 · Delete — מחק נבחר
         </p>
 
         <label class="field">כתובת שרת ייצוא (אופציונלי)</label>
@@ -530,6 +531,35 @@
             var sy = ay + m.offsetY * markScale;
             var fill = m.id === selId ? "#1d4ed8" : "#991b1b";
             drawMark(ctx, font, m.codePoint, sx, sy, markFontPx, fill);
+          }
+
+          if (dragMarkId) {
+            var dm = marks.filter(function (x) {
+              return x.id === dragMarkId;
+            })[0];
+            if (dm) {
+              var mx = ax + dm.offsetX * markScale;
+              var my = ay + dm.offsetY * markScale;
+              var thrPx = Math.max(3.5, markScale * 5);
+              var onCenterX = Math.abs(mx - ax) < thrPx;
+              var onAnchorY = Math.abs(my - ay) < thrPx;
+              var atLetterCenter = onCenterX && onAnchorY;
+              var colGuide = atLetterCenter ? "#16a34a" : "rgba(37, 99, 235, 0.55)";
+              ctx.save();
+              ctx.setLineDash([4, 5]);
+              ctx.lineWidth = atLetterCenter ? 1.65 : 1.35;
+              ctx.strokeStyle = colGuide;
+              ctx.beginPath();
+              ctx.moveTo(mx + 0.5, 0);
+              ctx.lineTo(mx + 0.5, CANVAS_H);
+              ctx.stroke();
+              ctx.beginPath();
+              ctx.moveTo(0, my + 0.5);
+              ctx.lineTo(CANVAS_W, my + 0.5);
+              ctx.stroke();
+              ctx.setLineDash([]);
+              ctx.restore();
+            }
           }
 
           ctx.strokeStyle = "#d4d4d8";
