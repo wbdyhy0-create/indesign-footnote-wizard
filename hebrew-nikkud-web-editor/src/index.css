@@ -251,6 +251,22 @@ body {
   min-width: 0;
 }
 
+.vb-hint--block {
+  flex: 1 1 100%;
+  max-width: 100%;
+  line-height: 1.35;
+  margin-top: 0.15rem;
+  padding: 0.35rem 0.4rem;
+  background: #fefce8;
+  border: 1px solid #fde047;
+  border-radius: 6px;
+  color: #713f12;
+}
+
+.vb-hint--block strong {
+  font-weight: 650;
+}
+
 .editor-canvas {
   display: block;
   border-radius: 6px;

@@ -353,6 +353,11 @@ export default function App() {
                 מרכז ניקוד מול האות
               </button>
               <span className="vb-hint">Ctrl+↑↓ זום קנבס (Shift = צעד גדול יותר)</span>
+              <span className="vb-hint vb-hint--block">
+                עיגול בקנבס = תצוגה בלבד כשחסר גליף ניקוד בפונט. בייצוא ל־TTF עדיין חייבים{" "}
+                <strong>גליפי ניקוד אמיתיים</strong> בקובץ; הסקריפט רק מזיז מיקום (GPOS), לא מצייר עיגולים
+                חדשים.
+              </span>
             </div>
             <EditorCanvas
               font={font}
