@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -131,12 +132,60 @@ def merge_hebrew_letter_outlines(legacy: TTFont, engine: TTFont) -> List[str]:
     return warnings
 
 
+def _sanitize_postscript_name(s: str) -> str:
+    """
+    שם PostScript (name ID 6): ASCII בלבד, עד 63 בתים, ללא רווחים.
+    """
+    t = (s or "").strip().replace(" ", "-")
+    t = re.sub(r"[^A-Za-z0-9._-]", "", t)
+    if not t:
+        t = "NikkudHybridExport"
+    return t[:63]
+
+
+def apply_export_font_name(font: TTFont, export_name: str) -> None:
+    """
+    מעדכן טבלת name כדי שהפונט יופיע כמשפחה נפרדת (למשל באינדיזיין).
+    מעדכן לפחות: 1 (משפחה), 4 (שם מלא), 6 (PostScript), 3 (מזהה ייחודי).
+    אם קיימים 16+17 — מעדכן גם 16 כדי שלא יישאר שם טיפוגרפי ישן.
+    """
+    raw = (export_name or "").strip()
+    if not raw:
+        return
+    ps = _sanitize_postscript_name(raw)
+    name = font["name"]
+    had_typo_family = any(nr.nameID == 16 for nr in name.names)
+    has_typo_sub = any(nr.nameID == 17 for nr in name.names)
+    name.names = [nr for nr in name.names if nr.nameID not in (1, 3, 4, 6, 16)]
+    # Windows BMP Unicode (עברית בשם תצוגה — בסדר)
+    name.setName(raw, 1, 3, 1, 0x409)
+    name.setName(raw, 4, 3, 1, 0x409)
+    name.setName(ps, 6, 3, 1, 0x409)
+    name.setName(ps, 6, 1, 0, 0)
+    rev = float(font["head"].fontRevision) if "head" in font else 1.0
+    unique = f"{rev};NIKKUD-HYBRID;{ps}"
+    name.setName(unique, 3, 3, 1, 0x409)
+    if had_typo_family and has_typo_sub:
+        name.setName(raw, 16, 3, 1, 0x409)
+    if all(ord(c) < 128 for c in raw):
+        try:
+            name.setName(raw, 1, 1, 0, 0)
+            name.setName(raw, 4, 1, 0, 0)
+        except Exception:
+            pass
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="מיזוג אותיות legacy לתוך engine + החלת JSON ניקוד")
     ap.add_argument("--legacy", "-l", required=True, help="פונט אותיות (למשל Agas)")
     ap.add_argument("--engine", "-e", required=True, help="פונט מנוע GPOS (למשל Frank Ruhl Libre)")
     ap.add_argument("--project", "-p", required=True, help="nikkud-project.json")
     ap.add_argument("--output", "-o", required=True, help="פלט TTF/OTF")
+    ap.add_argument(
+        "--export-font-name",
+        default="",
+        help="שם משפחה/תצוגה לפלט (טבלת name). ריק = ללא שינוי.",
+    )
     args = ap.parse_args()
 
     apply_script = (
@@ -181,6 +230,14 @@ def main() -> None:
             raise SystemExit(err or "apply_nikkud_project נכשל")
     finally:
         merged_path.unlink(missing_ok=True)
+
+    if (args.export_font_name or "").strip():
+        final = TTFont(str(out_path))
+        try:
+            apply_export_font_name(final, args.export_font_name)
+            final.save(str(out_path))
+        finally:
+            final.close()
 
     print(f"נשמר: {out_path.resolve()}")
 

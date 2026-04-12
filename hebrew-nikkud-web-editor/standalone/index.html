@@ -189,6 +189,19 @@
         <button type="button" class="btn" id="btnClearEngine" style="margin-top: 0.25rem">
           בטל פונט מנוע
         </button>
+        <label class="field">שם פונט לייצוא (ייצוא היברידי בלבד)</label>
+        <input
+          type="text"
+          id="exportFontName"
+          class="export-url"
+          dir="ltr"
+          placeholder="למשל Agas_Modern"
+          autocomplete="off"
+        />
+        <p class="hint" style="margin-top: 0.25rem">
+          ריק = שמות מקוריים של ה־Engine. אם ממלאים: משפחה ושם מלא בטבלת השמות, ושם PostScript נגזר (ASCII)
+          כדי שהפונט יופיע נפרד באינדיזיין.
+        </p>
 
         <label class="field">אות בסיס</label>
         <select id="baseSel"></select>
@@ -243,7 +256,8 @@
           CANVAS_H = 440,
           VIEW_BASE = 220,
           BASELINE_Y = 0.72,
-          EXPORT_URL_KEY = "nikkud_export_server_url";
+          EXPORT_URL_KEY = "nikkud_export_server_url",
+          EXPORT_FONT_NAME_KEY = "nikkud_export_font_name";
 
         const HEBREW_LAST = 0x05ea;
         const NIKKUD_FIRST = 0x05b0,
@@ -673,6 +687,9 @@
           if (hybrid) {
             fd.append("legacy", fontFile, fontFile.name || "legacy.ttf");
             fd.append("engine", engineFile, engineFile.name || "engine.ttf");
+            var exportNm = document.getElementById("exportFontName").value.trim();
+            if (exportNm) fd.append("export_font_name", exportNm);
+            localStorage.setItem(EXPORT_FONT_NAME_KEY, exportNm);
           } else {
             fd.append("font", fontFile, fontFile.name || "font.ttf");
           }
@@ -697,7 +714,14 @@
             var nm = (hybrid ? engineFile.name : fontFile.name) || "font.ttf";
             var base = nm.replace(/\.[^.]+$/, "");
             var ext = /\.otf$/i.test(nm) ? ".otf" : ".ttf";
-            a.download = base + (hybrid ? "-nikkud-hybrid" : "-nikkud") + ext;
+            var hybridExportNm =
+              hybrid && document.getElementById("exportFontName").value.trim();
+            if (hybridExportNm) {
+              var safeFn = hybridExportNm.replace(/[\\/:*?"<>|]/g, "_").slice(0, 120);
+              a.download = safeFn + ext;
+            } else {
+              a.download = base + (hybrid ? "-nikkud-hybrid" : "-nikkud") + ext;
+            }
             a.click();
             URL.revokeObjectURL(a.href);
             setMsg("הורדה הושלמה");
@@ -825,6 +849,8 @@
 
         var savedU = localStorage.getItem(EXPORT_URL_KEY);
         if (savedU) document.getElementById("exportUrl").value = savedU;
+        var savedFn = localStorage.getItem(EXPORT_FONT_NAME_KEY);
+        if (savedFn != null) document.getElementById("exportFontName").value = savedFn;
 
         initSidebar();
         refreshRuleCount();

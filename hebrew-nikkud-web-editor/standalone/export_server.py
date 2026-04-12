@@ -151,6 +151,7 @@ def export_hybrid() -> Response:
     leg_f = request.files["legacy"]
     eng_f = request.files["engine"]
     proj_f = request.files["project"]
+    export_font_name = (request.form.get("export_font_name") or "").strip()
     leg_bytes = leg_f.read()
     eng_bytes = eng_f.read()
     proj_bytes = proj_f.read()
@@ -187,6 +188,8 @@ def export_hybrid() -> Response:
             "--output",
             str(out_path),
         ]
+        if export_font_name:
+            cmd.extend(["--export-font-name", export_font_name])
         proc = subprocess.run(cmd, capture_output=True, text=True, cwd=str(REPO_ROOT))
         if proc.returncode != 0:
             err = (proc.stderr or proc.stdout or "שגיאה לא ידועה").strip()
@@ -199,7 +202,12 @@ def export_hybrid() -> Response:
             )
         out_bytes = out_path.read_bytes()
 
-    dl_name = "font-nikkud-hybrid" + eng_suf
+    def _safe_dl_base(s: str) -> str:
+        b = "".join(c for c in s if c.isalnum() or c in "._- ")
+        b = (b or "font-nikkud-hybrid").strip().replace(" ", "-")[:120]
+        return b
+
+    dl_name = _safe_dl_base(export_font_name) + eng_suf if export_font_name else "font-nikkud-hybrid" + eng_suf
     resp = Response(
         out_bytes, mimetype="font/ttf" if eng_suf == ".ttf" else "font/otf"
     )
