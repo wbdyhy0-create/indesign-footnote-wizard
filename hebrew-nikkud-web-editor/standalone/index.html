@@ -279,6 +279,107 @@
           return String.fromCodePoint(cp);
         }
 
+        /** שמות ניקוד בעברית (כמו ב־NikkudPicker בגרסת React) */
+        const NIKKUD_NAME_BY_CP = {
+          0x05b0: "שווא",
+          0x05b1: "חטף־סגול",
+          0x05b2: "חטף־פתח",
+          0x05b3: "חטף־קמץ",
+          0x05b4: "חיריק",
+          0x05b5: "צרי",
+          0x05b6: "סגול",
+          0x05b7: "פתח",
+          0x05b8: "קמץ",
+          0x05b9: "חולם",
+          0x05ba: "חולם חסר לוו",
+          0x05bb: "קובוץ",
+          0x05bc: "דגש / מפיק",
+          0x05bd: "מטר (מטג)",
+          0x05bf: "רפה",
+          0x05c1: "נקודת שין (ימין)",
+          0x05c2: "נקודת סין (שמאל)",
+          0x05c7: "קמץ קטן",
+        };
+        function nikkudNameHe(cp) {
+          var n = NIKKUD_NAME_BY_CP[cp];
+          return n != null ? n : "U+" + cp.toString(16).toUpperCase();
+        }
+
+        function drawPixelGrid(ctx, w, h, minorPx, majorPx, belowLetter) {
+          var minor = Math.max(2, Math.round(minorPx));
+          var major = Math.max(minor, Math.round(majorPx));
+          var majorStroke = "rgba(39, 39, 42, 0.34)";
+          var minorStroke = "rgba(99, 102, 241, 0.26)";
+          var x, y, isMajor;
+          ctx.save();
+          ctx.lineWidth = 1;
+          for (x = 0; x <= w; x += minor) {
+            isMajor = x % major === 0;
+            ctx.strokeStyle = isMajor ? majorStroke : minorStroke;
+            ctx.beginPath();
+            ctx.moveTo(x + 0.5, 0);
+            ctx.lineTo(x + 0.5, h);
+            ctx.stroke();
+          }
+          for (y = 0; y <= h; y += minor) {
+            isMajor = y % major === 0;
+            ctx.strokeStyle = isMajor ? majorStroke : minorStroke;
+            ctx.beginPath();
+            ctx.moveTo(0, y + 0.5);
+            ctx.lineTo(w, y + 0.5);
+            ctx.stroke();
+          }
+          if (belowLetter) {
+            var yRowTop = belowLetter.yRowTop,
+              x1 = belowLetter.x1,
+              x2 = belowLetter.x2;
+            if (yRowTop >= 0 && yRowTop < h) {
+              var accent = "rgba(29, 78, 216, 0.92)";
+              var xLo = Math.max(0, Math.min(x1, x2) - minor);
+              var xHi = Math.min(w, Math.max(x1, x2) + minor);
+              var yTop = Math.min(h, yRowTop);
+              var yBot = Math.min(h, yRowTop + minor);
+              var xStart = Math.floor(xLo / minor) * minor;
+              var xEnd = Math.ceil(xHi / minor) * minor;
+              ctx.strokeStyle = accent;
+              ctx.lineWidth = 1.35;
+              ctx.beginPath();
+              ctx.moveTo(xLo, yTop + 0.5);
+              ctx.lineTo(xHi, yTop + 0.5);
+              ctx.stroke();
+              if (yBot > yTop + 0.5) {
+                ctx.beginPath();
+                ctx.moveTo(xLo, yBot + 0.5);
+                ctx.lineTo(xHi, yBot + 0.5);
+                ctx.stroke();
+              }
+              for (x = xStart; x <= xEnd; x += minor) {
+                ctx.beginPath();
+                ctx.moveTo(x + 0.5, yTop);
+                ctx.lineTo(x + 0.5, yBot);
+                ctx.stroke();
+              }
+              ctx.lineWidth = 1;
+            }
+          }
+          ctx.restore();
+        }
+
+        function drawAnchorGuides(ctx, w, h, anchorX, anchorY) {
+          ctx.save();
+          ctx.strokeStyle = "rgba(37, 99, 235, 0.45)";
+          ctx.lineWidth = 1;
+          ctx.setLineDash([5, 6]);
+          ctx.beginPath();
+          ctx.moveTo(anchorX + 0.5, 0);
+          ctx.lineTo(anchorX + 0.5, h);
+          ctx.moveTo(0, anchorY + 0.5);
+          ctx.lineTo(w, anchorY + 0.5);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.restore();
+        }
+
         function newId() {
           return "m-" + Math.random().toString(16).slice(2) + Date.now();
         }
@@ -400,21 +501,20 @@
           var adv = bg.advanceWidth * scale;
           var ox0 = CANVAS_W / 2 - adv / 2;
           var bp = bg.getPath(ox0, baseline, VIEW_BASE);
+          var bb = bp.getBoundingBox();
+          var gridMinor = 10,
+            gridMajor = 50;
+          var yRowTop = Math.floor(bb.y2 / gridMinor) * gridMinor + gridMinor;
+          var band =
+            yRowTop < CANVAS_H
+              ? { yRowTop: yRowTop, x1: bb.x1, x2: bb.x2 }
+              : null;
+          drawPixelGrid(ctx, CANVAS_W, CANVAS_H, gridMinor, gridMajor, band);
           bp.fill = "#18181b";
           bp.draw(ctx);
-          var bb = bp.getBoundingBox();
           var ax = (bb.x1 + bb.x2) / 2,
             ay = bb.y1;
-
-          ctx.strokeStyle = "rgba(37, 99, 235, 0.45)";
-          ctx.setLineDash([5, 6]);
-          ctx.beginPath();
-          ctx.moveTo(ax + 0.5, 0);
-          ctx.lineTo(ax + 0.5, CANVAS_H);
-          ctx.moveTo(0, ay + 0.5);
-          ctx.lineTo(CANVAS_W, ay + 0.5);
-          ctx.stroke();
-          ctx.setLineDash([]);
+          drawAnchorGuides(ctx, CANVAS_W, CANVAS_H, ax, ay);
 
           var sorted = marks.slice().sort(function (a, b) {
             return (a.codePoint & 7) - (b.codePoint & 7);
@@ -453,7 +553,10 @@
             var li = document.createElement("li");
             var b = document.createElement("button");
             b.type = "button";
-            b.textContent = cpStr(m.codePoint) + " — ΔX " + m.offsetX + " · ΔY " + m.offsetY;
+            var hexU = m.codePoint.toString(16).toUpperCase();
+            b.textContent =
+              nikkudNameHe(m.codePoint) + " — ΔX " + m.offsetX + " · ΔY " + m.offsetY;
+            b.title = cpStr(m.codePoint) + " · U+" + hexU;
             if (m.id === selId) b.className = "sel";
             b.onclick = function () {
               selId = m.id;
@@ -566,7 +669,7 @@
             var b = document.createElement("button");
             b.type = "button";
             b.textContent = cpStr(n);
-            b.title = "U+" + n.toString(16).toUpperCase();
+            b.title = nikkudNameHe(n) + " — U+" + n.toString(16).toUpperCase();
             if (n === pickNikkud) b.className = "on";
             b.onclick = (function (cp) {
               return function () {
