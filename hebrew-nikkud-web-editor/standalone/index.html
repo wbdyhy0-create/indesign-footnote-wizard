@@ -185,6 +185,7 @@
           גרור Engine או לחץ (ריק = ייצוא רגיל על Legacy בלבד)
         </div>
         <input id="fileInEngine" type="file" accept=".ttf,.otf,.woff,.woff2" hidden />
+        <input id="fileInProject" type="file" accept=".json,application/json" hidden />
         <p class="hint" id="engineFileLabel"></p>
         <button type="button" class="btn" id="btnClearEngine" style="margin-top: 0.25rem">
           בטל פונט מנוע
@@ -237,6 +238,7 @@
         <input class="export-url" id="exportUrl" type="text" value="http://127.0.0.1:8765/export" dir="ltr" />
         <div class="row" style="margin-top: 0.75rem">
           <button type="button" class="btn" id="btnJson">הורד JSON</button>
+          <button type="button" class="btn" id="btnLoadJson">טען JSON…</button>
           <button type="button" class="btn primary" id="btnFont">ייצוא פונט (שרת)</button>
         </div>
         <p id="msg" class="hint" dir="auto"></p>
@@ -470,6 +472,70 @@
             sourceFontHint: fontName || undefined,
             rules: rules,
           };
+        }
+
+        /** ממיר סימונים מקובץ JSON (בלי id) לשכבת עורך עם id חדשים */
+        function fileMarksToMarks(arr) {
+          return (arr || []).map(function (fm) {
+            return {
+              id: newId(),
+              codePoint: +fm.codePoint,
+              offsetX: +fm.offsetX || 0,
+              offsetY: +fm.offsetY || 0,
+            };
+          });
+        }
+
+        /**
+         * מחיל אובייקט פרויקט (אותו מבנה כמו buildProject): rule ראשון = אות + שכבה על המסך,
+         * השאר = מכלול. אחרי טעינה כדאי לטעון את אותו פונט Legacy (ו־Engine אם צריך) לפני ייצוא.
+         */
+        function applyProjectObject(obj) {
+          if (!obj || typeof obj !== "object") throw new Error("הקובץ אינו אובייקט JSON תקין");
+          if (obj.version != null && obj.version !== 1)
+            throw new Error("גרסת פרויקט לא נתמכת: " + obj.version);
+          var rules = obj.rules;
+          if (!Array.isArray(rules) || rules.length === 0) throw new Error("אין rules בקובץ");
+          for (var i = 0; i < rules.length; i++) {
+            var r = rules[i];
+            if (!r || !Number.isFinite(Number(r.baseCodePoint)))
+              throw new Error("כלל לא תקין (חסר baseCodePoint מספרי) באינדקס " + i);
+            if (!Array.isArray(r.marks)) throw new Error("marks לא מערך בכלל " + i);
+          }
+          var first = rules[0];
+          baseCP = Number(first.baseCodePoint);
+          if (baseCP < 0x05d0 || baseCP > HEBREW_LAST)
+            throw new Error("אות בסיס מחוץ לטווח עברי: U+" + first.baseCodePoint.toString(16));
+          var sel = document.getElementById("baseSel");
+          if (sel) sel.value = String(baseCP);
+          marks = fileMarksToMarks(first.marks);
+          selId = marks.length ? marks[0].id : null;
+          rulesBundle = [];
+          for (var j = 1; j < rules.length; j++) {
+            var rr = rules[j];
+            rulesBundle.push({
+              baseCodePoint: Number(rr.baseCodePoint),
+              marks: fileMarksToMarks(rr.marks),
+            });
+          }
+          refreshRuleCount();
+          renderList();
+          syncInputs();
+          drawAll();
+          var hint = obj.sourceFontHint;
+          if (hint && fontName && fontName.indexOf(hint) < 0 && hint.indexOf(fontName) < 0) {
+            setMsg(
+              "נטען פרויקט — שימו לב: בקובץ צוין פונט " +
+                hint +
+                " והגופן הנטען כעת שונה. לייצוא עקבי טענו את אותו Legacy."
+            );
+          } else {
+            setMsg(
+              "נטען פרויקט (" +
+                rules.length +
+                " כללים). אם עדיין לא טענתם גופן — טענו Legacy (ו־Engine לייבוא היברידי)."
+            );
+          }
         }
 
         function refreshRuleCount() {
@@ -819,6 +885,28 @@
           a.download = "nikkud-project.json";
           a.click();
           URL.revokeObjectURL(a.href);
+        };
+
+        document.getElementById("btnLoadJson").onclick = function () {
+          document.getElementById("fileInProject").click();
+        };
+        document.getElementById("fileInProject").onchange = function (ev) {
+          var f = ev.target.files && ev.target.files[0];
+          ev.target.value = "";
+          if (!f) return;
+          var reader = new FileReader();
+          reader.onload = function () {
+            try {
+              var obj = JSON.parse(String(reader.result || ""));
+              applyProjectObject(obj);
+            } catch (e) {
+              setMsg(String(e));
+            }
+          };
+          reader.onerror = function () {
+            setMsg("קריאת הקובץ נכשלה");
+          };
+          reader.readAsText(f, "utf-8");
         };
 
         function exportEndpoint(raw, hybrid) {
