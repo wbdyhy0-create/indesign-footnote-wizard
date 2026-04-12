@@ -4,8 +4,12 @@ import type { MarkInstance } from "../types";
 import { markLayerOrder, markZoneForCodePoint } from "../lib/markZones";
 import type { BBox } from "../lib/collision";
 import { drawAnchorGuides, drawPixelGrid } from "../lib/canvasGrid";
-
-const VIEW_FONT_PX = 220;
+import {
+  BASELINE_RATIO,
+  CANVAS_H,
+  CANVAS_W,
+  VIEW_BASE_FONT_PX,
+} from "../lib/canvasLayout";
 
 export interface EditorCanvasProps {
   font: Font | null;
@@ -16,6 +20,8 @@ export interface EditorCanvasProps {
   onBoxesMeasured?: (boxes: Map<string, BBox>) => void;
   /** מקדם לגודל ציור ניקוד ביחס לאות (1 = ברירת מחדל; גדול מ־1 לגופן עבה) */
   markDrawScale?: number;
+  /** הגדלת תצוגת הקנבס (רוחב/גובה CSS; הקואורדינטות הפנימיות נשארות קבועות) */
+  displayScale?: number;
   /** רשת פיקסלים (עדינה + קווים חזקים כל majorPx) */
   showGrid?: boolean;
   /** מרווח רשת עדינה בפיקסלים */
@@ -42,6 +48,7 @@ export function EditorCanvas({
   onSelectMark,
   onBoxesMeasured,
   markDrawScale = 1,
+  displayScale = 1,
   showGrid = true,
   gridMinorPx = 10,
   gridMajorPx = 50,
@@ -49,6 +56,7 @@ export function EditorCanvas({
 }: EditorCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mScale = Number.isFinite(markDrawScale) && markDrawScale > 0 ? markDrawScale : 1;
+  const dScale = Number.isFinite(displayScale) && displayScale > 0 ? displayScale : 1;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -75,16 +83,16 @@ export function EditorCanvas({
       return;
     }
 
-    const scale = VIEW_FONT_PX / font.unitsPerEm;
-    const markFontPx = VIEW_FONT_PX * mScale;
+    const scale = VIEW_BASE_FONT_PX / font.unitsPerEm;
+    const markFontPx = VIEW_BASE_FONT_PX * mScale;
     const markScale = markFontPx / font.unitsPerEm;
-    const baseline = h * 0.72;
+    const baseline = h * BASELINE_RATIO;
     const baseChar = String.fromCodePoint(baseCodePoint);
     const baseGlyph = font.charToGlyph(baseChar);
     const advancePx = baseGlyph.advanceWidth * scale;
     const originX = w / 2 - advancePx / 2;
 
-    const basePath = baseGlyph.getPath(originX, baseline, VIEW_FONT_PX);
+    const basePath = baseGlyph.getPath(originX, baseline, VIEW_BASE_FONT_PX);
     basePath.fill = "#18181b";
     basePath.draw(ctx);
 
@@ -141,20 +149,32 @@ export function EditorCanvas({
     const rect = canvas.getBoundingClientRect();
     const x = ev.clientX - rect.left;
     const y = ev.clientY - rect.top;
-    const scale = canvas.width / rect.width;
-    const sx = x * scale;
-    const sy = y * scale;
+    const scalePx = canvas.width / rect.width;
+    const sx = x * scalePx;
+    const sy = y * scalePx;
 
-    const hit = hitTestMarks(canvasRef.current, font, baseCodePoint, marks, sx, sy, mScale);
+    const hit = hitTestMarks(
+      canvasRef.current,
+      font,
+      baseCodePoint,
+      marks,
+      sx,
+      sy,
+      mScale,
+    );
     onSelectMark(hit);
   };
+
+  const dw = CANVAS_W * dScale;
+  const dh = CANVAS_H * dScale;
 
   return (
     <canvas
       ref={canvasRef}
-      width={900}
-      height={420}
+      width={CANVAS_W}
+      height={CANVAS_H}
       className="editor-canvas"
+      style={{ width: dw, height: dh, display: "block", maxWidth: "100%" }}
       onClick={handleClick}
       role="img"
       aria-label="תצוגת אות וניקוד"
@@ -174,14 +194,14 @@ function hitTestMarks(
   if (!canvas) return null;
   const w = canvas.width;
   const h = canvas.height;
-  const scale = VIEW_FONT_PX / font.unitsPerEm;
-  const markFontPx = VIEW_FONT_PX * markDrawScale;
+  const scale = VIEW_BASE_FONT_PX / font.unitsPerEm;
+  const markFontPx = VIEW_BASE_FONT_PX * markDrawScale;
   const markScale = markFontPx / font.unitsPerEm;
-  const baseline = h * 0.72;
+  const baseline = h * BASELINE_RATIO;
   const baseGlyph = font.charToGlyph(String.fromCodePoint(baseCodePoint));
   const advancePx = baseGlyph.advanceWidth * scale;
   const originX = w / 2 - advancePx / 2;
-  const basePath = baseGlyph.getPath(originX, baseline, VIEW_FONT_PX);
+  const basePath = baseGlyph.getPath(originX, baseline, VIEW_BASE_FONT_PX);
   const baseBBox = basePath.getBoundingBox();
   const anchorX = (baseBBox.x1 + baseBBox.x2) / 2;
   const anchorY = baseBBox.y1;

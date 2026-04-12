@@ -14,6 +14,11 @@ import {
   parseProjectFileJson,
 } from "./lib/projectIO";
 import { dataTransferHasFiles, pickFontFileFromList } from "./lib/pickFontFile";
+import { computeMarkCenteredOnLetterOffsets } from "./lib/canvasLayout";
+
+function clamp(n: number, lo: number, hi: number): number {
+  return Math.max(lo, Math.min(hi, n));
+}
 
 /** ברירת מחדל 0,0 — ההיסטים נשמרים כדלתא לעוגן ה-Mark בפונט (ראו scripts/apply_nikkud_project.py) */
 function defaultOffsetsForMark(): { offsetX: number; offsetY: number } {
@@ -45,10 +50,14 @@ export default function App() {
   const [showAnchorGuides, setShowAnchorGuides] = useState(true);
   /** מקדם גודל ניקוד בתצוגה (עיגולים + קנבס); 1.2–1.5 מתאים לרוב לגופן עבה */
   const [markViewScale, setMarkViewScale] = useState(1);
+  /** זום תצוגת הקנבס (רזולוציה פנימית קבועה) */
+  const [canvasUiScale, setCanvasUiScale] = useState(1);
+  const [isCanvasFullscreen, setIsCanvasFullscreen] = useState(false);
   const [rules, setRules] = useState<ProjectRule[]>([]);
   const [selectedRuleId, setSelectedRuleId] = useState<string | null>(null);
   const markBoxesRef = useRef<Map<string, BBox>>(new Map());
   const projectFileInputRef = useRef<HTMLInputElement>(null);
+  const canvasStageRef = useRef<HTMLDivElement>(null);
   const fontDragDepthRef = useRef(0);
   const [fontDropActive, setFontDropActive] = useState(false);
 
@@ -83,11 +92,28 @@ export default function App() {
   );
 
   useEffect(() => {
+    const onFs = () => {
+      setIsCanvasFullscreen(document.fullscreenElement === canvasStageRef.current);
+    };
+    document.addEventListener("fullscreenchange", onFs);
+    return () => document.removeEventListener("fullscreenchange", onFs);
+  }, []);
+
+  useEffect(() => {
     const onKey = (ev: KeyboardEvent) => {
       if (ev.target instanceof HTMLInputElement || ev.target instanceof HTMLTextAreaElement) {
         return;
       }
-      if (!selectedMarkId) return;
+      const mod = ev.ctrlKey || ev.metaKey;
+      if (mod && (ev.key === "ArrowUp" || ev.key === "ArrowDown")) {
+        ev.preventDefault();
+        const step = ev.shiftKey ? 0.2 : 0.1;
+        setCanvasUiScale((s) =>
+          clamp(s + (ev.key === "ArrowUp" ? step : -step), 0.45, 3.2),
+        );
+        return;
+      }
+      if (!selectedMarkId || mod) return;
       const fine = ev.shiftKey ? 25 : 5;
       switch (ev.key) {
         case "ArrowRight":
@@ -113,6 +139,29 @@ export default function App() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [selectedMarkId, updateSelectedOffset]);
+
+  const toggleCanvasFullscreen = useCallback(() => {
+    const el = canvasStageRef.current;
+    if (!el) return;
+    if (!document.fullscreenElement) {
+      void el.requestFullscreen?.().catch(() => {});
+    } else {
+      void document.exitFullscreen?.().catch(() => {});
+    }
+  }, []);
+
+  const centerSelectedMarkOnLetter = useCallback(() => {
+    if (!font || !selectedMark) return;
+    const next = computeMarkCenteredOnLetterOffsets(
+      font,
+      baseCodePoint,
+      selectedMark,
+      markViewScale,
+    );
+    setMarks((prev) =>
+      prev.map((x) => (x.id === selectedMark.id ? { ...x, ...next } : x)),
+    );
+  }, [font, selectedMark, baseCodePoint, markViewScale]);
 
   const addMark = () => {
     const { offsetX, offsetY } = defaultOffsetsForMark();
@@ -267,19 +316,59 @@ export default function App() {
               שחררו כאן לטעינת הגופן
             </div>
           ) : null}
-          <EditorCanvas
-            font={font}
-            baseCodePoint={baseCodePoint}
-            marks={marks}
-            selectedMarkId={selectedMarkId}
-            onSelectMark={setSelectedMarkId}
-            onBoxesMeasured={handleBoxesMeasured}
-            markDrawScale={markViewScale}
-            showGrid={showGrid}
-            gridMinorPx={gridMinorPx}
-            gridMajorPx={gridMajorPx}
-            showAnchorGuides={showAnchorGuides}
-          />
+          <div ref={canvasStageRef} className="canvas-stage">
+            <div className="canvas-viewbar">
+              <button type="button" className="vb-btn vb-primary" onClick={toggleCanvasFullscreen}>
+                {isCanvasFullscreen ? "יציאה ממסך מלא" : "מסך מלא (קנבס)"}
+              </button>
+              <button
+                type="button"
+                className="vb-btn"
+                onClick={() => setCanvasUiScale((s) => clamp(s - 0.15, 0.45, 3.2))}
+                title="הקטנת תצוגת הקנבס"
+              >
+                זום −
+              </button>
+              <span className="vb-zoom-readout" dir="ltr">
+                {Math.round(canvasUiScale * 100)}%
+              </span>
+              <button
+                type="button"
+                className="vb-btn"
+                onClick={() => setCanvasUiScale((s) => clamp(s + 0.15, 0.45, 3.2))}
+                title="הגדלת תצוגת הקנבס"
+              >
+                זום +
+              </button>
+              <button type="button" className="vb-btn" onClick={() => setCanvasUiScale(1)}>
+                איפוס זום
+              </button>
+              <button
+                type="button"
+                className="vb-btn vb-accent"
+                onClick={centerSelectedMarkOnLetter}
+                disabled={!font || !selectedMark}
+                title="מרכוז מרכז תיבת הניקוד עם מרכז תיבת האות (אופקי ואנכי)"
+              >
+                מרכז ניקוד מול האות
+              </button>
+              <span className="vb-hint">Ctrl+↑↓ זום קנבס (Shift = צעד גדול יותר)</span>
+            </div>
+            <EditorCanvas
+              font={font}
+              baseCodePoint={baseCodePoint}
+              marks={marks}
+              selectedMarkId={selectedMarkId}
+              onSelectMark={setSelectedMarkId}
+              onBoxesMeasured={handleBoxesMeasured}
+              markDrawScale={markViewScale}
+              displayScale={canvasUiScale}
+              showGrid={showGrid}
+              gridMinorPx={gridMinorPx}
+              gridMajorPx={gridMajorPx}
+              showAnchorGuides={showAnchorGuides}
+            />
+          </div>
           <div className="canvas-tools">
             <label className="check">
               <input
