@@ -482,6 +482,7 @@ export default function App() {
           <div className="field">
             <label>הוספת ניקוד</label>
             <NikkudPicker selectedCodePoint={markToAdd} onSelect={setMarkToAdd} />
+            <p className="hint nikkud-picker-hint">שם הסימון וקוד יוניקוד: רחפו עם העכבר על העיגול</p>
             <button type="button" className="primary nikkud-add-btn" onClick={addMark}>
               הוסף את הניקוד הנבחר
             </button>
@@ -490,24 +491,30 @@ export default function App() {
           <div className="field">
             <label>סימנים בשכבה</label>
             <ul className="mark-list">
-              {marks.map((m) => (
-                <li key={m.id}>
-                  <button
-                    type="button"
-                    className={
-                      m.id === selectedMarkId ? "mark-row mark-row--sel" : "mark-row mark-row--plain"
-                    }
-                    onClick={() => setSelectedMarkId(m.id)}
-                  >
-                    <span className="mark-row-glyph" aria-hidden>
-                      {String.fromCodePoint(m.codePoint)}
-                    </span>
-                    <span className="mark-row-meta">
-                      ΔX {m.offsetX} · ΔY {m.offsetY}
-                    </span>
-                  </button>
-                </li>
-              ))}
+              {marks.map((m) => {
+                const sel = m.id === selectedMarkId;
+                const tip = `ΔX ${m.offsetX} · ΔY ${m.offsetY} — לחיצה לבחירה`;
+                return (
+                  <li key={m.id}>
+                    <button
+                      type="button"
+                      className={sel ? "mark-stack mark-stack--sel" : "mark-stack"}
+                      title={tip}
+                      aria-label={`${String.fromCodePoint(m.codePoint)} · ${tip}`}
+                      onClick={() => setSelectedMarkId(m.id)}
+                    >
+                      <span className="mark-dot-glyph" aria-hidden>
+                        {String.fromCodePoint(m.codePoint)}
+                      </span>
+                      <span className="mark-stack-deltas">
+                        ΔX {m.offsetX}
+                        <br />
+                        ΔY {m.offsetY}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
             {marks.length === 0 ? <p className="muted">אין סימנים — הוסף מרשימה</p> : null}
           </div>

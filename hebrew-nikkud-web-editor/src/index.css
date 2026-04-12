@@ -329,44 +329,41 @@ body {
 
 .mark-list {
   list-style: none;
-  margin: 0;
+  margin: 0.35rem 0 0;
   padding: 0;
   display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  max-height: 200px;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 0.55rem 0.45rem;
+  justify-content: flex-end;
+  max-height: 220px;
   overflow: auto;
 }
 
-.mark-row {
-  width: 100%;
+.mark-list li {
+  list-style: none;
+}
+
+/* שכבת ניקוד: רק עיגול + מספרים (בלי מלבן סביב) */
+.mark-stack {
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
-  text-align: right;
-  padding: 0.35rem 0.45rem;
-  border-radius: 8px;
-  border: 1px solid #e4e4e7;
-  background: #fafafa;
+  gap: 0.2rem;
+  padding: 0;
+  border: none;
+  background: transparent;
   cursor: pointer;
   font: inherit;
+  color: inherit;
+  min-width: calc(2.35rem * var(--mark-ui-scale, 1));
 }
 
-.mark-row--plain:hover {
-  border-color: #d4d4d8;
-  background: #f4f4f5;
-}
-
-.mark-row--sel {
-  border-color: #2563eb;
-  background: #eff6ff;
-}
-
-.mark-row-glyph {
-  flex: 0 0 auto;
-  width: calc(2rem * var(--mark-ui-scale, 1));
-  height: calc(2rem * var(--mark-ui-scale, 1));
+.mark-dot-glyph {
+  width: calc(2.2rem * var(--mark-ui-scale, 1));
+  height: calc(2.2rem * var(--mark-ui-scale, 1));
+  min-width: calc(2.2rem * var(--mark-ui-scale, 1));
+  min-height: calc(2.2rem * var(--mark-ui-scale, 1));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -375,22 +372,30 @@ body {
   font-family: "Segoe UI Historic", "David", "Frank Ruhl Libre", "Noto Sans Hebrew", "Segoe UI", serif;
   border: 1px solid #d4d4d8;
   border-radius: 50%;
-  background: radial-gradient(circle at 50% 40%, #fff 0%, #f4f4f5 100%);
   box-sizing: border-box;
   overflow: hidden;
+  background: radial-gradient(circle at 50% 40%, #fff 0%, #f4f4f5 100%);
+  box-shadow: inset 0 1px 0 #fff;
+  transition: border-color 0.12s, box-shadow 0.12s;
 }
 
-.mark-row--sel .mark-row-glyph {
+.mark-stack:hover .mark-dot-glyph {
+  border-color: #94a3b8;
+}
+
+.mark-stack--sel .mark-dot-glyph {
   border-color: #2563eb;
   background: radial-gradient(circle at 50% 40%, #fff 0%, #eff6ff 100%);
+  box-shadow: inset 0 1px 0 #fff, 0 0 0 3px #2563eb44;
 }
 
-.mark-row-meta {
-  flex: 1;
-  min-width: 0;
+.mark-stack-deltas {
   font-variant-numeric: tabular-nums;
-  font-size: 0.82rem;
-  color: #3f3f46;
+  font-size: 0.65rem;
+  line-height: 1.25;
+  color: #52525b;
+  text-align: center;
+  max-width: 4.5rem;
 }
 
 /* כפתורי כללי פרויקט (לא רשימת שכבה) */
@@ -398,8 +403,8 @@ body {
 .mark-sel {
   width: 100%;
   text-align: right;
-  padding: 0.35rem 0.5rem;
-  border-radius: 6px;
+  padding: 0.4rem 0.75rem;
+  border-radius: 999px;
   border: 1px solid #e4e4e7;
   background: #fafafa;
   cursor: pointer;
@@ -425,12 +430,17 @@ body {
 }
 
 .arrows button {
-  padding: 0.4rem;
+  padding: 0;
+  width: 2.25rem;
+  height: 2.25rem;
   font-size: 1rem;
-  border-radius: 6px;
+  border-radius: 50%;
   border: 1px solid #d4d4d8;
   background: #fff;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .arrows button:disabled {
@@ -501,13 +511,18 @@ body {
 
 .rule-del {
   flex: 0 0 auto;
-  width: 2rem;
-  padding: 0.25rem;
+  width: 2.1rem;
+  height: 2.1rem;
+  padding: 0;
   border: 1px solid #e4e4e7;
-  border-radius: 6px;
+  border-radius: 50%;
   background: #fff;
   cursor: pointer;
   color: #b91c1c;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .cli-hint {
@@ -528,92 +543,63 @@ body {
   text-align: left;
 }
 
-/* בורר ניקוד — תו גדול + שם בעברית */
+/* בורר ניקוד — רשת עיגולים בלבד (בלי שורות מלבניות) */
 .nikkud-picker {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  max-height: min(52vh, 320px);
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(calc(2.65rem * var(--mark-ui-scale, 1)), 1fr));
+  gap: 0.45rem;
+  justify-items: center;
+  align-items: start;
+  max-height: min(48vh, 300px);
   overflow-y: auto;
-  padding: 0.25rem;
-  margin: 0.25rem 0 0.5rem;
-  border: 1px solid #e4e4e7;
-  border-radius: 8px;
-  background: #fafafa;
+  overflow-x: hidden;
+  padding: 0.5rem 0.35rem;
+  margin: 0.25rem 0 0.15rem;
+  border: none;
+  background: transparent;
 }
 
-.nikkud-row {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 0.65rem;
-  width: 100%;
-  text-align: right;
-  padding: 0.45rem 0.5rem;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  background: #fff;
-  cursor: pointer;
-  font: inherit;
-  color: inherit;
-  min-height: max(3.25rem, calc(2.85rem * var(--mark-ui-scale, 1) + 0.5rem));
+.nikkud-picker-hint {
+  margin: 0 0 0.35rem;
 }
 
-.nikkud-row:hover {
-  border-color: #d4d4d8;
-  background: #f8fafc;
-}
-
-.nikkud-row--selected {
-  border-color: #2563eb;
-  background: #eff6ff;
-  box-shadow: 0 0 0 1px #2563eb33;
-}
-
-.nikkud-row--selected .nikkud-glyph {
-  border-color: #2563eb;
-  background: radial-gradient(circle at 50% 42%, #fff 0%, #eff6ff 100%);
-  box-shadow: inset 0 1px 0 #fff, 0 0 0 1px #2563eb22;
-}
-
-/* תא התו — עיגול מלא; גודל עוקב אחר --mark-ui-scale (בקרה לגופן עבה) */
-.nikkud-glyph {
-  flex: 0 0 auto;
-  width: calc(2.85rem * var(--mark-ui-scale, 1));
-  height: calc(2.85rem * var(--mark-ui-scale, 1));
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(2.05rem * var(--mark-ui-scale, 1));
-  line-height: 1;
-  font-family: "Segoe UI Historic", "David", "Frank Ruhl Libre", "Noto Sans Hebrew", "Segoe UI", serif;
-  background: radial-gradient(circle at 50% 42%, #fff 0%, #f4f4f5 100%);
+.nikkud-dot {
+  width: calc(2.75rem * var(--mark-ui-scale, 1));
+  height: calc(2.75rem * var(--mark-ui-scale, 1));
+  min-width: calc(2.75rem * var(--mark-ui-scale, 1));
+  min-height: calc(2.75rem * var(--mark-ui-scale, 1));
+  padding: 0;
+  margin: 0;
   border: 1px solid #d4d4d8;
   border-radius: 50%;
   box-sizing: border-box;
-  overflow: hidden;
-  box-shadow: inset 0 1px 0 #fff;
-}
-
-.nikkud-meta {
-  flex: 1;
-  min-width: 0;
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 0.15rem;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  background: radial-gradient(circle at 50% 40%, #fff 0%, #f4f4f5 100%);
+  box-shadow: inset 0 1px 0 #fff;
+  transition: border-color 0.12s, box-shadow 0.12s;
 }
 
-.nikkud-name {
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: #18181b;
+.nikkud-dot:hover {
+  border-color: #94a3b8;
+  box-shadow: inset 0 1px 0 #fff, 0 0 0 2px #e2e8f0;
 }
 
-.nikkud-code {
-  font-size: 0.75rem;
-  font-family: ui-monospace, monospace;
-  color: #71717a;
+.nikkud-dot--selected {
+  border-color: #2563eb;
+  background: radial-gradient(circle at 50% 40%, #fff 0%, #eff6ff 100%);
+  box-shadow: inset 0 1px 0 #fff, 0 0 0 3px #2563eb44;
+}
+
+.nikkud-dot-char {
+  font-size: calc(1.75rem * var(--mark-ui-scale, 1));
+  line-height: 1;
+  font-family: "Segoe UI Historic", "David", "Frank Ruhl Libre", "Noto Sans Hebrew", "Segoe UI", serif;
+  pointer-events: none;
 }
 
 .nikkud-add-btn {
