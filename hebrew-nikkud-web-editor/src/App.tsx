@@ -13,6 +13,7 @@ import {
   fileToUiRules,
   parseProjectFileJson,
 } from "./lib/projectIO";
+import { dataTransferHasFiles, pickFontFileFromList } from "./lib/pickFontFile";
 
 /** ברירת מחדל 0,0 — ההיסטים נשמרים כדלתא לעוגן ה-Mark בפונט (ראו scripts/apply_nikkud_project.py) */
 function defaultOffsetsForMark(): { offsetX: number; offsetY: number } {
@@ -46,6 +47,8 @@ export default function App() {
   const [selectedRuleId, setSelectedRuleId] = useState<string | null>(null);
   const markBoxesRef = useRef<Map<string, BBox>>(new Map());
   const projectFileInputRef = useRef<HTMLInputElement>(null);
+  const fontDragDepthRef = useRef(0);
+  const [fontDropActive, setFontDropActive] = useState(false);
 
   const gridMajorPx = gridMinorPx * 5;
 
@@ -181,6 +184,40 @@ export default function App() {
     e.target.value = "";
   };
 
+  const onFontDragEnter = useCallback((e: React.DragEvent) => {
+    if (!dataTransferHasFiles(e.dataTransfer)) return;
+    e.preventDefault();
+    fontDragDepthRef.current += 1;
+    if (fontDragDepthRef.current === 1) setFontDropActive(true);
+  }, []);
+
+  const onFontDragLeave = useCallback((e: React.DragEvent) => {
+    if (!dataTransferHasFiles(e.dataTransfer)) return;
+    e.preventDefault();
+    fontDragDepthRef.current -= 1;
+    if (fontDragDepthRef.current <= 0) {
+      fontDragDepthRef.current = 0;
+      setFontDropActive(false);
+    }
+  }, []);
+
+  const onFontDragOver = useCallback((e: React.DragEvent) => {
+    if (!dataTransferHasFiles(e.dataTransfer)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+  }, []);
+
+  const onFontDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      fontDragDepthRef.current = 0;
+      setFontDropActive(false);
+      const file = pickFontFileFromList(e.dataTransfer.files);
+      if (file) loadFromFile(file);
+    },
+    [loadFromFile],
+  );
+
   return (
     <div className="app-shell">
       <header className="app-header">
@@ -192,7 +229,7 @@ export default function App() {
 
       <section className="panel">
         <label className="file-label">
-          <span>טעינת גופן</span>
+          <span>טעינת גופן (או גרירה לאזור הקנבס)</span>
           <input
             type="file"
             accept=".ttf,.otf,.woff,.woff2"
@@ -214,7 +251,18 @@ export default function App() {
       </section>
 
       <div className="layout">
-        <div className="canvas-wrap">
+        <div
+          className={`canvas-wrap${fontDropActive ? " canvas-wrap--drop-target" : ""}`}
+          onDragEnter={onFontDragEnter}
+          onDragLeave={onFontDragLeave}
+          onDragOver={onFontDragOver}
+          onDrop={onFontDrop}
+        >
+          {fontDropActive ? (
+            <div className="canvas-drop-hint" aria-hidden>
+              שחררו כאן לטעינת הגופן
+            </div>
+          ) : null}
           <EditorCanvas
             font={font}
             baseCodePoint={baseCodePoint}

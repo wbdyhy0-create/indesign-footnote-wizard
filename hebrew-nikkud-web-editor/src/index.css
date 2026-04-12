@@ -85,11 +85,36 @@ body {
 }
 
 .canvas-wrap {
+  position: relative;
   background: #fff;
   border: 1px solid #d4d4d8;
   border-radius: 8px;
   padding: 0.5rem;
   overflow: auto;
+}
+
+.canvas-wrap--drop-target {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px #2563eb33;
+  background: #f8fafc;
+}
+
+.canvas-drop-hint {
+  position: absolute;
+  inset: 0.5rem;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  border: 2px dashed #2563eb;
+  border-radius: 8px;
+  background: rgba(239, 246, 255, 0.92);
+  color: #1d4ed8;
+  font-weight: 600;
+  font-size: 1.05rem;
+  text-align: center;
+  padding: 1rem;
 }
 
 .canvas-tools {
