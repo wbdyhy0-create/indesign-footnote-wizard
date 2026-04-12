@@ -536,19 +536,32 @@
           syncInputs();
           drawAll();
           var hint = obj.sourceFontHint;
+          var parts = [];
           if (hint && fontName && fontName.indexOf(hint) < 0 && hint.indexOf(fontName) < 0) {
-            setMsg(
-              "נטען פרויקט — שימו לב: בקובץ צוין פונט " +
+            parts.push(
+              "בקובץ צוין פונט " +
                 hint +
-                " והגופן הנטען כעת שונה. לייצוא עקבי טענו את אותו Legacy."
-            );
-          } else {
-            setMsg(
-              "נטען פרויקט (" +
-                rules.length +
-                " כללים). אם עדיין לא טענתם גופן — טענו Legacy (ו־Engine לייבוא היברידי)."
+                " והגופן הנטען כעת שונה — לייצוא עקבי טענו את אותו Legacy."
             );
           }
+          if (!marks.length) {
+            parts.push(
+              "נטען פרויקט (" +
+                rules.length +
+                " כללים) — לכלל הראשון (אות " +
+                cpStr(baseCP) +
+                ") אין סימונים ב-JSON."
+            );
+          } else if (!font) {
+            parts.push(
+              "נטענו " +
+                marks.length +
+                " סימונים (רשימה משמאל). בקנבס לא יוצגו עד שתטענו פונט Legacy — גרירה או לחיצה על אזור «פונט Legacy» למעלה."
+            );
+          } else {
+            parts.push("נטען פרויקט (" + rules.length + " כללים, " + marks.length + " סימונים על האות הנוכחית).");
+          }
+          setMsg(parts.join(" "));
         }
 
         function refreshRuleCount() {
