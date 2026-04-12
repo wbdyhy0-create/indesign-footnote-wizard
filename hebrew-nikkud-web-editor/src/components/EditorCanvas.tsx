@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import type { Font } from "opentype.js";
 import type { MarkInstance } from "../types";
 import { markLayerOrder, markZoneForCodePoint } from "../lib/markZones";
-import type { BBox } from "../lib/collision";
+import { expandBBoxToMinSide, type BBox } from "../lib/collision";
 import { drawAnchorGuides, drawPixelGrid } from "../lib/canvasGrid";
 import {
   BASELINE_RATIO,
@@ -218,15 +218,18 @@ function hitTestMarks(
 
   const sorted = sortMarksForDraw(marks);
   const topFirst = [...sorted].reverse();
-  /** כמה סימונים עם bbox גדול (מתאר notdef/ניקוד בפונט) חופפים לקליק; נבחר bbox הקטן ביותר ואז את העליון בשכבה */
+  /** אזור קליק מינימלי — ב־100% ניקוד קטן מאוד; בלי זה צריך ~155% כדי שיתפוס בקליק */
+  const minHitSidePx = 44;
+  /** כמה סימונים עם bbox חופף (לאחר הרחבה להיט) לקליק; נבחר לפי שטח bbox הציור (לא המורחב) ואז שכבה */
   const hits: { id: string; area: number; revIdx: number }[] = [];
   topFirst.forEach((m, revIdx) => {
     const ox = anchorX + m.offsetX * markScale;
     const oy = anchorY + m.offsetY * markScale;
     const geom = markGeometry(font, m.codePoint, ox, oy, markFontPx);
-    const bb = bboxForMarkGeometry(geom);
-    if (sx < bb.x1 || sx > bb.x2 || sy < bb.y1 || sy > bb.y2) return;
-    const area = Math.max(1e-6, (bb.x2 - bb.x1) * (bb.y2 - bb.y1));
+    const bbRaw = bboxForMarkGeometry(geom);
+    const bbHit = expandBBoxToMinSide(bbRaw, minHitSidePx);
+    if (sx < bbHit.x1 || sx > bbHit.x2 || sy < bbHit.y1 || sy > bbHit.y2) return;
+    const area = Math.max(1e-6, (bbRaw.x2 - bbRaw.x1) * (bbRaw.y2 - bbRaw.y1));
     hits.push({ id: m.id, area, revIdx });
   });
   if (!hits.length) return null;

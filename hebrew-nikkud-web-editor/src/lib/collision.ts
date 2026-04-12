@@ -8,6 +8,17 @@ export interface BBox {
   y2: number;
 }
 
+/** מרכז bbox ומרחיב לרוחב/גובה מינימליים — שימושי לבדיקת היט על ניקוד קטן בקנבס */
+export function expandBBoxToMinSide(bb: BBox, minSide: number): BBox {
+  const w = bb.x2 - bb.x1;
+  const h = bb.y2 - bb.y1;
+  const cx = (bb.x1 + bb.x2) / 2;
+  const cy = (bb.y1 + bb.y2) / 2;
+  const ew = Math.max(w, minSide);
+  const eh = Math.max(h, minSide);
+  return { x1: cx - ew / 2, y1: cy - eh / 2, x2: cx + ew / 2, y2: cy + eh / 2 };
+}
+
 export function bboxOverlap(a: BBox, b: BBox, pad = 2): boolean {
   return (
     a.x1 - pad < b.x2 + pad &&
