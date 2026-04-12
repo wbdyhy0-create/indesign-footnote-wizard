@@ -20,9 +20,9 @@ if str(_STANDALONE) not in sys.path:
     sys.path.insert(0, str(_STANDALONE))
 
 try:
-    from PyQt5.QtCore import QUrl
-    from PyQt5.QtWidgets import QApplication, QMessageBox
-    from PyQt5.QtWebEngineWidgets import QWebEngineView
+    from PyQt5.QtCore import QStandardPaths, QUrl
+    from PyQt5.QtWidgets import QApplication, QFileDialog, QMessageBox
+    from PyQt5.QtWebEngineWidgets import QWebEngineProfile, QWebEngineView
 except ImportError as e:
     print(
         "חסר PyQt5 / PyQtWebEngine.\n"
@@ -74,6 +74,38 @@ def main() -> int:
     win = QWebEngineView()
     win.setWindowTitle("עורך ניקוד — שולחן עבודה")
     win.resize(1200, 820)
+
+    def _on_download_requested(download) -> None:
+        """
+        Chromium ב־Qt לא תמיד שומר blob:<a download> בשקט — חובה accept + נתיב.
+        פותח דיאלוג שמירה כמו בדפדפן רגיל.
+        """
+        suggested = (download.suggestedFileName() or "").strip()
+        if not suggested:
+            url = download.url().toString()
+            suggested = (
+                url.rsplit("/", 1)[-1].split("?", 1)[0].strip() or "download"
+            )
+        base = QStandardPaths.writableLocation(QStandardPaths.DownloadLocation)
+        if not base:
+            base = str(Path.home())
+        default_path = str(Path(base) / suggested)
+        path, _ = QFileDialog.getSaveFileName(
+            win,
+            "שמירת קובץ",
+            default_path,
+            "כל הקבצים (*.*)",
+        )
+        if path:
+            download.setPath(path)
+            download.accept()
+        else:
+            download.cancel()
+
+    QWebEngineProfile.defaultProfile().downloadRequested.connect(
+        _on_download_requested
+    )
+
     win.load(QUrl(f"http://127.0.0.1:{port}/"))
     win.show()
     return int(app.exec_())
