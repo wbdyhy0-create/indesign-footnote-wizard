@@ -239,7 +239,7 @@
           <button type="button" class="btn" id="btnJson">הורד JSON</button>
           <button type="button" class="btn primary" id="btnFont">ייצוא פונט (שרת)</button>
         </div>
-        <p id="msg" class="hint" dir="ltr"></p>
+        <p id="msg" class="hint" dir="auto"></p>
       </aside>
       <main class="main">
         <canvas id="cv" width="920" height="440"></canvas>
@@ -848,7 +848,7 @@
             var xhr = new XMLHttpRequest();
             xhr.open("POST", url);
             xhr.responseType = "blob";
-            xhr.timeout = 920000;
+            xhr.timeout = 1220000;
             function clearServerWait() {
               if (xhr._serverWaitIv) {
                 clearInterval(xhr._serverWaitIv);
@@ -953,7 +953,7 @@
           var exportAbort = new AbortController();
           var exportTimer = setTimeout(function () {
             exportAbort.abort();
-          }, 920000);
+          }, 1220000);
           var startTs = Date.now();
           btnFont.disabled = true;
           try {
@@ -1018,10 +1018,16 @@
                 },
                 function serverTick() {
                   var sec = Math.floor((Date.now() - startTs) / 1000);
+                  var extra =
+                    sec >= 120
+                      ? " בחלון השחור של השרת אמורות להופיע שורות [hybrid] ו-[apply] — אם אין כלום חדש במשך דקות ארוכות, ייתכן תקיעה."
+                      : "";
                   setMsg(
                     "היברידי: השרת ממזג ומיישם ניקוד על כל הגופן. עברו " +
                       sec +
-                      " שניות. זה יכול להימשך מספר דקות (לא תלוי במספר הסימונים). אם מעל 15 דקות — בדקו את חלון השרת.",
+                      " שניות. זה יכול להימשך מספר דקות (לא תלוי במספר הסימונים)." +
+                      extra +
+                      " אם מעל 20 דקות — בדקו את חלון השרת.",
                   );
                 },
               );
@@ -1066,7 +1072,7 @@
           } catch (e) {
             if (e && e.name === "AbortError") {
               setMsg(
-                "בוטל או פג זמן (מעל ~15 דקות). בדקו שחלון השרת פתוח, או שגיאות בטרמינל של export_server.",
+                "בוטל או פג זמן (מעל ~20 דקות). בדקו שחלון השרת פתוח, או שגיאות בטרמינל של export_server.",
               );
             } else {
               setMsg(String(e));

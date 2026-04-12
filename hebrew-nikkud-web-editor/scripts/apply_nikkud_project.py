@@ -58,6 +58,9 @@ def main() -> None:
     ap.add_argument("--output", "-o", required=True, help="קובץ גופן פלט")
     args = ap.parse_args()
 
+    def _live(msg: str) -> None:
+        print(msg, file=sys.stderr, flush=True)
+
     with open(args.project, encoding="utf-8") as f:
         data = json.load(f)
     if data.get("version") != 1:
@@ -66,9 +69,11 @@ def main() -> None:
     if not rules:
         raise SystemExit("אין rules בפרויקט")
 
+    _live("[apply] טוען גופן + פרויקט…")
     fl = FontLoader(args.input)
     try:
         ok = skip = 0
+        _live("[apply] מעדכן עוגני MarkToBase לפי ה-JSON…")
         for ri, rule in enumerate(rules):
             bcp = int(rule.get("baseCodePoint", -1))
             bg = fl.get_glyph_name(bcp)
@@ -104,6 +109,9 @@ def main() -> None:
                 mx, my = _anchor_xy(ma)
                 _set_anchor_xy(ma, mx + dx, my + dy)
                 ok += 1
+        _live(
+            "[apply] שומר קובץ פלט (כולל GPOS — שלב כבד בפונטים גדולים, דקות אפשריות)…"
+        )
         fl.save(args.output)
     finally:
         fl.close()

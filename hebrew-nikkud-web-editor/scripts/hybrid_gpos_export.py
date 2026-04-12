@@ -19,6 +19,7 @@ import argparse
 import re
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import List, Tuple
 
@@ -28,6 +29,11 @@ from fontTools.ttLib import TTFont
 
 def _repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
+
+
+def _stage(msg: str) -> None:
+    """stdout — מועבר לחלון השרת בזמן אמת בייצוא היברידי (Tee)."""
+    print(f"[hybrid] {time.strftime('%H:%M:%S')} {msg}", flush=True)
 
 
 def _require_glyf(tt: TTFont, label: str) -> None:
@@ -194,6 +200,7 @@ def main() -> None:
     if not apply_script.is_file():
         raise SystemExit(f"לא נמצא {apply_script}")
 
+    _stage("טוען Legacy + Engine לזיכרון")
     legacy = TTFont(args.legacy)
     engine = TTFont(args.engine)
     try:
@@ -202,16 +209,23 @@ def main() -> None:
                 "אזהרה: לפונט ה־Engine אין GPOS — apply_nikkud עלול לא לעשות כלום או להיכשל.",
                 file=sys.stderr,
             )
+        _stage("ממזג מתארי אותיות עבריות (U+05D0…U+05EA)…")
         warns = merge_hebrew_letter_outlines(legacy, engine)
         for w in warns:
             print(w, file=sys.stderr)
+        _stage("מיזוג אותיות הסתיים (" + str(len(warns)) + " שורות אזהרה/מידע)")
     finally:
         legacy.close()
 
     out_path = Path(args.output)
     merged_path = out_path.with_name(out_path.stem + "-merged.tmp" + out_path.suffix)
+    _stage(
+        "שומר גופן זמני אחרי מיזוג (שלב כבד — דקות אפשריות בפונט Engine גדול כמו Frank Ruhl)…"
+    )
+    t0 = time.time()
     engine.save(str(merged_path))
     engine.close()
+    _stage("שמירת המיזוג הסתיימה (" + str(round(time.time() - t0, 1)) + " שניות)")
 
     cmd = [
         sys.executable,
@@ -226,14 +240,15 @@ def main() -> None:
     apply_log = out_path.parent / (out_path.stem + "-apply.log")
     timed_out = False
     proc_rc = 0
+    _stage("מריץ apply_nikkud_project (שמירת GPOS — עלול לקחת דקות ארוכות)…")
     with open(apply_log, "wb") as logf:
         try:
             proc = subprocess.run(
                 cmd,
                 cwd=str(_repo_root()),
                 stdout=logf,
-                stderr=subprocess.STDOUT,
-                timeout=900,
+                stderr=sys.stderr,
+                timeout=1200,
             )
             proc_rc = proc.returncode
         except subprocess.TimeoutExpired:
@@ -247,14 +262,16 @@ def main() -> None:
             else ""
         )
         if timed_out:
-            raise SystemExit("apply_nikkud_project: פג זמן (15 דקות).\n" + tail)
+            raise SystemExit("apply_nikkud_project: פג זמן (20 דקות).\n" + tail)
         if proc_rc != 0:
             raise SystemExit(tail.strip() or "apply_nikkud_project נכשל")
     finally:
         merged_path.unlink(missing_ok=True)
         apply_log.unlink(missing_ok=True)
 
+    _stage("apply_nikkud_project הסתיים")
     if (args.export_font_name or "").strip():
+        _stage("מעדכן טבלת שמות לפי שם הייצוא")
         final = TTFont(str(out_path))
         try:
             apply_export_font_name(final, args.export_font_name)
@@ -262,7 +279,7 @@ def main() -> None:
         finally:
             final.close()
 
-    print(f"נשמר: {out_path.resolve()}")
+    _stage("סיום: " + str(out_path.resolve()))
 
 
 if __name__ == "__main__":

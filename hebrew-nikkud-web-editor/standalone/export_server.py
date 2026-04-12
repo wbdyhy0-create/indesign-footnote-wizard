@@ -50,6 +50,48 @@ def _run_script_logged(
             return -1, _tail_text_file(log_path)
     return proc.returncode, _tail_text_file(log_path)
 
+
+class _TeeBinary:
+    """כותב stdout של תהליך גם לקובץ וגם ל־stderr של השרת (חלון CMD) בזמן אמת."""
+
+    def __init__(self, *streams):
+        self.streams = streams
+
+    def write(self, data):
+        if isinstance(data, str):
+            data = data.encode("utf-8", errors="replace")
+        for st in self.streams:
+            st.write(data)
+            st.flush()
+        return len(data)
+
+    def flush(self) -> None:
+        for st in self.streams:
+            st.flush()
+
+
+def _run_hybrid_script_logged(
+    cmd: list[str],
+    *,
+    cwd: Path,
+    log_path: Path,
+    timeout: int = 1200,
+) -> tuple[int, str]:
+    """ייצוא היברידי: לוג לקובץ + שורות [hybrid] בזמן אמת לחלון השרת."""
+    with open(log_path, "wb") as logf:
+        tee = _TeeBinary(logf, sys.stderr.buffer)
+        try:
+            proc = subprocess.run(
+                cmd,
+                cwd=str(cwd),
+                stdout=tee,
+                stderr=subprocess.STDOUT,
+                timeout=timeout,
+            )
+        except subprocess.TimeoutExpired:
+            return -1, _tail_text_file(log_path)
+    return proc.returncode, _tail_text_file(log_path)
+
 try:
     from flask import Flask, Response, request, send_file
 except ImportError as e:
@@ -253,12 +295,12 @@ def export_hybrid() -> Response:
         if export_font_name:
             cmd.extend(["--export-font-name", export_font_name])
         log_path = tdir / "export-hybrid.log"
-        code, log_tail = _run_script_logged(
-            cmd, cwd=REPO_ROOT, log_path=log_path, timeout=900
+        code, log_tail = _run_hybrid_script_logged(
+            cmd, cwd=REPO_ROOT, log_path=log_path, timeout=1200
         )
         if code != 0:
             err = (
-                f"פג זמן (15 דקות) או שגיאה — קוד {code}.\n{log_tail}".strip()
+                f"פג זמן (20 דקות) או שגיאה — קוד {code}.\n{log_tail}".strip()
                 if code == -1
                 else (log_tail.strip() or "שגיאה לא ידועה")
             )
