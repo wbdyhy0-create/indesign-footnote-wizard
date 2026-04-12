@@ -458,15 +458,22 @@
             baseCodePoint: baseCP,
             marks: marksToFileMarks(marks),
           };
-          var rules =
-            rulesBundle.length > 0
-              ? rulesBundle.map(function (r) {
-                  return {
-                    baseCodePoint: r.baseCodePoint,
-                    marks: marksToFileMarks(r.marks),
-                  };
-                })
-              : [currentRule];
+          /*
+           * תמיד שומרים קודם את מה שעל המסך (אות בסיס + marks), ואז שאר המכלול —
+           * בלי כפילות לאות הבסיס הנוכחית. קודם: אם המכלול לא ריק היינו שומרים *רק*
+           * אותו ומדלגים על השכבה העדכנית על המסך — אחרי ייבוא JSON הניקוד «זז».
+           */
+          var others = rulesBundle.filter(function (r) {
+            return r.baseCodePoint !== baseCP;
+          });
+          var rules = [currentRule].concat(
+            others.map(function (r) {
+              return {
+                baseCodePoint: r.baseCodePoint,
+                marks: marksToFileMarks(r.marks),
+              };
+            }),
+          );
           return {
             version: 1,
             sourceFontHint: fontName || undefined,
@@ -474,14 +481,20 @@
           };
         }
 
+        function numMarkCoord(v) {
+          var n = Number(v);
+          return Number.isFinite(n) ? n : 0;
+        }
+
         /** ממיר סימונים מקובץ JSON (בלי id) לשכבת עורך עם id חדשים */
         function fileMarksToMarks(arr) {
           return (arr || []).map(function (fm) {
+            var cp = numMarkCoord(fm.codePoint) | 0;
             return {
               id: newId(),
-              codePoint: +fm.codePoint,
-              offsetX: +fm.offsetX || 0,
-              offsetY: +fm.offsetY || 0,
+              codePoint: cp,
+              offsetX: numMarkCoord(fm.offsetX),
+              offsetY: numMarkCoord(fm.offsetY),
             };
           });
         }
@@ -543,12 +556,12 @@
           if (!el) return;
           if (rulesBundle.length === 0) {
             el.textContent =
-              "מכלול פרויקט ריק — ייצוא יכלול רק את האות הנוכחית והשכבה שלה.";
+              "מכלול פרויקט ריק — ייצוא/JSON יכללו רק את האות הנוכחית והשכבה על המסך.";
           } else {
             el.textContent =
               "במכלול " +
               rulesBundle.length +
-              " כללים — ייצוא יכלול אותם בלבד (לא את השכבה על המסך אם לא נוספה).";
+              " כללים לאותיות אחרות. ייצוא ו־JSON תמיד כוללים גם את השכבה הנוכחית על האות הזו, ואז המכלול (בלי כפילות לאות זו).";
           }
         }
 
@@ -1028,7 +1041,7 @@
           var hasMarks = projCheck.rules.some(function (r) {
             return r.marks && r.marks.length;
           });
-          if (!hasMarks) return setMsg("אין סימונים בכללים — הוסף שכבה או שמור אות למכלול");
+          if (!hasMarks) return setMsg("אין סימונים — הוסף ניקוד לפני ייצוא (או טען JSON).");
           if (window.location.protocol === "file:") {
             return setMsg(
               "העמוד נפתח מקובץ (file://) — ייצוא לשרת עלול להיתקע. הריצו run-export-server.bat ופתחו בדפדפן: http://127.0.0.1:8765/ (אותו מקור כמו השרת).",
