@@ -223,13 +223,36 @@ def main() -> None:
         "-o",
         str(out_path.resolve()),
     ]
+    apply_log = out_path.parent / (out_path.stem + "-apply.log")
+    timed_out = False
+    proc_rc = 0
+    with open(apply_log, "wb") as logf:
+        try:
+            proc = subprocess.run(
+                cmd,
+                cwd=str(_repo_root()),
+                stdout=logf,
+                stderr=subprocess.STDOUT,
+                timeout=900,
+            )
+            proc_rc = proc.returncode
+        except subprocess.TimeoutExpired:
+            timed_out = True
+            proc_rc = -1
+
     try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, cwd=str(_repo_root()))
-        if proc.returncode != 0:
-            err = (proc.stderr or proc.stdout or "").strip()
-            raise SystemExit(err or "apply_nikkud_project נכשל")
+        tail = (
+            apply_log.read_text(encoding="utf-8", errors="replace")[-12000:]
+            if apply_log.is_file()
+            else ""
+        )
+        if timed_out:
+            raise SystemExit("apply_nikkud_project: פג זמן (15 דקות).\n" + tail)
+        if proc_rc != 0:
+            raise SystemExit(tail.strip() or "apply_nikkud_project נכשל")
     finally:
         merged_path.unlink(missing_ok=True)
+        apply_log.unlink(missing_ok=True)
 
     if (args.export_font_name or "").strip():
         final = TTFont(str(out_path))

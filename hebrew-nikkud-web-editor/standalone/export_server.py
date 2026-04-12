@@ -19,6 +19,37 @@ import sys
 import tempfile
 from pathlib import Path
 
+
+def _tail_text_file(path: Path, max_chars: int = 12000) -> str:
+    if not path.is_file():
+        return ""
+    return path.read_text(encoding="utf-8", errors="replace")[-max_chars:]
+
+
+def _run_script_logged(
+    cmd: list[str],
+    *,
+    cwd: Path,
+    log_path: Path,
+    timeout: int = 900,
+) -> tuple[int, str]:
+    """
+    מריץ סקריפט Python; כל הפלט לקובץ (מונע תקיעה מניפוי capture_output שמתמלא).
+    מחזיר (returncode, זנב לוג לטקסט שגיאה).
+    """
+    with open(log_path, "wb") as logf:
+        try:
+            proc = subprocess.run(
+                cmd,
+                cwd=str(cwd),
+                stdout=logf,
+                stderr=subprocess.STDOUT,
+                timeout=timeout,
+            )
+        except subprocess.TimeoutExpired:
+            return -1, _tail_text_file(log_path)
+    return proc.returncode, _tail_text_file(log_path)
+
 try:
     from flask import Flask, Response, request
 except ImportError as e:
@@ -105,11 +136,18 @@ def export_font() -> Response:
             "-o",
             str(out_path),
         ]
-        proc = subprocess.run(cmd, capture_output=True, text=True, cwd=str(REPO_ROOT))
-        if proc.returncode != 0:
-            err = (proc.stderr or proc.stdout or "שגיאה לא ידועה").strip()
+        log_path = tdir / "export-subprocess.log"
+        code, log_tail = _run_script_logged(
+            cmd, cwd=REPO_ROOT, log_path=log_path, timeout=900
+        )
+        if code != 0:
+            err = (
+                f"פג זמן (15 דקות) או שגיאה — קוד {code}.\n{log_tail}".strip()
+                if code == -1
+                else (log_tail.strip() or "שגיאה לא ידועה")
+            )
             return _cors(
-                Response(err, status=500, mimetype="text/plain; charset=utf-8")
+                Response(err, status=504 if code == -1 else 500, mimetype="text/plain; charset=utf-8")
             )
         if not out_path.is_file():
             return _cors(
@@ -131,6 +169,7 @@ def hybrid_options() -> Response:
 @APP.route("/export_hybrid", methods=["POST"])
 def export_hybrid() -> Response:
     """Legacy = אותיות; Engine = GPOS + ניקוד; מיזוג glyf אותיות ואז apply JSON."""
+    print("export_hybrid: התחלה", flush=True)
     if not HYBRID_SCRIPT.is_file():
         return _cors(
             Response(
@@ -190,17 +229,30 @@ def export_hybrid() -> Response:
         ]
         if export_font_name:
             cmd.extend(["--export-font-name", export_font_name])
-        proc = subprocess.run(cmd, capture_output=True, text=True, cwd=str(REPO_ROOT))
-        if proc.returncode != 0:
-            err = (proc.stderr or proc.stdout or "שגיאה לא ידועה").strip()
+        log_path = tdir / "export-hybrid.log"
+        code, log_tail = _run_script_logged(
+            cmd, cwd=REPO_ROOT, log_path=log_path, timeout=900
+        )
+        if code != 0:
+            err = (
+                f"פג זמן (15 דקות) או שגיאה — קוד {code}.\n{log_tail}".strip()
+                if code == -1
+                else (log_tail.strip() or "שגיאה לא ידועה")
+            )
+            print(f"export_hybrid: נכשל קוד={code}", flush=True)
             return _cors(
-                Response(err, status=500, mimetype="text/plain; charset=utf-8")
+                Response(
+                    err,
+                    status=504 if code == -1 else 500,
+                    mimetype="text/plain; charset=utf-8",
+                )
             )
         if not out_path.is_file():
             return _cors(
                 Response("לא נוצר קובץ פלט", status=500, mimetype="text/plain; charset=utf-8")
             )
         out_bytes = out_path.read_bytes()
+        print("export_hybrid: הצלחה", flush=True)
 
     def _safe_dl_base(s: str) -> str:
         b = "".join(c for c in s if c.isalnum() or c in "._- ")
@@ -231,7 +283,7 @@ if __name__ == "__main__":
     print(f"סקריפט היברידי: {HYBRID_SCRIPT}")
     print("השארו את החלון פתוח — סגירה עוצרת את השרת.\n")
     try:
-        APP.run(host="127.0.0.1", port=8765, debug=False)
+        APP.run(host="127.0.0.1", port=8765, debug=False, threaded=True)
     except OSError as e:
         if "10048" in str(e) or "address already in use" in str(e).lower():
             _pause_exit(

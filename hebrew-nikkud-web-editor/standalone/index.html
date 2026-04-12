@@ -701,11 +701,19 @@
             "nikkud-project.json",
           );
           setMsg(hybrid ? "מייצא (היברידי)…" : "מייצא…");
+          var exportAbort = new AbortController();
+          var exportTimer = setTimeout(function () {
+            exportAbort.abort();
+          }, 920000);
           try {
-            var res = await fetch(url, { method: "POST", body: fd });
+            var res = await fetch(url, {
+              method: "POST",
+              body: fd,
+              signal: exportAbort.signal,
+            });
             if (!res.ok) {
               var errTxt = await res.text();
-              setMsg("שגיאה " + res.status + ": " + errTxt.slice(0, 400));
+              setMsg("שגיאה " + res.status + ": " + errTxt.slice(0, 4000));
               return;
             }
             var blob = await res.blob();
@@ -726,7 +734,15 @@
             URL.revokeObjectURL(a.href);
             setMsg("הורדה הושלמה");
           } catch (e) {
-            setMsg(String(e));
+            if (e && e.name === "AbortError") {
+              setMsg(
+                "בוטל או פג זמן (מעל ~15 דקות). בדקו שחלון השרת פתוח, או שגיאות בטרמינל של export_server.",
+              );
+            } else {
+              setMsg(String(e));
+            }
+          } finally {
+            clearTimeout(exportTimer);
           }
         };
 
