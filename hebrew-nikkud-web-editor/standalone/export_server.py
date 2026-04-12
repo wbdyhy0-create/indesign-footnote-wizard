@@ -19,6 +19,7 @@ from __future__ import annotations
 import subprocess
 import sys
 import tempfile
+import threading
 import traceback
 from pathlib import Path
 
@@ -56,25 +57,6 @@ def _run_script_logged(
     return proc.returncode, _tail_text_file(log_path)
 
 
-class _TeeBinary:
-    """כותב stdout של תהליך גם לקובץ וגם ל־stderr של השרת (חלון CMD) בזמן אמת."""
-
-    def __init__(self, *streams):
-        self.streams = streams
-
-    def write(self, data):
-        if isinstance(data, str):
-            data = data.encode("utf-8", errors="replace")
-        for st in self.streams:
-            st.write(data)
-            st.flush()
-        return len(data)
-
-    def flush(self) -> None:
-        for st in self.streams:
-            st.flush()
-
-
 def _run_hybrid_script_logged(
     cmd: list[str],
     *,
@@ -82,20 +64,54 @@ def _run_hybrid_script_logged(
     log_path: Path,
     timeout: int = 1200,
 ) -> tuple[int, str]:
-    """ייצוא היברידי: לוג לקובץ + שורות [hybrid] בזמן אמת לחלון השרת."""
+    """
+    ייצוא היברידי: לוג לקובץ + שורות [hybrid] בזמן אמת לחלון השרת.
+
+    Python 3.14+ ב־Windows דורש מ־stdout של subprocess אובייקט עם fileno();
+    עטיפת tee ללא fileno נכשלת — לכן PIPE + thread שמעתיק לקובץ ול־stderr.
+    """
     with open(log_path, "wb") as logf:
-        tee = _TeeBinary(logf, sys.stderr.buffer)
+        proc = subprocess.Popen(
+            cmd,
+            cwd=str(cwd),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+
+        def _pump_stdout() -> None:
+            out = proc.stdout
+            if out is None:
+                return
+            try:
+                while True:
+                    chunk = out.read(65536)
+                    if not chunk:
+                        break
+                    logf.write(chunk)
+                    logf.flush()
+                    sys.stderr.buffer.write(chunk)
+                    sys.stderr.buffer.flush()
+            finally:
+                try:
+                    out.close()
+                except OSError:
+                    pass
+
+        pump = threading.Thread(target=_pump_stdout, daemon=True)
+        pump.start()
         try:
-            proc = subprocess.run(
-                cmd,
-                cwd=str(cwd),
-                stdout=tee,
-                stderr=subprocess.STDOUT,
-                timeout=timeout,
-            )
+            proc.wait(timeout=timeout)
         except subprocess.TimeoutExpired:
+            proc.kill()
+            try:
+                proc.wait(timeout=60)
+            except Exception:
+                pass
+            pump.join(timeout=120)
             return -1, _tail_text_file(log_path)
-    return proc.returncode, _tail_text_file(log_path)
+        pump.join(timeout=120)
+        code = proc.returncode if proc.returncode is not None else -1
+        return code, _tail_text_file(log_path)
 
 try:
     from flask import Flask, Response, request, send_file

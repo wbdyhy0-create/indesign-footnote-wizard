@@ -1,9 +1,9 @@
 @echo off
-chcp 65001 >nul
+REM ASCII-only: cmd.exe mis-parses UTF-8 Hebrew in this file before chcp runs.
 setlocal EnableExtensions
 cd /d "%~dp0"
 set PYTHONUNBUFFERED=1
-title עורך ניקוד — שולחן עבודה
+title Nikkud desktop (editor + export server)
 
 set "PY="
 python -V >nul 2>&1
@@ -15,12 +15,12 @@ if not defined PY (
 )
 
 if not defined PY (
-  echo Python לא נמצא. התקינו Python 3 והוסיפו ל־PATH.
+  echo Python not found. Install Python 3 and add it to PATH.
   pause
   exit /b 1
 )
 
-echo מתקין תלויות שולחן עבודה ^(פעם ראשונה / אחרי עדכון^)...
+echo Installing desktop requirements (first run or after updates)...
 if "%PY%"=="python" (
   python -m pip install -q -r requirements-desktop.txt
   if errorlevel 1 python -m pip install -r requirements-desktop.txt
