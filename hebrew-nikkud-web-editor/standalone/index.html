@@ -184,6 +184,9 @@
         <label class="field">סימונים בשכבה</label>
         <ul class="marks" id="markList"></ul>
         <button type="button" class="btn warn" id="btnClear">נקה כל הסימנים</button>
+        <button type="button" class="btn" id="btnPushRule">הוסף אות + שכבה למכלול פרויקט</button>
+        <button type="button" class="btn" id="btnResetRules">אפס מכלול (כללי פרויקט)</button>
+        <p class="hint" id="ruleCount"></p>
 
         <label class="field">היסט נבחר (יחידות פונט)</label>
         <div class="row">
@@ -236,6 +239,8 @@
         let baseCP = 0x05d0;
         let pickNikkud = 0x05b8;
         let marks = [];
+        /** כללים שצברת לאותיות שונות לפני ייצוא (אם ריק — הייצוא משתמש רק באות + שכבה הנוכחיים) */
+        let rulesBundle = [];
         let selId = null;
         function cpStr(cp) {
           return String.fromCodePoint(cp);
@@ -296,23 +301,49 @@
           return geom.path.getBoundingBox();
         }
 
+        function marksToFileMarks(arr) {
+          return arr.map(function (m) {
+            return {
+              codePoint: m.codePoint,
+              offsetX: Math.round(m.offsetX),
+              offsetY: Math.round(m.offsetY),
+            };
+          });
+        }
+
         function buildProject() {
+          var currentRule = {
+            baseCodePoint: baseCP,
+            marks: marksToFileMarks(marks),
+          };
+          var rules =
+            rulesBundle.length > 0
+              ? rulesBundle.map(function (r) {
+                  return {
+                    baseCodePoint: r.baseCodePoint,
+                    marks: marksToFileMarks(r.marks),
+                  };
+                })
+              : [currentRule];
           return {
             version: 1,
             sourceFontHint: fontName || undefined,
-            rules: [
-              {
-                baseCodePoint: baseCP,
-                marks: marks.map(function (m) {
-                  return {
-                    codePoint: m.codePoint,
-                    offsetX: Math.round(m.offsetX),
-                    offsetY: Math.round(m.offsetY),
-                  };
-                }),
-              },
-            ],
+            rules: rules,
           };
+        }
+
+        function refreshRuleCount() {
+          var el = document.getElementById("ruleCount");
+          if (!el) return;
+          if (rulesBundle.length === 0) {
+            el.textContent =
+              "מכלול פרויקט ריק — ייצוא יכלול רק את האות הנוכחית והשכבה שלה.";
+          } else {
+            el.textContent =
+              "במכלול " +
+              rulesBundle.length +
+              " כללים — ייצוא יכלול אותם בלבד (לא את השכבה על המסך אם לא נוספה).";
+          }
         }
 
         function drawAll() {
@@ -535,6 +566,29 @@
           drawAll();
         };
 
+        document.getElementById("btnPushRule").onclick = function () {
+          if (!marks.length) return setMsg("אין סימונים — הוסף ניקוד לפני שמירה למכלול");
+          rulesBundle.push({
+            baseCodePoint: baseCP,
+            marks: marks.map(function (m) {
+              return {
+                id: m.id,
+                codePoint: m.codePoint,
+                offsetX: m.offsetX,
+                offsetY: m.offsetY,
+              };
+            }),
+          });
+          setMsg("נוסף כלל לאות " + cpStr(baseCP));
+          refreshRuleCount();
+        };
+
+        document.getElementById("btnResetRules").onclick = function () {
+          rulesBundle = [];
+          refreshRuleCount();
+          setMsg("מכלול הפרויקט אופס");
+        };
+
         document.getElementById("offX").onchange = function () {
           var m = marks.filter(function (x) {
             return x.id === selId;
@@ -567,7 +621,11 @@
 
         document.getElementById("btnFont").onclick = async function () {
           if (!font || !fontFile) return setMsg("חסר גופן");
-          if (!marks.length) return setMsg("אין סימונים לייצוא");
+          var projCheck = buildProject();
+          var hasMarks = projCheck.rules.some(function (r) {
+            return r.marks && r.marks.length;
+          });
+          if (!hasMarks) return setMsg("אין סימונים בכללים — הוסף שכבה או שמור אות למכלול");
           var url =
             document.getElementById("exportUrl").value.trim() ||
             "http://127.0.0.1:8765/export";
@@ -688,6 +746,7 @@
         if (savedU) document.getElementById("exportUrl").value = savedU;
 
         initSidebar();
+        refreshRuleCount();
         drawAll();
       })();
     </script>
