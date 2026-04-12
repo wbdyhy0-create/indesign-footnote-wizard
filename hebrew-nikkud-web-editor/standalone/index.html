@@ -877,7 +877,25 @@
             };
             xhr.onerror = function () {
               clearServerWait();
-              reject(new Error("שגיאת רשת"));
+              var bits = [
+                "שגיאת רשת — לא התקבלה תשובה מהשרת.",
+                "כתובת: " + url,
+              ];
+              try {
+                var uobj = new URL(url);
+                if (window.location.protocol === "https:" && uobj.protocol === "http:") {
+                  bits.push(
+                    "סיבה שכיחה: דף ב־HTTPS לא יכול לדבר עם שרת HTTP מקומי — פתחו את http://127.0.0.1:8765/",
+                  );
+                } else {
+                  bits.push(
+                    "בדקו: run-export-server.bat רץ, שדה כתובת הייצוא נכון, VPN/אנטי־וירוס לא חוסמים localhost.",
+                  );
+                }
+              } catch (e4) {
+                bits.push("בדקו ש־run-export-server רץ.");
+              }
+              reject(new Error(bits.join(" ")));
             };
             xhr.ontimeout = function () {
               clearServerWait();
@@ -932,6 +950,17 @@
           var rawUrl = document.getElementById("exportUrl").value.trim();
           var url = exportEndpoint(rawUrl, hybrid);
           var origin = exportOriginFromUrl(rawUrl, hybrid);
+          try {
+            var exportChk = new URL(url);
+            if (
+              window.location.protocol === "https:" &&
+              exportChk.protocol === "http:"
+            ) {
+              return setMsg(
+                "הדפדפן חוסם ייצוא: דף ב־HTTPS לא יכול לפנות לשרת מקומי ב־HTTP. פתחו את העורך ב־http://127.0.0.1:8765/ (אחרי run-export-server.bat) — לא מאתר מאובטח אחר.",
+              );
+            }
+          } catch (ignoreChk) {}
           localStorage.setItem(EXPORT_URL_KEY, rawUrl || url);
           var fd = new FormData();
           if (hybrid) {
