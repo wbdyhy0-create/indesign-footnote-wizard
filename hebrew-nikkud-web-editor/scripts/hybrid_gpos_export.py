@@ -1,0 +1,160 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+מיזוג היברידי: מתארי אותיות עבריות (U+05D0..U+05EA) מפונט Legacy לתוך פונט Engine,
+שומר על טבלאות ה־OpenType של ה־Engine (כולל GPOS), ואז מחיל פרויקט ניקוד JSON.
+
+דרישות:
+  pip install fonttools
+  מבנה ריפו עם hebrew-mark-editor/gpos_editor_app (כמו apply_nikkud_project.py)
+
+דוגמה:
+  python scripts/hybrid_gpos_export.py --legacy AGAS.ttf --engine FrankRuhlLibre-Regular.ttf \\
+    --project nikkud-project.json -o AGAS-with-frank-engine.ttf
+"""
+
+from __future__ import annotations
+
+import argparse
+import subprocess
+import sys
+from copy import deepcopy
+from pathlib import Path
+from typing import List
+
+from fontTools.ttLib import TTFont
+
+
+def _repo_root() -> Path:
+    return Path(__file__).resolve().parents[2]
+
+
+def _require_glyf(tt: TTFont, label: str) -> None:
+    if "glyf" not in tt or tt["glyf"] is None:
+        raise SystemExit(
+            f"{label}: נדרש פונט עם טבלת glyf (TrueType). "
+            "פונט CFF בלבד (OTF ללא glyf) לא נתמך במיזוג זה."
+        )
+
+
+def _scale_simple_glyph(font: TTFont, gname: str, factor: float) -> None:
+    glyf = font["glyf"]
+    g = glyf[gname]
+    if g.isComposite():
+        return
+    coords, _end, _flags = g.getCoordinates(glyf)
+    for i in range(len(coords)):
+        x, y = coords[i]
+        coords[i] = (int(round(x * factor)), int(round(y * factor)))
+    g.setCoordinates(coords, glyf)
+    try:
+        g.recalcBounds(glyf)
+    except Exception:
+        pass
+
+
+def merge_hebrew_letter_outlines(legacy: TTFont, engine: TTFont) -> List[str]:
+    """
+    מחליף את מתארי glyf (וה־hmtx) של אותיות U+05D0..U+05EA ב־engine
+    בגרסה מ־legacy, עם סקייל ל־unitsPerEm של ה־engine.
+    """
+    warnings: List[str] = []
+    _require_glyf(legacy, "Legacy")
+    _require_glyf(engine, "Engine")
+
+    upe_l = int(legacy["head"].unitsPerEm)
+    upe_e = int(engine["head"].unitsPerEm)
+    factor = upe_e / float(upe_l)
+
+    leg_cmap = legacy.getBestCmap() or {}
+    eng_cmap = engine.getBestCmap() or {}
+    leg_glyf = legacy["glyf"]
+    eng_glyf = engine["glyf"]
+
+    for cp in range(0x05D0, 0x05EA + 1):
+        lg = leg_cmap.get(cp)
+        eg = eng_cmap.get(cp)
+        if not lg:
+            warnings.append(f"legacy: אין cmap ל־U+{cp:04X}")
+            continue
+        if not eg:
+            warnings.append(f"engine: אין cmap ל־U+{cp:04X}")
+            continue
+        if lg not in leg_glyf.glyphs:
+            warnings.append(f"legacy: אין glyf ל־{lg}")
+            continue
+        if eg not in eng_glyf.glyphs:
+            warnings.append(f"engine: אין glyf ל־{eg}")
+            continue
+
+        sg = leg_glyf[lg]
+        if sg.isComposite():
+            warnings.append(f"U+{cp:04X}: legacy {lg} מרוכב — דילוג")
+            continue
+
+        eng_glyf[eg] = deepcopy(sg)
+        if abs(factor - 1.0) > 1e-9:
+            _scale_simple_glyph(engine, eg, factor)
+
+        aw, lsb = legacy["hmtx"][lg]
+        engine["hmtx"][eg] = (int(round(aw * factor)), int(round(lsb * factor)))
+
+    return warnings
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description="מיזוג אותיות legacy לתוך engine + החלת JSON ניקוד")
+    ap.add_argument("--legacy", "-l", required=True, help="פונט אותיות (למשל Agas)")
+    ap.add_argument("--engine", "-e", required=True, help="פונט מנוע GPOS (למשל Frank Ruhl Libre)")
+    ap.add_argument("--project", "-p", required=True, help="nikkud-project.json")
+    ap.add_argument("--output", "-o", required=True, help="פלט TTF/OTF")
+    args = ap.parse_args()
+
+    apply_script = (
+        _repo_root() / "hebrew-nikkud-web-editor" / "scripts" / "apply_nikkud_project.py"
+    )
+    if not apply_script.is_file():
+        raise SystemExit(f"לא נמצא {apply_script}")
+
+    legacy = TTFont(args.legacy)
+    engine = TTFont(args.engine)
+    try:
+        if "GPOS" not in engine:
+            print(
+                "אזהרה: לפונט ה־Engine אין GPOS — apply_nikkud עלול לא לעשות כלום או להיכשל.",
+                file=sys.stderr,
+            )
+        warns = merge_hebrew_letter_outlines(legacy, engine)
+        for w in warns:
+            print(w, file=sys.stderr)
+    finally:
+        legacy.close()
+
+    out_path = Path(args.output)
+    merged_path = out_path.with_name(out_path.stem + "-merged.tmp" + out_path.suffix)
+    engine.save(str(merged_path))
+    engine.close()
+
+    cmd = [
+        sys.executable,
+        str(apply_script),
+        "-i",
+        str(merged_path.resolve()),
+        "-p",
+        str(Path(args.project).resolve()),
+        "-o",
+        str(out_path.resolve()),
+    ]
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True, cwd=str(_repo_root()))
+        if proc.returncode != 0:
+            err = (proc.stderr or proc.stdout or "").strip()
+            raise SystemExit(err or "apply_nikkud_project נכשל")
+    finally:
+        merged_path.unlink(missing_ok=True)
+
+    print(f"נשמר: {out_path.resolve()}")
+
+
+if __name__ == "__main__":
+    main()

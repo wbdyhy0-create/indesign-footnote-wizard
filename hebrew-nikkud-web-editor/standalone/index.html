@@ -169,10 +169,26 @@
           ציור: opentype.js. ייצוא פונט אמיתי עם MarkToBase דורש שרת Python מקומי (לא ניתן
           מ־opentype.js לבד).
         </p>
+        <label class="field">פונט Legacy לאותיות (לתצוגה ולייצוא)</label>
         <div id="drop" class="drop" tabindex="0">
           גרור לכאן <code>.ttf</code> / <code>.otf</code> או לחץ לבחירה
         </div>
         <input id="fileIn" type="file" accept=".ttf,.otf,.woff,.woff2" hidden />
+
+        <label class="field">פונט מנוע GPOS (Engine) — אופציונלי</label>
+        <p class="hint" style="margin-top: 0">
+          למשל Frank Ruhl Libre. חייב להיות <strong>TTF עם glyf</strong> (לא CFF בלבד). כשבוחרים כאן,
+          «ייצוא פונט» מפעיל מיזוג: מתארי אותיות עבריות מה־Legacy בתוך ה־Engine, שומר GPOS של ה־Engine, ואז
+          מחיל את ה־JSON.
+        </p>
+        <div id="dropEngine" class="drop" tabindex="0">
+          גרור Engine או לחץ (ריק = ייצוא רגיל על Legacy בלבד)
+        </div>
+        <input id="fileInEngine" type="file" accept=".ttf,.otf,.woff,.woff2" hidden />
+        <p class="hint" id="engineFileLabel"></p>
+        <button type="button" class="btn" id="btnClearEngine" style="margin-top: 0.25rem">
+          בטל פונט מנוע
+        </button>
 
         <label class="field">אות בסיס</label>
         <select id="baseSel"></select>
@@ -235,6 +251,8 @@
 
         let font = null;
         let fontFile = null;
+        /** קובץ Engine (Frank Ruhl וכו') — אופציונלי לייצוא היברידי */
+        let engineFile = null;
         let fontName = "";
         let baseCP = 0x05d0;
         let pickNikkud = 0x05b8;
@@ -619,19 +637,45 @@
           URL.revokeObjectURL(a.href);
         };
 
+        function exportEndpoint(raw, hybrid) {
+          var s = (raw || "").trim();
+          if (!s) s = "http://127.0.0.1:8765/export";
+          try {
+            var u = new URL(s);
+            u.pathname = hybrid ? "/export_hybrid" : "/export";
+            return u.href;
+          } catch (e) {
+            return hybrid
+              ? "http://127.0.0.1:8765/export_hybrid"
+              : "http://127.0.0.1:8765/export";
+          }
+        }
+
+        function setEngineLabel() {
+          var el = document.getElementById("engineFileLabel");
+          el.textContent = engineFile
+            ? "מנוע: " + engineFile.name + " (ייצוא = היברידי)"
+            : "מנוע: לא נבחר (ייצוא = רגיל על Legacy)";
+        }
+
         document.getElementById("btnFont").onclick = async function () {
-          if (!font || !fontFile) return setMsg("חסר גופן");
+          if (!font || !fontFile) return setMsg("חסר גופן Legacy");
           var projCheck = buildProject();
           var hasMarks = projCheck.rules.some(function (r) {
             return r.marks && r.marks.length;
           });
           if (!hasMarks) return setMsg("אין סימונים בכללים — הוסף שכבה או שמור אות למכלול");
-          var url =
-            document.getElementById("exportUrl").value.trim() ||
-            "http://127.0.0.1:8765/export";
-          localStorage.setItem(EXPORT_URL_KEY, url);
+          var hybrid = !!engineFile;
+          var rawUrl = document.getElementById("exportUrl").value.trim();
+          var url = exportEndpoint(rawUrl, hybrid);
+          localStorage.setItem(EXPORT_URL_KEY, rawUrl || url);
           var fd = new FormData();
-          fd.append("font", fontFile, fontFile.name || "font.ttf");
+          if (hybrid) {
+            fd.append("legacy", fontFile, fontFile.name || "legacy.ttf");
+            fd.append("engine", engineFile, engineFile.name || "engine.ttf");
+          } else {
+            fd.append("font", fontFile, fontFile.name || "font.ttf");
+          }
           fd.append(
             "project",
             new Blob([JSON.stringify(buildProject())], {
@@ -639,7 +683,7 @@
             }),
             "nikkud-project.json",
           );
-          setMsg("מייצא…");
+          setMsg(hybrid ? "מייצא (היברידי)…" : "מייצא…");
           try {
             var res = await fetch(url, { method: "POST", body: fd });
             if (!res.ok) {
@@ -650,10 +694,10 @@
             var blob = await res.blob();
             var a = document.createElement("a");
             a.href = URL.createObjectURL(blob);
-            var nm = fontFile.name || "font.ttf";
+            var nm = (hybrid ? engineFile.name : fontFile.name) || "font.ttf";
             var base = nm.replace(/\.[^.]+$/, "");
             var ext = /\.otf$/i.test(nm) ? ".otf" : ".ttf";
-            a.download = base + "-nikkud" + ext;
+            a.download = base + (hybrid ? "-nikkud-hybrid" : "-nikkud") + ext;
             a.click();
             URL.revokeObjectURL(a.href);
             setMsg("הורדה הושלמה");
@@ -661,6 +705,43 @@
             setMsg(String(e));
           }
         };
+
+        document.getElementById("btnClearEngine").onclick = function () {
+          engineFile = null;
+          document.getElementById("fileInEngine").value = "";
+          setEngineLabel();
+        };
+
+        function bindDropEngine() {
+          var dropE = document.getElementById("dropEngine");
+          var fileInE = document.getElementById("fileInEngine");
+          dropE.onclick = function () {
+            fileInE.click();
+          };
+          fileInE.onchange = function () {
+            var f = fileInE.files && fileInE.files[0];
+            if (!f) return;
+            engineFile = f;
+            setEngineLabel();
+          };
+          dropE.ondragover = function (e) {
+            e.preventDefault();
+            dropE.classList.add("drag");
+          };
+          dropE.ondragleave = function () {
+            dropE.classList.remove("drag");
+          };
+          dropE.ondrop = function (e) {
+            e.preventDefault();
+            dropE.classList.remove("drag");
+            var f = e.dataTransfer.files[0];
+            if (f) {
+              engineFile = f;
+              setEngineLabel();
+            }
+          };
+        }
+        bindDropEngine();
 
         var drop = document.getElementById("drop");
         var fileIn = document.getElementById("fileIn");
@@ -747,6 +828,7 @@
 
         initSidebar();
         refreshRuleCount();
+        setEngineLabel();
         drawAll();
       })();
     </script>
