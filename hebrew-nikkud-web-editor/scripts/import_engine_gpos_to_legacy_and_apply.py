@@ -170,10 +170,13 @@ def apply_export_font_name(font: TTFont, export_name: str) -> None:
         return
     ps = _sanitize_postscript_name(raw)
     name = font["name"]
+    # Rebuild from scratch to avoid malformed/garbled name records in source fonts
+    # causing Windows to reject the exported font.
     had_typo_family = any(nr.nameID == 16 for nr in name.names)
     has_typo_sub = any(nr.nameID == 17 for nr in name.names)
-    name.names = [nr for nr in name.names if nr.nameID not in (1, 3, 4, 6, 16)]
+    name.names = []
     name.setName(raw, 1, 3, 1, 0x409)
+    name.setName("Regular", 2, 3, 1, 0x409)
     name.setName(raw, 4, 3, 1, 0x409)
     name.setName(ps, 6, 3, 1, 0x409)
     name.setName(ps, 6, 1, 0, 0)
@@ -185,6 +188,7 @@ def apply_export_font_name(font: TTFont, export_name: str) -> None:
     if all(ord(c) < 128 for c in raw):
         try:
             name.setName(raw, 1, 1, 0, 0)
+            name.setName("Regular", 2, 1, 0, 0)
             name.setName(raw, 4, 1, 0, 0)
         except Exception:
             pass
