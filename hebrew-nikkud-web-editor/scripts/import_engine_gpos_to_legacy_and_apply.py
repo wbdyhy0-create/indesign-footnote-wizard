@@ -179,6 +179,12 @@ def _sanitize_os2_for_windows_install(font: TTFont) -> None:
     if "OS/2" not in font:
         return
     os2 = font["OS/2"]
+    # Some Windows installers reject weird embedding permission bitmasks.
+    # 0 = Installable embedding (safest for local fonts you generate).
+    try:
+        os2.fsType = 0
+    except Exception:
+        pass
     try:
         w = int(getattr(os2, "usWeightClass", 400))
     except Exception:
