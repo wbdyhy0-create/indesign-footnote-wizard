@@ -28,6 +28,7 @@ from fontTools.pens.transformPen import TransformPen
 from fontTools.pens.ttGlyphPen import TTGlyphPen
 from fontTools.ttLib import TTFont
 from fontTools.ttLib.tables._g_l_y_f import Glyph
+from fontTools.ttLib.tables._c_m_a_p import CmapSubtable
 
 
 def _repo_root() -> Path:
@@ -90,6 +91,49 @@ def _copy_glyph_outline_scaled(
         pass
 
 
+def _ensure_cmap_subtable(font: TTFont, platform_id: int, enc_id: int) -> Any:
+    cmap_table = font["cmap"]
+    for st in cmap_table.tables:
+        if st.platformID == platform_id and st.platEncID == enc_id:
+            return st
+    # Create a new Unicode BMP subtable (format 4)
+    st = CmapSubtable.newSubtable(4)
+    st.platformID = platform_id
+    st.platEncID = enc_id
+    st.language = 0
+    st.cmap = {}
+    cmap_table.tables.append(st)
+    return st
+
+
+def _ensure_windows_unicode_cmaps(font: TTFont) -> None:
+    """
+    ודא שקיימות מפות cmap סטנדרטיות:
+    - (3,1) Windows Unicode BMP (format 4) — מה שאינדיזיין/וינדוס מצפים אליו לרוב
+    - (3,0) Windows Symbol/Unicode (יש פונטים שמגיעים עם זה בלבד)
+    - (0,3) Unicode
+    """
+    if "cmap" not in font:
+        return
+    _ensure_cmap_subtable(font, 3, 1)
+    _ensure_cmap_subtable(font, 3, 0)
+    _ensure_cmap_subtable(font, 0, 3)
+
+
+def _add_cmap_mapping(font: TTFont, cp: int, glyph_name: str) -> None:
+    """מוסיף מיפוי cp->glyph לכל תתי-הטבלאות הרלוונטיות (BMP)."""
+    if "cmap" not in font:
+        return
+    _ensure_windows_unicode_cmaps(font)
+    for st in font["cmap"].tables:
+        if st.format != 4:
+            continue
+        if cp > 0xFFFF:
+            continue
+        if (st.platformID, st.platEncID) in ((3, 1), (3, 0), (0, 3)):
+            st.cmap[int(cp)] = glyph_name
+
+
 def _ensure_marks_present(
     *,
     legacy: TTFont,
@@ -100,6 +144,7 @@ def _ensure_marks_present(
     ודא שכל תווי הניקוד/טעמים קיימים ב-Legacy (cmap+glyf).
     אם חסר — נעתיק מה-Engine (שם הם קיימים לרוב).
     """
+    _ensure_windows_unicode_cmaps(legacy)
     leg_cmap = legacy.getBestCmap() or {}
     eng_cmap = engine.getBestCmap() or {}
     factor = float(legacy["head"].unitsPerEm) / float(engine["head"].unitsPerEm)
@@ -115,8 +160,7 @@ def _ensure_marks_present(
         # create a legacy glyph name if missing
         if not lg:
             lg = f"uni{cp:04X}"
-            # add to cmap by inserting into Unicode cmap subtables (simple: update best cmap only is not enough)
-            # Instead: rely on existing cmap entries; most fonts already map marks. If not, still create glyph so GPOS resolves.
+            _add_cmap_mapping(legacy, cp, lg)
         if lg not in glyf_leg.glyphs:
             # חייב להיות אובייקט Glyph אמיתי, לא None (אחרת save נופל ב-compile)
             legacy["glyf"].glyphs[lg] = Glyph()
