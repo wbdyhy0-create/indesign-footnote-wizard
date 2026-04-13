@@ -201,8 +201,10 @@ def _sanitize_os2_for_windows_install(font: TTFont) -> None:
         sel = int(getattr(os2, "fsSelection", 0))
     except Exception:
         sel = 0
-    # bits 0..9 (0x03FF) are the commonly-defined range; clear garbage high bits.
-    sel &= 0x03FF
+    # For OS/2 table versions < 4, only bits 0..6 are defined.
+    # Clear any higher bits that can confuse validators/installers.
+    ver = int(getattr(os2, "version", 0) or 0)
+    sel &= 0x007F if ver < 4 else 0x03FF
     # Ensure "REGULAR" bit when not bold/italic.
     if (sel & 0x0020) == 0 and (sel & 0x0001) == 0:
         sel |= 0x0040
