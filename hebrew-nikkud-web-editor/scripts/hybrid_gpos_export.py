@@ -255,6 +255,8 @@ def _auto_base_anchor_for_mark_cp(
     y_max: float,
     margin_below: float,
     margin_above: float,
+    mark_top_rel: float,
+    mark_bottom_rel: float,
 ) -> tuple[float, float]:
     """
     כלל אוטומטי ל-BaseAnchor עבור אות+ניקוד, לפי Bounding Box של האות (ביחידות פונט).
@@ -263,6 +265,12 @@ def _auto_base_anchor_for_mark_cp(
     cx = (x_min + x_max) / 2.0
     w = max(1.0, x_max - x_min)
     cy = (y_min + y_max) / 2.0
+
+    # כללי Y "בטוחים":
+    # BaseAnchor + (mark_yMax - mark_anchor_y) <= y_min - margin_below   (ניקוד תחתון)
+    # BaseAnchor + (mark_yMin - mark_anchor_y) >= y_max + margin_above   (ניקוד עליון)
+    y_below = y_min - margin_below - mark_top_rel
+    y_above = y_max + margin_above - mark_bottom_rel
 
     # קבוצה א׳: ניקוד תחתון
     if mark_cp in {
@@ -278,7 +286,7 @@ def _auto_base_anchor_for_mark_cp(
         0x05BB,  # קובוץ
         0x05C7,  # קמץ קטן
     }:
-        return cx, y_min - margin_below
+        return cx, y_below
 
     # קבוצה ג׳: פנימי (דגש/מפיק)
     if mark_cp in {0x05BC}:  # דגש / מפיק
@@ -286,16 +294,16 @@ def _auto_base_anchor_for_mark_cp(
 
     # קבוצה ב׳: עליון
     if mark_cp in {0x05B9, 0x05BA}:  # חולם / חולם חסר לוו
-        return cx + (w * 0.22), y_max + margin_above
+        return cx + (w * 0.22), y_above
     if mark_cp == 0x05C1:  # נקודת שין (ימין)
-        return x_max - (w * 0.18), y_max + margin_above
+        return x_max - (w * 0.18), y_above
     if mark_cp == 0x05C2:  # נקודת סין (שמאל)
-        return x_min + (w * 0.18), y_max + margin_above
+        return x_min + (w * 0.18), y_above
     if mark_cp in {0x05BF}:  # רפה
-        return cx, y_max + margin_above
+        return cx, y_above
 
     # ברירת מחדל: כמו ניקוד תחתון (בטוח יותר מטעם לא מוכר)
-    return cx, y_min - margin_below
+    return cx, y_below
 
 
 def auto_center_mark_to_base_anchors_for_merged_hebrew_letters(engine: TTFont) -> int:
@@ -365,6 +373,26 @@ def auto_center_mark_to_base_anchors_for_merged_hebrew_letters(engine: TTFont) -
                     if cls < 0 or cls >= int(st.ClassCount):
                         continue
 
+                    # מדוד BBox של סימן הניקוד והיחס שלו ל-MarkAnchor (ביחידות פונט)
+                    try:
+                        mgly = glyf[mg]
+                        try:
+                            mgly.recalcBounds(glyf)
+                        except Exception:
+                            pass
+                        my_min = float(getattr(mgly, "yMin", 0))
+                        my_max = float(getattr(mgly, "yMax", 0))
+                    except Exception:
+                        my_min, my_max = 0.0, 0.0
+                    try:
+                        ma = getattr(mrec, "MarkAnchor", None)
+                        mark_ax = float(getattr(ma, "XCoordinate", 0))
+                        mark_ay = float(getattr(ma, "YCoordinate", 0))
+                    except Exception:
+                        mark_ax, mark_ay = 0.0, 0.0
+                    mark_top_rel = my_max - mark_ay
+                    mark_bottom_rel = my_min - mark_ay
+
                     nx, ny = _auto_base_anchor_for_mark_cp(
                         mcp,
                         x_min=x_min,
@@ -373,6 +401,8 @@ def auto_center_mark_to_base_anchors_for_merged_hebrew_letters(engine: TTFont) -
                         y_max=y_max,
                         margin_below=margin_below,
                         margin_above=margin_above,
+                        mark_top_rel=mark_top_rel,
+                        mark_bottom_rel=mark_bottom_rel,
                     )
                     while len(br.BaseAnchor) <= cls:
                         br.BaseAnchor.append(None)

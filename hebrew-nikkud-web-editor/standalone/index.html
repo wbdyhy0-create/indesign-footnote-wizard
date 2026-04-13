@@ -704,6 +704,26 @@
             ty = bb.y1 - marginAbove;
           }
 
+          // התאמת Y לפי ה-BBox של הניקוד עצמו (כדי שלא ייכנס לאות/שורה)
+          try {
+            var geom = markGeom(font, markCp, tx, ty, VIEW_BASE);
+            var mbox;
+            if (geom.kind === "circle") {
+              mbox = { x1: geom.cx - geom.r, y1: geom.cy - geom.r, x2: geom.cx + geom.r, y2: geom.cy + geom.r };
+            } else {
+              mbox = geom.path.getBoundingBox();
+            }
+            if ((markCp >= 0x05b0 && markCp <= 0x05b8) || markCp === 0x05bb || markCp === 0x05c7) {
+              // מתחת: ודא שהחלק העליון של הניקוד מתחת לתחתית האות + מרווח
+              var wantTop = bb.y2 + marginBelow;
+              if (mbox.y1 < wantTop) ty += wantTop - mbox.y1;
+            } else if (markCp === 0x05b9 || markCp === 0x05ba || markCp === 0x05c1 || markCp === 0x05c2 || markCp === 0x05bf) {
+              // מעל: ודא שהחלק התחתון של הניקוד מעל קצה האות העליון - מרווח
+              var wantBot = bb.y1 - marginAbove;
+              if (mbox.y2 > wantBot) ty -= mbox.y2 - wantBot;
+            }
+          } catch (ignoreAdjust) {}
+
           return {
             dx: (tx - ax) / markScale,
             dy: (ty - ay) / markScale,
