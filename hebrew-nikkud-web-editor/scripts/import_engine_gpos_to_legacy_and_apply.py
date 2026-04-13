@@ -162,8 +162,14 @@ def _remap_and_scale_gpos(engine_gpos: Any, *, engine: TTFont, legacy: TTFont) -
         return gpos
 
     for lookup in gpos.LookupList.Lookup:
-        for i, raw in enumerate(list(lookup.SubTable)):
+        # Keep only mark positioning subtables; drop everything else (kerning/ligatures/etc)
+        # because Legacy may not have those glyphs and saving will fail (KeyError).
+        kept_subtables: List[Any] = []
+        for raw in list(lookup.SubTable):
             st = _unwrap_gpos_subtable(raw)
+            st_name = type(st).__name__
+            if st_name not in ("MarkBasePos", "MarkMarkPos"):
+                continue
 
             if type(st).__name__ == "MarkBasePos" and getattr(st, "Format", None) == 1:
                 bases = list(getattr(st.BaseCoverage, "glyphs", []) or [])
@@ -215,6 +221,7 @@ def _remap_and_scale_gpos(engine_gpos: Any, *, engine: TTFont, legacy: TTFont) -
                 st.MarkCoverage.glyphs, st.MarkArray.MarkRecord = _sort_coverage_and_parallel(
                     st.MarkCoverage.glyphs, list(st.MarkArray.MarkRecord), glyph_to_id
                 )
+                kept_subtables.append(raw)
 
             elif type(st).__name__ == "MarkMarkPos" and getattr(st, "Format", None) == 1:
                 # Remap Mark1Coverage / Mark2Coverage + scale anchors
@@ -259,6 +266,9 @@ def _remap_and_scale_gpos(engine_gpos: Any, *, engine: TTFont, legacy: TTFont) -
                 st.Mark2Coverage.glyphs, st.Mark2Array.Mark2Record = _sort_coverage_and_parallel(
                     st.Mark2Coverage.glyphs, list(st.Mark2Array.Mark2Record), glyph_to_id
                 )
+                kept_subtables.append(raw)
+
+        lookup.SubTable = kept_subtables
 
     return gpos
 
