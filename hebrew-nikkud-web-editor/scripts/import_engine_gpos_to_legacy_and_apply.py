@@ -27,6 +27,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from fontTools.pens.transformPen import TransformPen
 from fontTools.pens.ttGlyphPen import TTGlyphPen
 from fontTools.ttLib import TTFont
+from fontTools.ttLib.tables._g_l_y_f import Glyph
 
 
 def _repo_root() -> Path:
@@ -117,8 +118,11 @@ def _ensure_marks_present(
             # add to cmap by inserting into Unicode cmap subtables (simple: update best cmap only is not enough)
             # Instead: rely on existing cmap entries; most fonts already map marks. If not, still create glyph so GPOS resolves.
         if lg not in glyf_leg.glyphs:
-            legacy["glyf"].glyphs[lg] = None  # placeholder; TTFont will fill when assigned
-            legacy.setGlyphOrder(list(legacy.getGlyphOrder()) + [lg])
+            # חייב להיות אובייקט Glyph אמיתי, לא None (אחרת save נופל ב-compile)
+            legacy["glyf"].glyphs[lg] = Glyph()
+            go = list(legacy.getGlyphOrder())
+            if lg not in go:
+                legacy.setGlyphOrder(go + [lg])
             # set empty hmtx default; will be overwritten
             legacy["hmtx"][lg] = (0, 0)
         try:
