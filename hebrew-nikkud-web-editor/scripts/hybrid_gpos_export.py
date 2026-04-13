@@ -100,6 +100,29 @@ def merge_hebrew_letter_outlines(legacy: TTFont, engine: TTFont) -> List[str]:
     eng_cmap = engine.getBestCmap() or {}
     leg_glyf = legacy["glyf"]
     eng_glyf = engine["glyf"]
+    eng_hmtx = engine["hmtx"]
+    leg_hmtx = legacy["hmtx"]
+
+    # Guardrail: אם רוחבי אות "נופלים" לאפס, אינדיזיין מציג overlap מלא.
+    # בחר סף מינימלי סביר ביחידות פונט של ה-Engine.
+    min_aw = max(50, int(round(upe_e * 0.05)))  # ~50 ל-1000upm
+
+    def _scaled_aw_lsb(lg_name: str, eg_name: str) -> tuple[int, int]:
+        try:
+            aw, lsb = leg_hmtx[lg_name]
+        except Exception:
+            # fallback: שמור רוחב מה-Engine אם חסר ב-Legacy
+            return eng_hmtx[eg_name]
+        aw_s = int(round(float(aw) * factor))
+        lsb_s = int(round(float(lsb) * factor))
+        if aw_s < min_aw:
+            # אל תהרוס רוחב תקין של Engine.
+            eaw, elsb = eng_hmtx[eg_name]
+            warnings.append(
+                f"U+{cp:04X} aw קטן מדי אחרי סקייל ({aw_s}); שומר רוחב Engine ({eaw})"
+            )
+            return int(eaw), int(elsb)
+        return aw_s, lsb_s
 
     for cp in range(0x05D0, 0x05EA + 1):
         lg = leg_cmap.get(cp)
@@ -131,8 +154,7 @@ def merge_hebrew_letter_outlines(legacy: TTFont, engine: TTFont) -> List[str]:
             if abs(factor - 1.0) > 1e-9:
                 _scale_simple_glyph(engine, eg, factor)
 
-            aw, lsb = legacy["hmtx"][lg]
-            engine["hmtx"][eg] = (int(round(aw * factor)), int(round(lsb * factor)))
+            engine["hmtx"][eg] = _scaled_aw_lsb(lg, eg)
         except Exception as e:
             warnings.append(f"U+{cp:04X} hmtx/scale: {e}")
 
@@ -151,6 +173,38 @@ def _unwrap_gpos_subtable(st):
     while type(st).__name__ == "ExtensionPos":
         st = st.ExtSubTable
     return st
+
+
+def _sort_markbasepos_coverage_arrays(st, glyph_to_id: dict[str, int]) -> None:
+    """
+    אינדיזיין/מנועים מסוימים רגישים ל-Coverage לא ממוין לפי glyphID.
+    ממיין BaseCoverage+BaseArray, וגם MarkCoverage+MarkArray, תוך שמירת התאמה.
+    """
+    try:
+        bases = list(st.BaseCoverage.glyphs)
+        marks = list(st.MarkCoverage.glyphs)
+    except Exception:
+        return
+
+    if getattr(st, "BaseArray", None) and getattr(st.BaseArray, "BaseRecord", None):
+        base_records = list(st.BaseArray.BaseRecord)
+        if len(base_records) == len(bases):
+            base_perm = sorted(
+                range(len(bases)),
+                key=lambda i: glyph_to_id.get(bases[i], 1_000_000_000),
+            )
+            st.BaseCoverage.glyphs = [bases[i] for i in base_perm]
+            st.BaseArray.BaseRecord = [base_records[i] for i in base_perm]
+
+    if getattr(st, "MarkArray", None) and getattr(st.MarkArray, "MarkRecord", None):
+        mark_records = list(st.MarkArray.MarkRecord)
+        if len(mark_records) == len(marks):
+            mark_perm = sorted(
+                range(len(marks)),
+                key=lambda i: glyph_to_id.get(marks[i], 1_000_000_000),
+            )
+            st.MarkCoverage.glyphs = [marks[i] for i in mark_perm]
+            st.MarkArray.MarkRecord = [mark_records[i] for i in mark_perm]
 
 
 def _auto_base_anchor_for_mark_cp(
@@ -228,6 +282,7 @@ def auto_center_mark_to_base_anchors_for_merged_hebrew_letters(engine: TTFont) -
             mark_glyph_to_cp[gn] = cp
 
     glyf = engine["glyf"]
+    glyph_to_id = {g: i for i, g in enumerate(engine.getGlyphOrder() or [])}
     upem = float(engine["head"].unitsPerEm) if "head" in engine else 1000.0
     margin_below = max(20.0, round(upem * 0.04))  # ~40 ל-1000upm
     margin_above = max(30.0, round(upem * 0.06))  # ~60 ל-1000upm
@@ -284,6 +339,9 @@ def auto_center_mark_to_base_anchors_for_merged_hebrew_letters(engine: TTFont) -
                         br.BaseAnchor.append(None)
                     br.BaseAnchor[cls] = _ensure_anchor(nx, ny)
                     changed += 1
+
+            # אחרי שינויים — ודא Coverages ממוין כדי להימנע מבעיות מנועי טקסט.
+            _sort_markbasepos_coverage_arrays(st, glyph_to_id)
     return changed
 
 
