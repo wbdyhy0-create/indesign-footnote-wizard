@@ -488,7 +488,16 @@ def export_import_gpos() -> Response:
             )
         out_bytes = out_path.read_bytes()
 
-    dl_name = "font-nikkud-legacy-base" + leg_suf
+    def _safe_dl_base(s: str) -> str:
+        b = "".join(c for c in s if c.isalnum() or c in "._- ")
+        b = (b or "font-nikkud-legacy-base").strip().replace(" ", "-")[:120]
+        return b
+
+    dl_name = (
+        _safe_dl_base(export_font_name) + leg_suf
+        if export_font_name
+        else "font-nikkud-legacy-base" + leg_suf
+    )
     resp = Response(
         out_bytes, mimetype="font/ttf" if leg_suf == ".ttf" else "font/otf"
     )
