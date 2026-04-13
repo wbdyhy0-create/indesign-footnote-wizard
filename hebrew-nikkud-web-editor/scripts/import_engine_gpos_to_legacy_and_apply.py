@@ -171,6 +171,38 @@ def apply_export_font_name(font: TTFont, export_name: str) -> None:
             pass
 
 
+def _sanitize_os2_for_windows_install(font: TTFont) -> None:
+    """
+    נרמול שדות OS/2 נפוצים שיכולים לגרום ל-Windows "לא גופן חוקי".
+    במיוחד בפונטים ישנים/מותאמים שבהם ערכים יוצאים מחוץ לטווח.
+    """
+    if "OS/2" not in font:
+        return
+    os2 = font["OS/2"]
+    try:
+        w = int(getattr(os2, "usWeightClass", 400))
+    except Exception:
+        w = 400
+    if w < 100 or w > 900:
+        os2.usWeightClass = 400
+    try:
+        ww = int(getattr(os2, "usWidthClass", 5))
+    except Exception:
+        ww = 5
+    if ww < 1 or ww > 9:
+        os2.usWidthClass = 5
+    try:
+        sel = int(getattr(os2, "fsSelection", 0))
+    except Exception:
+        sel = 0
+    # bits 0..9 (0x03FF) are the commonly-defined range; clear garbage high bits.
+    sel &= 0x03FF
+    # Ensure "REGULAR" bit when not bold/italic.
+    if (sel & 0x0020) == 0 and (sel & 0x0001) == 0:
+        sel |= 0x0040
+    os2.fsSelection = sel
+
+
 def _ensure_marks_present(
     *,
     legacy: TTFont,
@@ -451,6 +483,7 @@ def main() -> None:
         ft = TTFont(str(outp))
         try:
             apply_export_font_name(ft, args.export_font_name)
+            _sanitize_os2_for_windows_install(ft)
             ft.save(str(outp))
         finally:
             ft.close()
