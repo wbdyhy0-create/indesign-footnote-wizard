@@ -23,6 +23,7 @@ import time
 from pathlib import Path
 from typing import List, Tuple
 
+from fontTools.pens.transformPen import TransformPen
 from fontTools.pens.ttGlyphPen import TTGlyphPen
 from fontTools.ttLib import TTFont
 from fontTools.ttLib.tables import otTables
@@ -45,29 +46,15 @@ def _require_glyf(tt: TTFont, label: str) -> None:
         )
 
 
-def _scale_simple_glyph(font: TTFont, gname: str, factor: float) -> None:
-    glyf = font["glyf"]
-    g = glyf[gname]
-    if g.isComposite():
-        return
-    coords, _end, _flags = g.getCoordinates(glyf)
-    if coords is None or len(coords) == 0:
-        return
-    new_pts = [
-        (int(round(x * factor)), int(round(y * factor))) for x, y in list(coords)
-    ]
-    g.setCoordinates(new_pts, glyf)
-    try:
-        g.recalcBounds(glyf)
-    except Exception:
-        pass
-
-
 def _copy_simple_glyph_outline(
-    legacy: TTFont, lg: str, engine: TTFont, eg: str
+    legacy: TTFont, lg: str, engine: TTFont, eg: str, *, factor: float
 ) -> Tuple[bool, str]:
     """
-    מעתיק מתאר מ־legacy ל־engine דרך TTGlyphPen (בטוח יותר מ־deepcopy בין פונטים).
+    מעתיק מתאר מ־legacy ל־engine דרך TTGlyphPen עם מטריצת סקייל.
+
+    חשוב: ביצוא היברידי ראינו מקרים שבהם סקיילינג "אחרי ההעתקה" דרך Coordinates לא השפיע
+    כמו שצריך. לכן אנחנו מציירים לתוך pen עם TransformPen (סקייל בזמן יצירת הגליף),
+    כדי לקבל BBox נכון כבר מההתחלה.
     """
     leg_glyf = legacy["glyf"]
     eng_glyf = engine["glyf"]
@@ -75,9 +62,13 @@ def _copy_simple_glyph_outline(
     if sg.isComposite():
         return False, "legacy composite"
     try:
-        pen = TTGlyphPen(eng_glyf)
+        base_pen = TTGlyphPen(eng_glyf)
+        if abs(factor - 1.0) > 1e-9:
+            pen = TransformPen(base_pen, (factor, 0, 0, factor, 0, 0))
+        else:
+            pen = base_pen
         sg.draw(pen, leg_glyf)
-        eng_glyf[eg] = pen.glyph()
+        eng_glyf[eg] = base_pen.glyph()
     except Exception as e:
         return False, str(e)
     return True, ""
@@ -166,18 +157,45 @@ def merge_hebrew_letter_outlines(legacy: TTFont, engine: TTFont) -> List[str]:
             warnings.append(f"U+{cp:04X}: legacy {lg} מרוכב — דילוג")
             continue
 
-        ok, err = _copy_simple_glyph_outline(legacy, lg, engine, eg)
+        ok, err = _copy_simple_glyph_outline(legacy, lg, engine, eg, factor=factor)
         if not ok:
             warnings.append(f"U+{cp:04X} {lg}->{eg}: {err}")
             continue
 
         try:
-            if abs(factor - 1.0) > 1e-9:
-                _scale_simple_glyph(engine, eg, factor)
-
             engine["hmtx"][eg] = _scaled_aw_lsb(lg, eg, cp)
         except Exception as e:
             warnings.append(f"U+{cp:04X} hmtx/scale: {e}")
+
+    # Sanity: אחרי המיזוג, ודא ש-BBox לא "התנפח" ביחס ל-advanceWidth.
+    # אם עדיין יוצא bboxW ענק (כמו 1300 ב-1000upm), נדע מיד מהלוגים.
+    try:
+        bbox_ws = []
+        aws = []
+        for cp in range(0x05D0, 0x05EB):
+            eg = eng_cmap.get(cp)
+            if not eg:
+                continue
+            aw, _lsb = eng_hmtx[eg]
+            g = eng_glyf[eg]
+            try:
+                g.recalcBounds(eng_glyf)
+            except Exception:
+                pass
+            bw = float(getattr(g, "xMax", 0)) - float(getattr(g, "xMin", 0))
+            if bw > 0 and aw > 0:
+                bbox_ws.append(bw)
+                aws.append(float(aw))
+        if bbox_ws and aws:
+            bbox_ws.sort()
+            aws.sort()
+            mbw = bbox_ws[len(bbox_ws) // 2]
+            maw = aws[len(aws) // 2]
+            warnings.append(
+                f"sanity: median bboxW≈{mbw:.0f}, median aw≈{maw:.0f}, ratio≈{(mbw/max(1.0,maw)):.3f}"
+            )
+    except Exception:
+        pass
 
     return warnings
 
