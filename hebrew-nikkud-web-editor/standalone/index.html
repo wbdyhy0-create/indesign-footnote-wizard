@@ -187,6 +187,10 @@
         <input id="fileInEngine" type="file" accept=".ttf,.otf,.woff,.woff2" hidden />
         <input id="fileInProject" type="file" accept=".json,application/json" hidden />
         <p class="hint" id="engineFileLabel"></p>
+        <label class="hint" style="display: block; margin-top: 0.35rem">
+          <input type="checkbox" id="chkLegacyBase" checked />
+          שמור Legacy כבסיס (ייבוא GPOS מה-Engine) — מומלץ לפונטים כמו “אביגיל” כדי שהאותיות לא ישתנו.
+        </label>
         <button type="button" class="btn" id="btnClearEngine" style="margin-top: 0.25rem">
           בטל פונט מנוע
         </button>
@@ -1213,23 +1217,28 @@
           reader.readAsText(f, "utf-8");
         };
 
-        function exportEndpoint(raw, hybrid) {
+        function exportEndpoint(raw, mode) {
           var s = (raw || "").trim();
           if (!s) s = "http://127.0.0.1:8765/export";
           try {
             var u = new URL(s);
-            u.pathname = hybrid ? "/export_hybrid" : "/export";
+            u.pathname =
+              mode === "hybrid"
+                ? "/export_hybrid"
+                : mode === "import_gpos"
+                  ? "/export_import_gpos"
+                  : "/export";
             return u.href;
           } catch (e) {
-            return hybrid
-              ? "http://127.0.0.1:8765/export_hybrid"
-              : "http://127.0.0.1:8765/export";
+            if (mode === "hybrid") return "http://127.0.0.1:8765/export_hybrid";
+            if (mode === "import_gpos") return "http://127.0.0.1:8765/export_import_gpos";
+            return "http://127.0.0.1:8765/export";
           }
         }
 
-        function exportOriginFromUrl(raw, hybrid) {
+        function exportOriginFromUrl(raw, mode) {
           try {
-            return new URL(exportEndpoint(raw, hybrid)).origin;
+            return new URL(exportEndpoint(raw, mode)).origin;
           } catch (e2) {
             return "http://127.0.0.1:8765";
           }
@@ -1338,10 +1347,12 @@
               "העמוד נפתח מקובץ (file://) — ייצוא לשרת עלול להיתקע. הריצו run-export-server.bat ופתחו בדפדפן: http://127.0.0.1:8765/ (אותו מקור כמו השרת).",
             );
           }
-          var hybrid = !!engineFile;
+          var hasEngine = !!engineFile;
+          var legacyBase = !!document.getElementById("chkLegacyBase").checked;
+          var mode = hasEngine ? (legacyBase ? "import_gpos" : "hybrid") : "plain";
           var rawUrl = document.getElementById("exportUrl").value.trim();
-          var url = exportEndpoint(rawUrl, hybrid);
-          var origin = exportOriginFromUrl(rawUrl, hybrid);
+          var url = exportEndpoint(rawUrl, mode);
+          var origin = exportOriginFromUrl(rawUrl, mode);
           try {
             var exportChk = new URL(url);
             if (
@@ -1355,7 +1366,7 @@
           } catch (ignoreChk) {}
           localStorage.setItem(EXPORT_URL_KEY, rawUrl || url);
           var fd = new FormData();
-          if (hybrid) {
+          if (mode === "hybrid" || mode === "import_gpos") {
             fd.append("legacy", fontFile, fontFile.name || "legacy.ttf");
             fd.append("engine", engineFile, engineFile.name || "engine.ttf");
             var exportNm = document.getElementById("exportFontName").value.trim();
@@ -1414,7 +1425,7 @@
             }
 
             var blob;
-            if (hybrid) {
+            if (mode === "hybrid" || mode === "import_gpos") {
               setMsg("היברידי: מתחיל העלאה (שני פונטים + JSON)…");
               var hres = await postFormDataXHR(
                 url,
@@ -1458,7 +1469,7 @@
                 return;
               }
               blob = hres.blob;
-              setMsg("היברידי: מוריד קובץ…");
+              setMsg(mode === "import_gpos" ? "מייבא GPOS ל-Legacy ומוריד קובץ…" : "היברידי: מוריד קובץ…");
             } else {
               setMsg("מייצא…");
               var res = await fetch(url, {
@@ -1476,16 +1487,15 @@
             }
             var a = document.createElement("a");
             a.href = URL.createObjectURL(blob);
-            var nm = (hybrid ? engineFile.name : fontFile.name) || "font.ttf";
+            var nm = ((mode === "hybrid" ? engineFile.name : fontFile.name) || "font.ttf");
             var base = nm.replace(/\.[^.]+$/, "");
             var ext = /\.otf$/i.test(nm) ? ".otf" : ".ttf";
-            var hybridExportNm =
-              hybrid && document.getElementById("exportFontName").value.trim();
+            var hybridExportNm = (mode !== "plain") && document.getElementById("exportFontName").value.trim();
             if (hybridExportNm) {
               var safeFn = hybridExportNm.replace(/[\\/:*?"<>|]/g, "_").slice(0, 120);
               a.download = safeFn + ext;
             } else {
-              a.download = base + (hybrid ? "-nikkud-hybrid" : "-nikkud") + ext;
+              a.download = base + (mode === "hybrid" ? "-nikkud-hybrid" : mode === "import_gpos" ? "-nikkud-legacy" : "-nikkud") + ext;
             }
             a.click();
             URL.revokeObjectURL(a.href);

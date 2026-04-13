@@ -156,6 +156,7 @@ NIKKUD_EDITOR = STANDALONE_DIR.parent
 REPO_ROOT = NIKKUD_EDITOR.parent
 APPLY_SCRIPT = NIKKUD_EDITOR / "scripts" / "apply_nikkud_project.py"
 HYBRID_SCRIPT = NIKKUD_EDITOR / "scripts" / "hybrid_gpos_export.py"
+IMPORT_GPOS_SCRIPT = NIKKUD_EDITOR / "scripts" / "import_engine_gpos_to_legacy_and_apply.py"
 
 # מודפס בכל ייבוא היברידי — אם עדיין מופיע _TeeBinary ב־traceback, השרת לא טוען את הקובץ הזה.
 EXPORT_SERVER_BUILD = "2026-04-12-popen-pipe"
@@ -392,6 +393,104 @@ def export_hybrid() -> Response:
     dl_name = _safe_dl_base(export_font_name) + eng_suf if export_font_name else "font-nikkud-hybrid" + eng_suf
     resp = Response(
         out_bytes, mimetype="font/ttf" if eng_suf == ".ttf" else "font/otf"
+    )
+    resp.headers["Content-Disposition"] = f'attachment; filename="{dl_name}"'
+    return _cors(resp)
+
+
+@APP.route("/export_import_gpos", methods=["OPTIONS"])
+def import_gpos_options() -> Response:
+    return _cors(Response("", status=204))
+
+
+@APP.route("/export_import_gpos", methods=["POST"])
+def export_import_gpos() -> Response:
+    """Legacy נשאר בסיס; ייבוא GPOS מה-Engine; החלת JSON; הורדה."""
+    if not IMPORT_GPOS_SCRIPT.is_file():
+        return _cors(
+            Response(
+                f"לא נמצא import_engine_gpos_to_legacy_and_apply.py ב־{IMPORT_GPOS_SCRIPT}",
+                status=500,
+                mimetype="text/plain; charset=utf-8",
+            )
+        )
+    for key in ("legacy", "engine", "project"):
+        if key not in request.files:
+            return _cors(
+                Response(
+                    f'חסר שדה multipart: "{key}" (נדרשים legacy, engine, project)',
+                    status=400,
+                    mimetype="text/plain; charset=utf-8",
+                )
+            )
+    leg_f = request.files["legacy"]
+    eng_f = request.files["engine"]
+    proj_f = request.files["project"]
+    export_font_name = (request.form.get("export_font_name") or "").strip()
+    leg_bytes = leg_f.read()
+    eng_bytes = eng_f.read()
+    proj_bytes = proj_f.read()
+    if not leg_bytes or not eng_bytes or not proj_bytes:
+        return _cors(
+            Response("קובץ ריק", status=400, mimetype="text/plain; charset=utf-8")
+        )
+
+    def _suf(fn: str) -> str:
+        low = (fn or "").lower()
+        return ".otf" if low.endswith(".otf") else ".ttf"
+
+    leg_suf = _suf(leg_f.filename or "")
+    eng_suf = _suf(eng_f.filename or "")
+
+    with tempfile.TemporaryDirectory() as td:
+        tdir = Path(td)
+        leg_path = tdir / ("legacy" + leg_suf)
+        eng_path = tdir / ("engine" + eng_suf)
+        leg_path.write_bytes(leg_bytes)
+        eng_path.write_bytes(eng_bytes)
+        proj_path = tdir / "nikkud-project.json"
+        proj_path.write_bytes(proj_bytes)
+        out_path = tdir / ("out" + leg_suf)
+        cmd = [
+            sys.executable,
+            str(IMPORT_GPOS_SCRIPT),
+            "--legacy",
+            str(leg_path),
+            "--engine",
+            str(eng_path),
+            "--project",
+            str(proj_path),
+            "--output",
+            str(out_path),
+        ]
+        if export_font_name:
+            cmd.extend(["--export-font-name", export_font_name])
+        log_path = tdir / "export-import-gpos.log"
+        code, log_tail = _run_hybrid_script_logged(
+            cmd, cwd=REPO_ROOT, log_path=log_path, timeout=1200
+        )
+        if code != 0:
+            err = (
+                f"פג זמן (20 דקות) או שגיאה — קוד {code}.\n{log_tail}".strip()
+                if code == -1
+                else (log_tail.strip() or "שגיאה לא ידועה")
+            )
+            return _cors(
+                Response(
+                    err,
+                    status=504 if code == -1 else 500,
+                    mimetype="text/plain; charset=utf-8",
+                )
+            )
+        if not out_path.is_file():
+            return _cors(
+                Response("לא נוצר קובץ פלט", status=500, mimetype="text/plain; charset=utf-8")
+            )
+        out_bytes = out_path.read_bytes()
+
+    dl_name = "font-nikkud-legacy-base" + leg_suf
+    resp = Response(
+        out_bytes, mimetype="font/ttf" if leg_suf == ".ttf" else "font/otf"
     )
     resp.headers["Content-Disposition"] = f'attachment; filename="{dl_name}"'
     return _cors(resp)

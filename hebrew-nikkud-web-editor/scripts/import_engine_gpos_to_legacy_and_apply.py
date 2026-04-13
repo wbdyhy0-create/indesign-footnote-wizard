@@ -1,0 +1,348 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+מצב "אוניברסלי":
+1) Legacy נשאר בסיס (צורות/metrics לא משתנים).
+2) מייבא GPOS (+GDEF כשאפשר) מפונט Engine לתוך Legacy, עם:
+   - התאמת שמות גליפים לפי cmap (engine glyph -> codepoint -> legacy glyph)
+   - סקייל קואורדינטות עוגנים לפי יחס UPEM (legacy/engine)
+   - מיון Coverage לפי glyphID (ידידותי לאינדיזיין)
+3) מחיל JSON (offsets) על Legacy באמצעות apply_nikkud_project.py.
+
+דרישות:
+  pip install fonttools
+  מבנה ריפו עם hebrew-mark-editor/gpos_editor_app לצד hebrew-nikkud-web-editor
+"""
+
+from __future__ import annotations
+
+import argparse
+import copy
+import subprocess
+import sys
+import time
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
+from fontTools.pens.transformPen import TransformPen
+from fontTools.pens.ttGlyphPen import TTGlyphPen
+from fontTools.ttLib import TTFont
+
+
+def _repo_root() -> Path:
+    return Path(__file__).resolve().parents[2]
+
+
+def _stage(msg: str) -> None:
+    print(f"[import] {time.strftime('%H:%M:%S')} {msg}", flush=True)
+
+
+def _require_glyf(tt: TTFont, label: str) -> None:
+    if "glyf" not in tt or tt["glyf"] is None:
+        raise SystemExit(
+            f"{label}: נדרש פונט עם טבלת glyf (TrueType). "
+            "פונט CFF בלבד (OTF ללא glyf) לא נתמך במצב זה."
+        )
+
+
+def _unwrap_gpos_subtable(st: Any) -> Any:
+    while type(st).__name__ == "ExtensionPos":
+        st = st.ExtSubTable
+    return st
+
+
+def _scale_anchor(a: Any, factor: float) -> None:
+    if a is None:
+        return
+    fmt = getattr(a, "Format", 1)
+    if fmt in (1, 2, 3):
+        a.Format = 1
+        a.XCoordinate = int(round(float(a.XCoordinate) * factor))
+        a.YCoordinate = int(round(float(a.YCoordinate) * factor))
+        # remove device tables if present
+        for attr in ("XDeviceTable", "YDeviceTable", "xDeviceTable", "yDeviceTable"):
+            if hasattr(a, attr):
+                setattr(a, attr, None)
+
+
+def _copy_glyph_outline_scaled(
+    *,
+    src: TTFont,
+    src_name: str,
+    dst: TTFont,
+    dst_name: str,
+    factor: float,
+) -> None:
+    """מעתיק glyph glyf (פשוט) + hmtx, עם סקייל לפי factor."""
+    sg = src["glyf"][src_name]
+    if sg.isComposite():
+        # לא נוגע במרוכבים כאן; לרוב ניקוד/טעמים פשוטים.
+        return
+    pen0 = TTGlyphPen(dst["glyf"])
+    pen = TransformPen(pen0, (factor, 0, 0, factor, 0, 0)) if abs(factor - 1.0) > 1e-9 else pen0
+    sg.draw(pen, src["glyf"])
+    dst["glyf"][dst_name] = pen0.glyph()
+    try:
+        aw, lsb = src["hmtx"][src_name]
+        dst["hmtx"][dst_name] = (int(round(float(aw) * factor)), int(round(float(lsb) * factor)))
+    except Exception:
+        pass
+
+
+def _ensure_marks_present(
+    *,
+    legacy: TTFont,
+    engine: TTFont,
+    cps: List[int],
+) -> None:
+    """
+    ודא שכל תווי הניקוד/טעמים קיימים ב-Legacy (cmap+glyf).
+    אם חסר — נעתיק מה-Engine (שם הם קיימים לרוב).
+    """
+    leg_cmap = legacy.getBestCmap() or {}
+    eng_cmap = engine.getBestCmap() or {}
+    factor = float(legacy["head"].unitsPerEm) / float(engine["head"].unitsPerEm)
+    glyf_leg = legacy["glyf"]
+
+    for cp in cps:
+        eg = eng_cmap.get(cp)
+        if not eg:
+            continue
+        lg = leg_cmap.get(cp)
+        if lg and lg in glyf_leg.glyphs:
+            continue
+        # create a legacy glyph name if missing
+        if not lg:
+            lg = f"uni{cp:04X}"
+            # add to cmap by inserting into Unicode cmap subtables (simple: update best cmap only is not enough)
+            # Instead: rely on existing cmap entries; most fonts already map marks. If not, still create glyph so GPOS resolves.
+        if lg not in glyf_leg.glyphs:
+            legacy["glyf"].glyphs[lg] = None  # placeholder; TTFont will fill when assigned
+            legacy.setGlyphOrder(list(legacy.getGlyphOrder()) + [lg])
+            # set empty hmtx default; will be overwritten
+            legacy["hmtx"][lg] = (0, 0)
+        try:
+            _copy_glyph_outline_scaled(src=engine, src_name=eg, dst=legacy, dst_name=lg, factor=factor)
+        except Exception:
+            continue
+
+
+def _build_engine_glyph_to_cp(engine: TTFont) -> Dict[str, int]:
+    m: Dict[str, int] = {}
+    cmap = engine.getBestCmap() or {}
+    for cp, gn in cmap.items():
+        if isinstance(cp, int) and isinstance(gn, str) and gn not in m:
+            m[gn] = cp
+    return m
+
+
+def _legacy_glyph_for_cp(legacy: TTFont, cp: int) -> Optional[str]:
+    cmap = legacy.getBestCmap() or {}
+    gn = cmap.get(cp)
+    return gn if isinstance(gn, str) else None
+
+
+def _sort_coverage_and_parallel(arr_glyphs: List[str], parallel: List[Any], glyph_to_id: Dict[str, int]) -> Tuple[List[str], List[Any]]:
+    perm = sorted(range(len(arr_glyphs)), key=lambda i: glyph_to_id.get(arr_glyphs[i], 1_000_000_000))
+    return [arr_glyphs[i] for i in perm], [parallel[i] for i in perm]
+
+
+def _remap_and_scale_gpos(engine_gpos: Any, *, engine: TTFont, legacy: TTFont) -> Any:
+    """יוצר עותק GPOS מה-Engine עם שמות גליפים של Legacy + סקייל עוגנים."""
+    gpos = copy.deepcopy(engine_gpos)
+    factor = float(legacy["head"].unitsPerEm) / float(engine["head"].unitsPerEm)
+    eng_g2cp = _build_engine_glyph_to_cp(engine)
+    glyph_to_id = {g: i for i, g in enumerate(legacy.getGlyphOrder() or [])}
+
+    if not getattr(gpos, "LookupList", None) or not gpos.LookupList.Lookup:
+        return gpos
+
+    for lookup in gpos.LookupList.Lookup:
+        for i, raw in enumerate(list(lookup.SubTable)):
+            st = _unwrap_gpos_subtable(raw)
+
+            if type(st).__name__ == "MarkBasePos" and getattr(st, "Format", None) == 1:
+                bases = list(getattr(st.BaseCoverage, "glyphs", []) or [])
+                marks = list(getattr(st.MarkCoverage, "glyphs", []) or [])
+                base_records = list(getattr(getattr(st, "BaseArray", None), "BaseRecord", []) or [])
+                mark_records = list(getattr(getattr(st, "MarkArray", None), "MarkRecord", []) or [])
+
+                # Remap marks
+                new_marks: List[str] = []
+                new_mark_records: List[Any] = []
+                for mg, mr in zip(marks, mark_records):
+                    cp = eng_g2cp.get(mg)
+                    if cp is None:
+                        continue
+                    lg = _legacy_glyph_for_cp(legacy, cp)
+                    if not lg:
+                        continue
+                    new_marks.append(lg)
+                    _scale_anchor(getattr(mr, "MarkAnchor", None), factor)
+                    new_mark_records.append(mr)
+                marks, mark_records = new_marks, new_mark_records
+
+                # Remap bases
+                new_bases: List[str] = []
+                new_base_records: List[Any] = []
+                for bg, br in zip(bases, base_records):
+                    cp = eng_g2cp.get(bg)
+                    if cp is None:
+                        continue
+                    lg = _legacy_glyph_for_cp(legacy, cp)
+                    if not lg:
+                        continue
+                    # scale all anchors in this BaseRecord
+                    for a in getattr(br, "BaseAnchor", []) or []:
+                        _scale_anchor(a, factor)
+                    new_bases.append(lg)
+                    new_base_records.append(br)
+                bases, base_records = new_bases, new_base_records
+
+                # Apply back + sort
+                st.MarkCoverage.glyphs = marks
+                st.MarkArray.MarkRecord = mark_records
+                st.BaseCoverage.glyphs = bases
+                st.BaseArray.BaseRecord = base_records
+
+                st.BaseCoverage.glyphs, st.BaseArray.BaseRecord = _sort_coverage_and_parallel(
+                    st.BaseCoverage.glyphs, list(st.BaseArray.BaseRecord), glyph_to_id
+                )
+                st.MarkCoverage.glyphs, st.MarkArray.MarkRecord = _sort_coverage_and_parallel(
+                    st.MarkCoverage.glyphs, list(st.MarkArray.MarkRecord), glyph_to_id
+                )
+
+            elif type(st).__name__ == "MarkMarkPos" and getattr(st, "Format", None) == 1:
+                # Remap Mark1Coverage / Mark2Coverage + scale anchors
+                m1 = list(getattr(st.Mark1Coverage, "glyphs", []) or [])
+                m2 = list(getattr(st.Mark2Coverage, "glyphs", []) or [])
+                m1recs = list(getattr(getattr(st, "Mark1Array", None), "MarkRecord", []) or [])
+                m2recs = list(getattr(getattr(st, "Mark2Array", None), "Mark2Record", []) or [])
+
+                new_m1, new_m1recs = [], []
+                for g1, r1 in zip(m1, m1recs):
+                    cp = eng_g2cp.get(g1)
+                    if cp is None:
+                        continue
+                    lg = _legacy_glyph_for_cp(legacy, cp)
+                    if not lg:
+                        continue
+                    _scale_anchor(getattr(r1, "MarkAnchor", None), factor)
+                    new_m1.append(lg)
+                    new_m1recs.append(r1)
+                new_m2, new_m2recs = [], []
+                for g2, r2 in zip(m2, m2recs):
+                    cp = eng_g2cp.get(g2)
+                    if cp is None:
+                        continue
+                    lg = _legacy_glyph_for_cp(legacy, cp)
+                    if not lg:
+                        continue
+                    # scale Mark2 anchors (matrix)
+                    for anch_list in getattr(r2, "Mark2Anchor", []) or []:
+                        _scale_anchor(anch_list, factor)
+                    new_m2.append(lg)
+                    new_m2recs.append(r2)
+
+                st.Mark1Coverage.glyphs = new_m1
+                st.Mark1Array.MarkRecord = new_m1recs
+                st.Mark2Coverage.glyphs = new_m2
+                st.Mark2Array.Mark2Record = new_m2recs
+
+                st.Mark1Coverage.glyphs, st.Mark1Array.MarkRecord = _sort_coverage_and_parallel(
+                    st.Mark1Coverage.glyphs, list(st.Mark1Array.MarkRecord), glyph_to_id
+                )
+                st.Mark2Coverage.glyphs, st.Mark2Array.Mark2Record = _sort_coverage_and_parallel(
+                    st.Mark2Coverage.glyphs, list(st.Mark2Array.Mark2Record), glyph_to_id
+                )
+
+    return gpos
+
+
+def _remap_gdef(engine_gdef: Any, *, engine: TTFont, legacy: TTFont) -> Any:
+    gdef = copy.deepcopy(engine_gdef)
+    eng_g2cp = _build_engine_glyph_to_cp(engine)
+    clsdef = getattr(gdef, "GlyphClassDef", None)
+    if clsdef and hasattr(clsdef, "classDefs"):
+        new_defs: Dict[str, int] = {}
+        for eg, cls in clsdef.classDefs.items():
+            cp = eng_g2cp.get(eg)
+            if cp is None:
+                continue
+            lg = _legacy_glyph_for_cp(legacy, cp)
+            if not lg:
+                continue
+            new_defs[lg] = int(cls)
+        clsdef.classDefs = new_defs
+    return gdef
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description="ייבוא GPOS/GDEF מ-Engine לתוך Legacy + החלת JSON ניקוד")
+    ap.add_argument("--legacy", "-l", required=True, help="פונט בסיס (למשל Avigail)")
+    ap.add_argument("--engine", "-e", required=True, help="פונט מנוע ניקוד (למשל Frank Ruhl Libre)")
+    ap.add_argument("--project", "-p", required=True, help="nikkud-project.json")
+    ap.add_argument("--output", "-o", required=True, help="פלט TTF/OTF")
+    ap.add_argument("--export-font-name", default="", help="שם משפחה/תצוגה לפלט (טבלת name). ריק = ללא שינוי.")
+    args = ap.parse_args()
+
+    apply_script = _repo_root() / "hebrew-nikkud-web-editor" / "scripts" / "apply_nikkud_project.py"
+    if not apply_script.is_file():
+        raise SystemExit(f"לא נמצא {apply_script}")
+
+    _stage("טוען Legacy + Engine")
+    legacy = TTFont(args.legacy)
+    engine = TTFont(args.engine)
+    try:
+        _require_glyf(legacy, "Legacy")
+        _require_glyf(engine, "Engine")
+
+        # Ensure mark/taamim glyphs exist in legacy so GPOS references resolve
+        cps = list(range(0x0591, 0x05C8)) + [0x05C0, 0x05C3]
+        _stage("מוודא גליפי ניקוד/טעמים ב-Legacy (העתקה מה-Engine כשחסר)…")
+        _ensure_marks_present(legacy=legacy, engine=engine, cps=cps)
+
+        if "GPOS" not in engine:
+            raise SystemExit("ל-Engine אין GPOS, אין מה לייבא.")
+        _stage("מייבא וממפה GPOS (כולל סקייל עוגנים)…")
+        legacy["GPOS"] = copy.deepcopy(engine["GPOS"])
+        legacy["GPOS"].table = _remap_and_scale_gpos(engine["GPOS"].table, engine=engine, legacy=legacy)
+
+        if "GDEF" in engine:
+            _stage("מייבא GDEF (מחלקות mark)…")
+            legacy["GDEF"] = copy.deepcopy(engine["GDEF"])
+            legacy["GDEF"].table = _remap_gdef(engine["GDEF"].table, engine=engine, legacy=legacy)
+
+        # Save temp
+        out_path = Path(args.output)
+        tmp_path = out_path.with_name(out_path.stem + "-imported.tmp" + out_path.suffix)
+        _stage("שומר קובץ זמני אחרי ייבוא GPOS…")
+        legacy.save(str(tmp_path))
+    finally:
+        legacy.close()
+        engine.close()
+
+    cmd = [
+        sys.executable,
+        str(apply_script),
+        "-i",
+        str(tmp_path.resolve()),
+        "-p",
+        str(Path(args.project).resolve()),
+        "-o",
+        str(Path(args.output).resolve()),
+    ]
+    _stage("מריץ apply_nikkud_project על Legacy עם GPOS מיובא…")
+    proc = subprocess.run(cmd, cwd=str(_repo_root()))
+    if proc.returncode != 0:
+        raise SystemExit(proc.returncode)
+    try:
+        tmp_path.unlink(missing_ok=True)
+    except Exception:
+        pass
+    _stage("סיום: " + str(Path(args.output).resolve()))
+
+
+if __name__ == "__main__":
+    main()
+
