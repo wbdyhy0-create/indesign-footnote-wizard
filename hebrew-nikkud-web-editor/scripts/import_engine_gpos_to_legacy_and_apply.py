@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import copy
+import re
 import subprocess
 import sys
 import time
@@ -132,6 +133,42 @@ def _add_cmap_mapping(font: TTFont, cp: int, glyph_name: str) -> None:
             continue
         if (st.platformID, st.platEncID) in ((3, 1), (3, 0), (0, 3)):
             st.cmap[int(cp)] = glyph_name
+
+
+def _sanitize_postscript_name(s: str) -> str:
+    """שם PostScript (name ID 6): ASCII בלבד, עד 63 בתים, ללא רווחים."""
+    t = (s or "").strip().replace(" ", "-")
+    t = re.sub(r"[^A-Za-z0-9._-]", "", t)
+    if not t:
+        t = "NikkudLegacyBase"
+    return t[:63]
+
+
+def apply_export_font_name(font: TTFont, export_name: str) -> None:
+    """עדכון name IDs כדי למנוע cache באינדיזיין/וינדוס."""
+    raw = (export_name or "").strip()
+    if not raw or "name" not in font:
+        return
+    ps = _sanitize_postscript_name(raw)
+    name = font["name"]
+    had_typo_family = any(nr.nameID == 16 for nr in name.names)
+    has_typo_sub = any(nr.nameID == 17 for nr in name.names)
+    name.names = [nr for nr in name.names if nr.nameID not in (1, 3, 4, 6, 16)]
+    name.setName(raw, 1, 3, 1, 0x409)
+    name.setName(raw, 4, 3, 1, 0x409)
+    name.setName(ps, 6, 3, 1, 0x409)
+    name.setName(ps, 6, 1, 0, 0)
+    rev = float(font["head"].fontRevision) if "head" in font else 1.0
+    unique = f"{rev};NIKKUD-LEGACY-BASE;{ps}"
+    name.setName(unique, 3, 3, 1, 0x409)
+    if had_typo_family and has_typo_sub:
+        name.setName(raw, 16, 3, 1, 0x409)
+    if all(ord(c) < 128 for c in raw):
+        try:
+            name.setName(raw, 1, 1, 0, 0)
+            name.setName(raw, 4, 1, 0, 0)
+        except Exception:
+            pass
 
 
 def _ensure_marks_present(
@@ -408,6 +445,15 @@ def main() -> None:
         tmp_path.unlink(missing_ok=True)
     except Exception:
         pass
+    if (args.export_font_name or "").strip():
+        _stage("מעדכן טבלת name לפי שם הייצוא…")
+        outp = Path(args.output)
+        ft = TTFont(str(outp))
+        try:
+            apply_export_font_name(ft, args.export_font_name)
+            ft.save(str(outp))
+        finally:
+            ft.close()
     _stage("סיום: " + str(Path(args.output).resolve()))
 
 
