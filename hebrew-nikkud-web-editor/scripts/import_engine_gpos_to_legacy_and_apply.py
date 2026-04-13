@@ -278,6 +278,16 @@ def _remap_gdef(engine_gdef: Any, *, engine: TTFont, legacy: TTFont) -> Any:
                 continue
             new_defs[lg] = int(cls)
         clsdef.classDefs = new_defs
+
+    # ב-Engine עלולים להיות מבני GDEF נוספים (LigCaretList וכו') שמכילים גליפים לטיניים
+    # שאינם קיימים ב-Legacy, וגורמים ל-KeyError בשמירה. כרגע אנחנו לא צריכים אותם
+    # לניקוד/טעמים, ולכן מנטרלים אותם בבטחה.
+    if hasattr(gdef, "LigCaretList"):
+        gdef.LigCaretList = None
+    if hasattr(gdef, "MarkAttachClassDef"):
+        gdef.MarkAttachClassDef = None
+    if hasattr(gdef, "MarkGlyphSetsDef"):
+        gdef.MarkGlyphSetsDef = None
     return gdef
 
 
