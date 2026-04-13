@@ -211,6 +211,15 @@
         <div id="nikGrid" class="nik-grid"></div>
         <button type="button" class="btn primary" id="btnAdd">הוסף ניקוד נבחר</button>
 
+        <label class="field">טעמים להוספה (U+0591–U+05AF)</label>
+        <div class="row" style="margin-top: 0.35rem">
+          <button type="button" class="btn" id="btnAzlaGeresh">אזלא־גריש</button>
+          <button type="button" class="btn" id="btnQadmaAzla">קדמא (אזלא)</button>
+          <button type="button" class="btn" id="btnGeresh">גרש</button>
+        </div>
+        <div id="taamGrid" class="nik-grid" style="margin-top: 0.5rem"></div>
+        <button type="button" class="btn primary" id="btnAddTaam">הוסף טעם נבחר</button>
+
         <label class="field">סימונים בשכבה</label>
         <ul class="marks" id="markList"></ul>
         <button type="button" class="btn warn" id="btnClear">נקה כל הסימנים</button>
@@ -276,6 +285,7 @@
         let fontName = "";
         let baseCP = 0x05d0;
         let pickNikkud = 0x05b8;
+        let pickTaam = 0x0591; // אתנחתא כברירת מחדל
         let marks = [];
         /** כללים שצברת לאותיות שונות לפני ייצוא (אם ריק — הייצוא משתמש רק באות + שכבה הנוכחיים) */
         let rulesBundle = [];
@@ -311,6 +321,52 @@
         function nikkudNameHe(cp) {
           var n = NIKKUD_NAME_BY_CP[cp];
           return n != null ? n : "U+" + cp.toString(16).toUpperCase();
+        }
+
+        /** שמות טעמים (מקובל בסגנון ספרדי) */
+        const TAAM_NAME_BY_CP = {
+          0x0591: "אתנחתא",
+          0x0592: "סגולתא",
+          0x0593: "שלשלת",
+          0x0594: "זקף קטן",
+          0x0595: "זקף גדול",
+          0x0596: "טפחא",
+          0x0597: "רביע",
+          0x0598: "זרקא",
+          0x0599: "פשטא",
+          0x059a: "יתיב",
+          0x059b: "תביר",
+          0x059c: "גרש",
+          0x059d: "גרש מוקדם",
+          0x059e: "גרשיים",
+          0x059f: "קרני פרה",
+          0x05a0: "תלישא גדולה",
+          0x05a1: "פזר",
+          0x05a2: "אתנח הפוך",
+          0x05a3: "מונח",
+          0x05a4: "מהפך",
+          0x05a5: "מרכא",
+          0x05a6: "מרכא כפולה",
+          0x05a7: "דרגא",
+          0x05a8: "קדמא (אזלא)",
+          0x05a9: "תלישא קטנה",
+          0x05aa: "ירח בן יומו",
+          0x05ab: "עולה",
+          0x05ac: "עילוי",
+          0x05ad: "דחי",
+          0x05ae: "צינור",
+          0x05af: "עיגול מסורה",
+          0x05c0: "פסק",
+          0x05c3: "סוף פסוק",
+        };
+        function taamNameHe(cp) {
+          var n = TAAM_NAME_BY_CP[cp];
+          return n != null ? n : "U+" + cp.toString(16).toUpperCase();
+        }
+
+        const TAAM_BOTTOM_SET = new Set([0x0591, 0x0596, 0x059b, 0x05a3, 0x05a5, 0x05a6, 0x05a7]);
+        function isTaamBottom(cp) {
+          return TAAM_BOTTOM_SET.has(cp);
         }
 
         function drawPixelGrid(ctx, w, h, minorPx, majorPx, belowLetter) {
@@ -702,6 +758,14 @@
             // רפה (עליון במרכז)
             tx = cx;
             ty = bb.y1 - marginAbove;
+          } else if (markCp >= 0x0591 && markCp <= 0x05af) {
+            // טעמים: ברירת מחדל עליון, עם חריגים תחתוניים
+            tx = cx;
+            ty = isTaamBottom(markCp) ? bb.y2 + marginBelow : bb.y1 - marginAbove;
+          } else if (markCp === 0x05c0 || markCp === 0x05c3) {
+            // פסק / סוף פסוק: נצמד לרוב למרכז-עליון
+            tx = cx;
+            ty = bb.y1 - marginAbove;
           }
 
           // התאמת Y לפי ה-BBox של הניקוד עצמו (כדי שלא ייכנס לאות/שורה)
@@ -713,11 +777,26 @@
             } else {
               mbox = geom.path.getBoundingBox();
             }
-            if ((markCp >= 0x05b0 && markCp <= 0x05b8) || markCp === 0x05bb || markCp === 0x05c7) {
+            var isBelow =
+              (markCp >= 0x05b0 && markCp <= 0x05b8) ||
+              markCp === 0x05bb ||
+              markCp === 0x05c7 ||
+              (markCp >= 0x0591 && markCp <= 0x05af && isTaamBottom(markCp));
+            var isAbove =
+              markCp === 0x05b9 ||
+              markCp === 0x05ba ||
+              markCp === 0x05c1 ||
+              markCp === 0x05c2 ||
+              markCp === 0x05bf ||
+              (markCp >= 0x0591 && markCp <= 0x05af && !isTaamBottom(markCp)) ||
+              markCp === 0x05c0 ||
+              markCp === 0x05c3;
+
+            if (isBelow) {
               // מתחת: ודא שהחלק העליון של הניקוד מתחת לתחתית האות + מרווח
               var wantTop = bb.y2 + marginBelow;
               if (mbox.y1 < wantTop) ty += wantTop - mbox.y1;
-            } else if (markCp === 0x05b9 || markCp === 0x05ba || markCp === 0x05c1 || markCp === 0x05c2 || markCp === 0x05bf) {
+            } else if (isAbove) {
               // מעל: ודא שהחלק התחתון של הניקוד מעל קצה האות העליון - מרווח
               var wantBot = bb.y1 - marginAbove;
               if (mbox.y2 > wantBot) ty -= mbox.y2 - wantBot;
@@ -728,6 +807,119 @@
             dx: (tx - ax) / markScale,
             dy: (ty - ay) / markScale,
           };
+        }
+
+        function baseGeomForCurrentLetter() {
+          var upe = font.unitsPerEm || 1000;
+          var baseline = CANVAS_H * BASELINE_Y;
+          var bg = font.charToGlyph(cpStr(baseCP));
+          var adv = bg.advanceWidth * (VIEW_BASE / upe);
+          var ox0 = CANVAS_W / 2 - adv / 2;
+          var bp = bg.getPath(ox0, baseline, VIEW_BASE);
+          var bb = bp.getBoundingBox();
+          var ax = (bb.x1 + bb.x2) / 2,
+            ay = bb.y1;
+          var markScale = VIEW_BASE / upe;
+          return { bb: bb, ax: ax, ay: ay, markScale: markScale };
+        }
+
+        function addMarkAuto(codePoint, opts) {
+          opts = opts || {};
+          var id = newId();
+          var geom = baseGeomForCurrentLetter();
+          var sug = suggestOffsetOnAdd(codePoint, geom.bb, geom.ax, geom.ay, geom.markScale);
+
+          // stacking for above/below (simple): push new mark away from existing marks
+          var isBelow =
+            (codePoint >= 0x05b0 && codePoint <= 0x05b8) ||
+            codePoint === 0x05bb ||
+            codePoint === 0x05c7 ||
+            (codePoint >= 0x0591 && codePoint <= 0x05af && isTaamBottom(codePoint));
+          var isAbove =
+            codePoint === 0x05b9 ||
+            codePoint === 0x05ba ||
+            codePoint === 0x05c1 ||
+            codePoint === 0x05c2 ||
+            codePoint === 0x05bf ||
+            (codePoint >= 0x0591 && codePoint <= 0x05af && !isTaamBottom(codePoint)) ||
+            codePoint === 0x05c0 ||
+            codePoint === 0x05c3;
+
+          if (opts.stack && (isAbove || isBelow)) {
+            var gap = Math.max(6, Math.round(VIEW_BASE * 0.06));
+            var upe = font.unitsPerEm || 1000;
+            var markFontPx = VIEW_BASE;
+            var markScale = geom.markScale;
+            var ax = geom.ax,
+              ay = geom.ay;
+
+            function markBBoxAt(offX, offY, cp) {
+              var ox = ax + offX * markScale;
+              var oy = ay + offY * markScale;
+              var g = markGeom(font, cp, ox, oy, markFontPx);
+              if (g.kind === "circle") {
+                return { x1: g.cx - g.r, y1: g.cy - g.r, x2: g.cx + g.r, y2: g.cy + g.r };
+              }
+              return g.path.getBoundingBox();
+            }
+
+            var target;
+            if (isAbove) {
+              var minY1 = Infinity;
+              marks.forEach(function (m) {
+                if (!m) return;
+                var cp = m.codePoint;
+                var mIsAbove =
+                  cp === 0x05b9 ||
+                  cp === 0x05ba ||
+                  cp === 0x05c1 ||
+                  cp === 0x05c2 ||
+                  cp === 0x05bf ||
+                  (cp >= 0x0591 && cp <= 0x05af && !isTaamBottom(cp)) ||
+                  cp === 0x05c0 ||
+                  cp === 0x05c3;
+                if (!mIsAbove) return;
+                var bbx = markBBoxAt(m.offsetX, m.offsetY, cp);
+                minY1 = Math.min(minY1, bbx.y1);
+              });
+              if (minY1 < Infinity) {
+                var newBox = markBBoxAt(sug.dx, sug.dy, codePoint);
+                var wantBottom = minY1 - gap;
+                if (newBox.y2 > wantBottom) {
+                  var shiftPx = newBox.y2 - wantBottom;
+                  sug.dy -= shiftPx / markScale;
+                }
+              }
+            } else if (isBelow) {
+              var maxY2 = -Infinity;
+              marks.forEach(function (m) {
+                if (!m) return;
+                var cp = m.codePoint;
+                var mIsBelow =
+                  (cp >= 0x05b0 && cp <= 0x05b8) ||
+                  cp === 0x05bb ||
+                  cp === 0x05c7 ||
+                  (cp >= 0x0591 && cp <= 0x05af && isTaamBottom(cp));
+                if (!mIsBelow) return;
+                var bbx = markBBoxAt(m.offsetX, m.offsetY, cp);
+                maxY2 = Math.max(maxY2, bbx.y2);
+              });
+              if (maxY2 > -Infinity) {
+                var newBox = markBBoxAt(sug.dx, sug.dy, codePoint);
+                var wantTop = maxY2 + gap;
+                if (newBox.y1 < wantTop) {
+                  var shiftPx = wantTop - newBox.y1;
+                  sug.dy += shiftPx / markScale;
+                }
+              }
+            }
+          }
+
+          marks.push({ id: id, codePoint: codePoint, offsetX: sug.dx, offsetY: sug.dy });
+          selId = id;
+          renderList();
+          syncInputs();
+          drawAll();
         }
 
         function syncInputs() {
@@ -749,7 +941,11 @@
             b.type = "button";
             var hexU = m.codePoint.toString(16).toUpperCase();
             b.textContent =
-              nikkudNameHe(m.codePoint) + " — ΔX " + m.offsetX + " · ΔY " + m.offsetY;
+              (TAAM_NAME_BY_CP[m.codePoint] != null ? taamNameHe(m.codePoint) : nikkudNameHe(m.codePoint)) +
+              " — ΔX " +
+              m.offsetX +
+              " · ΔY " +
+              m.offsetY;
             b.title = cpStr(m.codePoint) + " · U+" + hexU;
             if (m.id === selId) b.className = "sel";
             b.onclick = function () {
@@ -911,33 +1107,27 @@
 
         document.getElementById("btnAdd").onclick = function () {
           if (!font) return setMsg("טען גופן תחילה");
-          var id = newId();
-          // מיקום התחלתי חכם לפי BBox של האות הנוכחית
-          try {
-            var upe = font.unitsPerEm || 1000;
-            var baseline = CANVAS_H * BASELINE_Y;
-            var bg = font.charToGlyph(cpStr(baseCP));
-            var adv = bg.advanceWidth * (VIEW_BASE / upe);
-            var ox0 = CANVAS_W / 2 - adv / 2;
-            var bp = bg.getPath(ox0, baseline, VIEW_BASE);
-            var bb = bp.getBoundingBox();
-            var ax = (bb.x1 + bb.x2) / 2,
-              ay = bb.y1;
-            var markScale = VIEW_BASE / upe;
-            var sug = suggestOffsetOnAdd(pickNikkud, bb, ax, ay, markScale);
-            marks.push({
-              id: id,
-              codePoint: pickNikkud,
-              offsetX: sug.dx,
-              offsetY: sug.dy,
-            });
-          } catch (e) {
-            marks.push({ id: id, codePoint: pickNikkud, offsetX: 0, offsetY: 0 });
-          }
-          selId = id;
-          renderList();
-          syncInputs();
-          drawAll();
+          addMarkAuto(pickNikkud);
+        };
+
+        document.getElementById("btnAddTaam").onclick = function () {
+          if (!font) return setMsg("טען גופן תחילה");
+          addMarkAuto(pickTaam, { stack: true });
+        };
+
+        document.getElementById("btnAzlaGeresh").onclick = function () {
+          if (!font) return setMsg("טען גופן תחילה");
+          // אזלא־גריש = קדמא + גרש
+          addMarkAuto(0x05a8, { stack: true });
+          addMarkAuto(0x059c, { stack: true });
+        };
+        document.getElementById("btnQadmaAzla").onclick = function () {
+          if (!font) return setMsg("טען גופן תחילה");
+          addMarkAuto(0x05a8, { stack: true });
+        };
+        document.getElementById("btnGeresh").onclick = function () {
+          if (!font) return setMsg("טען גופן תחילה");
+          addMarkAuto(0x059c, { stack: true });
         };
 
         document.getElementById("btnClear").onclick = function () {
