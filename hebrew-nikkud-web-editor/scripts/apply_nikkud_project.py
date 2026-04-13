@@ -101,6 +101,45 @@ def main() -> None:
                     skip += 1
                     continue
                 ok += 1
+
+        # Guardrail: מניעת "ערימה" באינדיזיין אם המתארים רחבים מהרוחב (hmtx).
+        # זה יכול לקרות במיוחד אחרי המרות OTF(CFF)->TTF או מיזוגים שונים.
+        try:
+            glyf = fl.font["glyf"]
+            hmtx = fl.font["hmtx"]
+            upem = float(fl.font["head"].unitsPerEm) if "head" in fl.font else 1000.0
+            margin = max(10, int(round(upem * 0.03)))  # ~30 ל-1000upm
+
+            bad = []
+            for cp in range(0x05D0, 0x05EB):
+                gname = fl.get_glyph_name(cp)
+                if not gname:
+                    continue
+                try:
+                    aw, lsb = hmtx[gname]
+                except Exception:
+                    continue
+                g = glyf[gname]
+                try:
+                    g.recalcBounds(glyf)
+                except Exception:
+                    pass
+                x_min = float(getattr(g, "xMin", 0))
+                x_max = float(getattr(g, "xMax", 0))
+                bbox_w = max(0.0, x_max - x_min)
+                need_aw = int(round(bbox_w + margin))
+                if int(aw) < need_aw:
+                    bad.append((cp, gname, int(aw), need_aw, int(round(x_min))))
+
+            # הפעלה אוטומטית רק אם זו בעיה "מערכתית" (לא חריגה בודדת)
+            if len(bad) >= 8:
+                _live(f"[apply] זוהתה חפיפה אופקית: {len(bad)} אותיות עם BBox רחב מ-advanceWidth. מתקֵן hmtx…")
+                for cp, gname, aw0, need_aw, new_lsb in bad:
+                    # שמר lsb לפי xMin כדי שהגליף לא "יזוז" פנימה/החוצה מוזר
+                    hmtx[gname] = (int(need_aw), int(new_lsb))
+                _live("[apply] תיקון hmtx הושלם (מונע overlap באינדיזיין).")
+        except Exception as e:
+            _live(f"[apply] אזהרה: תיקון hmtx דולג ({e!r})")
         _live(
             "[apply] שומר קובץ פלט (כולל GPOS — שלב כבד בפונטים גדולים, דקות אפשריות)…"
         )
