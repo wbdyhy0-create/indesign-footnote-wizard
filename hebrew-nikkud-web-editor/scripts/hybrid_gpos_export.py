@@ -107,7 +107,9 @@ def merge_hebrew_letter_outlines(legacy: TTFont, engine: TTFont) -> List[str]:
     # בחר סף מינימלי סביר ביחידות פונט של ה-Engine.
     min_aw = max(50, int(round(upe_e * 0.05)))  # ~50 ל-1000upm
 
-    def _scaled_aw_lsb(lg_name: str, eg_name: str) -> tuple[int, int]:
+    glyph_bounds_margin = max(10, int(round(upe_e * 0.03)))  # ~30 ל-1000upm
+
+    def _scaled_aw_lsb(lg_name: str, eg_name: str, cp: int) -> tuple[int, int]:
         try:
             aw, lsb = leg_hmtx[lg_name]
         except Exception:
@@ -115,6 +117,7 @@ def merge_hebrew_letter_outlines(legacy: TTFont, engine: TTFont) -> List[str]:
             return eng_hmtx[eg_name]
         aw_s = int(round(float(aw) * factor))
         lsb_s = int(round(float(lsb) * factor))
+        # Guard 1: רוחב קטן מדי
         if aw_s < min_aw:
             # אל תהרוס רוחב תקין של Engine.
             eaw, elsb = eng_hmtx[eg_name]
@@ -122,6 +125,24 @@ def merge_hebrew_letter_outlines(legacy: TTFont, engine: TTFont) -> List[str]:
                 f"U+{cp:04X} aw קטן מדי אחרי סקייל ({aw_s}); שומר רוחב Engine ({eaw})"
             )
             return int(eaw), int(elsb)
+
+        # Guard 2: אל תאפשר שהמתאר רחב מה-advance (גורם overlap באינדיזיין)
+        try:
+            g = eng_glyf[eg_name]
+            g.recalcBounds(eng_glyf)
+            x_min = float(getattr(g, "xMin", 0))
+            x_max = float(getattr(g, "xMax", 0))
+            width = max(1.0, x_max - x_min)
+            need_aw = int(round(width + glyph_bounds_margin))
+            if aw_s < need_aw:
+                warnings.append(
+                    f"U+{cp:04X} aw<{need_aw} ביחס ל-BBox ({aw_s}); מגדיל כדי למנוע overlap"
+                )
+                aw_s = need_aw
+                # ביישור סביר, lsb צריך להתאים ל-xMin של הגליף אחרי הסקייל
+                lsb_s = int(round(x_min))
+        except Exception:
+            pass
         return aw_s, lsb_s
 
     for cp in range(0x05D0, 0x05EA + 1):
@@ -154,7 +175,7 @@ def merge_hebrew_letter_outlines(legacy: TTFont, engine: TTFont) -> List[str]:
             if abs(factor - 1.0) > 1e-9:
                 _scale_simple_glyph(engine, eg, factor)
 
-            engine["hmtx"][eg] = _scaled_aw_lsb(lg, eg)
+            engine["hmtx"][eg] = _scaled_aw_lsb(lg, eg, cp)
         except Exception as e:
             warnings.append(f"U+{cp:04X} hmtx/scale: {e}")
 
