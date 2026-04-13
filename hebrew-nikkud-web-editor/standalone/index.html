@@ -38,15 +38,33 @@
       .below-canvas {
         margin-top: 0.75rem;
         display: flex;
-        flex-direction: column;
-        gap: 0.6rem;
-        align-items: flex-start; /* צד שמאל מתחת לקנבס */
+        gap: 1rem;
+        align-items: flex-end;
+        justify-content: space-between;
       }
       .below-canvas .row {
         margin-top: 0;
       }
       .below-canvas .hint {
         margin: 0.1rem 0 0 0;
+      }
+      .below-left {
+        flex: 1;
+        min-width: 320px;
+        display: flex;
+        flex-direction: column;
+        gap: 0.65rem;
+        align-items: flex-start; /* צד שמאל מתחת לקנבס */
+      }
+      .below-right {
+        min-width: min(420px, 100%);
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        align-items: flex-end; /* צד ימין למטה */
+      }
+      .below-right .export-url {
+        width: min(420px, 100%);
       }
       .drop {
         border: 2px dashed #a1a1aa;
@@ -220,60 +238,64 @@
           ריק = שמות מקוריים של ה־Engine. אם ממלאים: משפחה ושם מלא בטבלת השמות, ושם PostScript נגזר (ASCII)
           כדי שהפונט יופיע נפרד באינדיזיין.
         </p>
-
-        <label class="field">אות בסיס</label>
-        <select id="baseSel"></select>
-
-        <label class="field">ניקוד להוספה (טווח U+05B0–U+05C7)</label>
-        <div id="nikGrid" class="nik-grid"></div>
-        <button type="button" class="btn primary" id="btnAdd">הוסף ניקוד נבחר</button>
-
-        <label class="field">טעמים להוספה (U+0591–U+05AF)</label>
-        <div class="row" style="margin-top: 0.35rem">
-          <button type="button" class="btn" id="btnAzlaGeresh">אזלא־גריש</button>
-          <button type="button" class="btn" id="btnQadmaAzla">קדמא (אזלא)</button>
-          <button type="button" class="btn" id="btnGeresh">גרש</button>
-        </div>
-        <div id="taamGrid" class="nik-grid" style="margin-top: 0.5rem"></div>
-        <button type="button" class="btn primary" id="btnAddTaam">הוסף טעם נבחר</button>
-
-        <label class="field">סימונים בשכבה</label>
-        <ul class="marks" id="markList"></ul>
-
-        <label class="field">היסט נבחר (יחידות פונט)</label>
-        <div class="row">
-          <div>
-            <span class="hint">ΔX</span>
-            <input type="number" id="offX" step="1" />
-          </div>
-          <div>
-            <span class="hint">ΔY</span>
-            <input type="number" id="offY" step="1" />
-          </div>
-        </div>
-        <p class="hint">
-          גרירה על הניקוד: קווי סרגל נעים עם הסימון; כחול = לא במרכז, ירוק = אמצע אופקי של האות + גובה עוגן ברירת מחדל (ΔY≈0).
-          חיצים (בלי Ctrl): 5, Shift: 25 · Delete — מחק נבחר
-        </p>
       </aside>
       <main class="main">
         <canvas id="cv" width="920" height="440"></canvas>
         <div class="below-canvas">
-          <div class="row">
-            <button type="button" class="btn warn" id="btnClear">נקה כל הסימנים</button>
-            <button type="button" class="btn" id="btnPushRule">הוסף אות + שכבה למכלול פרויקט</button>
-            <button type="button" class="btn" id="btnResetRules">אפס מכלול (כללי פרויקט)</button>
-            <p class="hint" id="ruleCount" style="margin: 0 0.25rem 0 0"></p>
+          <div class="below-left">
+            <div class="row">
+              <button type="button" class="btn warn" id="btnClear">נקה כל הסימנים</button>
+              <button type="button" class="btn" id="btnPushRule">הוסף אות + שכבה למכלול פרויקט</button>
+              <button type="button" class="btn" id="btnResetRules">אפס מכלול (כללי פרויקט)</button>
+              <p class="hint" id="ruleCount" style="margin: 0 0.25rem 0 0"></p>
+            </div>
+
+            <label class="field">אות בסיס</label>
+            <select id="baseSel"></select>
+
+            <label class="field">ניקוד להוספה (טווח U+05B0–U+05C7)</label>
+            <div id="nikGrid" class="nik-grid"></div>
+            <button type="button" class="btn primary" id="btnAdd">הוסף ניקוד נבחר</button>
+
+            <label class="field">טעמים להוספה (U+0591–U+05AF)</label>
+            <div class="row" style="margin-top: 0.35rem">
+              <button type="button" class="btn" id="btnAzlaGeresh">אזלא־גריש</button>
+              <button type="button" class="btn" id="btnQadmaAzla">קדמא (אזלא)</button>
+              <button type="button" class="btn" id="btnGeresh">גרש</button>
+            </div>
+            <div id="taamGrid" class="nik-grid" style="margin-top: 0.5rem"></div>
+            <button type="button" class="btn primary" id="btnAddTaam">הוסף טעם נבחר</button>
+
+            <label class="field">סימונים בשכבה</label>
+            <ul class="marks" id="markList"></ul>
+
+            <label class="field">היסט נבחר (יחידות פונט)</label>
+            <div class="row">
+              <div>
+                <span class="hint">ΔX</span>
+                <input type="number" id="offX" step="1" />
+              </div>
+              <div>
+                <span class="hint">ΔY</span>
+                <input type="number" id="offY" step="1" />
+              </div>
+            </div>
+            <p class="hint">
+              גרירה על הניקוד: קווי סרגל נעים עם הסימון; כחול = לא במרכז, ירוק = אמצע אופקי של האות + גובה עוגן ברירת מחדל (ΔY≈0).
+              חיצים (בלי Ctrl): 5, Shift: 25 · Delete — מחק נבחר
+            </p>
           </div>
 
-          <label class="field" style="margin-top: 0.25rem">כתובת שרת ייצוא (אופציונלי)</label>
-          <input class="export-url" id="exportUrl" type="text" value="http://127.0.0.1:8765/export" dir="ltr" />
-          <div class="row">
-            <button type="button" class="btn" id="btnJson">הורד JSON</button>
-            <button type="button" class="btn" id="btnLoadJson">טען JSON…</button>
-            <button type="button" class="btn primary" id="btnFont">ייצוא פונט (שרת)</button>
+          <div class="below-right">
+            <label class="field" style="margin: 0">כתובת שרת ייצוא (אופציונלי)</label>
+            <input class="export-url" id="exportUrl" type="text" value="http://127.0.0.1:8765/export" dir="ltr" />
+            <div class="row" style="justify-content: flex-end">
+              <button type="button" class="btn" id="btnJson">הורד JSON</button>
+              <button type="button" class="btn" id="btnLoadJson">טען JSON…</button>
+              <button type="button" class="btn primary" id="btnFont">ייצוא פונט (שרת)</button>
+            </div>
+            <p id="msg" class="hint" dir="auto"></p>
           </div>
-          <p id="msg" class="hint" dir="auto"></p>
         </div>
         <p class="hint">
           להרצת השרת: <code>run-export-server.bat</code> (חלון נשאר פתוח). אחרי ההפעלה
