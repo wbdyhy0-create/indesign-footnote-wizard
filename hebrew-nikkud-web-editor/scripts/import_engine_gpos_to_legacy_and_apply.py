@@ -119,6 +119,25 @@ def _ensure_windows_unicode_cmaps(font: TTFont) -> None:
     _ensure_cmap_subtable(font, 3, 1)
     _ensure_cmap_subtable(font, 3, 0)
     _ensure_cmap_subtable(font, 0, 3)
+    # Windows expects the Unicode (3,1) cmap to contain the main mappings.
+    # Some legacy fonts ship mostly in (3,0); copy/sync mappings so installers don't reject.
+    union: Dict[int, str] = {}
+    for st in font["cmap"].tables:
+        if getattr(st, "format", None) != 4:
+            continue
+        for cp, g in (st.cmap or {}).items():
+            try:
+                icp = int(cp)
+            except Exception:
+                continue
+            if 0 <= icp <= 0xFFFF:
+                union[icp] = g
+    if union:
+        for st in font["cmap"].tables:
+            if getattr(st, "format", None) != 4:
+                continue
+            if (st.platformID, st.platEncID) in ((3, 1), (0, 3)):
+                st.cmap = dict(union)
 
 
 def _add_cmap_mapping(font: TTFont, cp: int, glyph_name: str) -> None:
