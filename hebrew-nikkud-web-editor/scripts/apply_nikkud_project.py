@@ -26,6 +26,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
+from statistics import median
 
 
 def _repo_root() -> Path:
@@ -102,15 +103,16 @@ def main() -> None:
                     continue
                 ok += 1
 
-        # Guardrail: מניעת "ערימה" באינדיזיין אם המתארים רחבים מהרוחב (hmtx).
-        # זה יכול לקרות במיוחד אחרי המרות OTF(CFF)->TTF או מיזוגים שונים.
+        # Guardrail: אם המתארים רחבים מדי ביחס ל-hmtx, אינדיזיין יראה overlap או מרווחים משובשים.
+        # במקום "לנפח" AdvanceWidth (שמשבש רווחים בין אותיות/מילים), ננסה קודם לנרמל את
+        # רוחב המתארים (x) כך שיתאים ל-AdvanceWidth של הפונט.
         try:
             glyf = fl.font["glyf"]
             hmtx = fl.font["hmtx"]
             upem = float(fl.font["head"].unitsPerEm) if "head" in fl.font else 1000.0
             margin = max(10, int(round(upem * 0.03)))  # ~30 ל-1000upm
 
-            bad = []
+            rows = []
             for cp in range(0x05D0, 0x05EB):
                 gname = fl.get_glyph_name(cp)
                 if not gname:
@@ -127,17 +129,61 @@ def main() -> None:
                 x_min = float(getattr(g, "xMin", 0))
                 x_max = float(getattr(g, "xMax", 0))
                 bbox_w = max(0.0, x_max - x_min)
+                rows.append((cp, gname, int(aw), int(lsb), bbox_w, x_min))
+
+            if rows:
+                aw_med = float(median([r[2] for r in rows]))
+                bw_med = float(median([r[4] for r in rows]))
+                # אם המתארים "גדולים מדי" יחסית לרוחבים (למשל עקב סקייל כפול),
+                # נקטין את ציר X של האותיות כדי להתיישר עם hmtx.
+                if bw_med > 1e-6 and aw_med > 1e-6 and (bw_med / aw_med) > 1.35:
+                    scale_x = aw_med / bw_med
+                    _live(
+                        "[apply] זוהתה ניפוח רוחב גליפים ביחס ל-hmtx "
+                        f"(median bboxW={bw_med:.0f}, median aw={aw_med:.0f}, scaleX≈{scale_x:.3f}). "
+                        "מכווץ מתארים בציר X כדי ליישר מרווחים…"
+                    )
+
+                    def _scale_simple_glyph_x(gname: str, factor: float) -> bool:
+                        g = glyf[gname]
+                        if g.isComposite():
+                            return False
+                        coords, endPts, flags = g.getCoordinates(glyf)
+                        if coords is None or len(coords) == 0:
+                            return False
+                        new_pts = [(int(round(x * factor)), int(round(y))) for x, y in list(coords)]
+                        g.setCoordinates(new_pts, glyf)
+                        try:
+                            g.recalcBounds(glyf)
+                        except Exception:
+                            pass
+                        return True
+
+                    n_scaled = 0
+                    for _cp, gname, aw, lsb, _bw, _xmin in rows:
+                        if _scale_simple_glyph_x(gname, scale_x):
+                            n_scaled += 1
+                            # עדכן גם lsb כדי לשמור על יחס מול קו האפס
+                            hmtx[gname] = (aw, int(round(lsb * scale_x)))
+                    _live(f"[apply] כיווץ X הוחל על {n_scaled} גליפים עבריים.")
+
+            # אם עדיין יש overlap נקודתי (bboxW+margin > aw), נטפל נקודתית ע"י הגדלת aw.
+            bad2 = []
+            for cp, gname, aw, lsb, _bw, _xmin in rows:
+                g = glyf[gname]
+                try:
+                    g.recalcBounds(glyf)
+                except Exception:
+                    pass
+                bbox_w = max(0.0, float(getattr(g, "xMax", 0)) - float(getattr(g, "xMin", 0)))
                 need_aw = int(round(bbox_w + margin))
                 if int(aw) < need_aw:
-                    bad.append((cp, gname, int(aw), need_aw, int(round(x_min))))
+                    bad2.append((cp, gname, int(aw), need_aw, int(round(getattr(g, "xMin", 0)))))
 
-            # הפעלה אוטומטית רק אם זו בעיה "מערכתית" (לא חריגה בודדת)
-            if len(bad) >= 8:
-                _live(f"[apply] זוהתה חפיפה אופקית: {len(bad)} אותיות עם BBox רחב מ-advanceWidth. מתקֵן hmtx…")
-                for cp, gname, aw0, need_aw, new_lsb in bad:
-                    # שמר lsb לפי xMin כדי שהגליף לא "יזוז" פנימה/החוצה מוזר
+            if len(bad2) >= 1:
+                _live(f"[apply] נשארו {len(bad2)} אותיות עם overlap אופקי — מגדיל aw נקודתית.")
+                for cp, gname, aw0, need_aw, new_lsb in bad2:
                     hmtx[gname] = (int(need_aw), int(new_lsb))
-                _live("[apply] תיקון hmtx הושלם (מונע overlap באינדיזיין).")
         except Exception as e:
             _live(f"[apply] אזהרה: תיקון hmtx דולג ({e!r})")
         _live(
