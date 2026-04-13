@@ -25,6 +25,7 @@ from typing import List, Tuple
 
 from fontTools.pens.ttGlyphPen import TTGlyphPen
 from fontTools.ttLib import TTFont
+from fontTools.ttLib.tables import otTables
 
 
 def _repo_root() -> Path:
@@ -138,6 +139,154 @@ def merge_hebrew_letter_outlines(legacy: TTFont, engine: TTFont) -> List[str]:
     return warnings
 
 
+def _ensure_anchor(x: float, y: float) -> otTables.Anchor:
+    a = otTables.Anchor()
+    a.Format = 1
+    a.XCoordinate = int(round(x))
+    a.YCoordinate = int(round(y))
+    return a
+
+
+def _unwrap_gpos_subtable(st):
+    while type(st).__name__ == "ExtensionPos":
+        st = st.ExtSubTable
+    return st
+
+
+def _auto_base_anchor_for_mark_cp(
+    mark_cp: int,
+    *,
+    x_min: float,
+    x_max: float,
+    y_min: float,
+    y_max: float,
+    margin_below: float,
+    margin_above: float,
+) -> tuple[float, float]:
+    """
+    כלל אוטומטי ל-BaseAnchor עבור אות+ניקוד, לפי Bounding Box של האות (ביחידות פונט).
+    מחזיר (x,y) של BaseAnchor.
+    """
+    cx = (x_min + x_max) / 2.0
+    w = max(1.0, x_max - x_min)
+    cy = (y_min + y_max) / 2.0
+
+    # קבוצה א׳: ניקוד תחתון
+    if mark_cp in {
+        0x05B0,  # שווא
+        0x05B1,  # חטף־סגול
+        0x05B2,  # חטף־פתח
+        0x05B3,  # חטף־קמץ
+        0x05B4,  # חיריק
+        0x05B5,  # צרי
+        0x05B6,  # סגול
+        0x05B7,  # פתח
+        0x05B8,  # קמץ
+        0x05BB,  # קובוץ
+        0x05C7,  # קמץ קטן
+    }:
+        return cx, y_min - margin_below
+
+    # קבוצה ג׳: פנימי (דגש/מפיק)
+    if mark_cp in {0x05BC}:  # דגש / מפיק
+        return cx, cy
+
+    # קבוצה ב׳: עליון
+    if mark_cp in {0x05B9, 0x05BA}:  # חולם / חולם חסר לוו
+        return cx + (w * 0.22), y_max + margin_above
+    if mark_cp == 0x05C1:  # נקודת שין (ימין)
+        return x_max - (w * 0.18), y_max + margin_above
+    if mark_cp == 0x05C2:  # נקודת סין (שמאל)
+        return x_min + (w * 0.18), y_max + margin_above
+    if mark_cp in {0x05BF}:  # רפה
+        return cx, y_max + margin_above
+
+    # ברירת מחדל: כמו ניקוד תחתון (בטוח יותר מטעם לא מוכר)
+    return cx, y_min - margin_below
+
+
+def auto_center_mark_to_base_anchors_for_merged_hebrew_letters(engine: TTFont) -> int:
+    """
+    לאחר מיזוג אותיות Legacy לתוך Engine, מחשב BaseAnchor אוטומטי לפי BBox של האות הממוזגת.
+
+    BaseAnchor הוא פר-אות ופר-מחלקת סימון. שינוי MarkAnchor היה מזיז את אותו ניקוד
+    על כל האותיות בבת אחת — ולכן אנחנו *לא* נוגעים ב-MarkAnchor.
+    """
+    if "GPOS" not in engine or "glyf" not in engine:
+        return 0
+    gpos = engine["GPOS"].table
+    if not getattr(gpos, "LookupList", None) or not gpos.LookupList.Lookup:
+        return 0
+
+    eng_cmap = engine.getBestCmap() or {}
+    # glyph -> cp (לניקוד/טעמים בטווח)
+    mark_glyph_to_cp: dict[str, int] = {}
+    for cp, gn in eng_cmap.items():
+        if not isinstance(cp, int) or not isinstance(gn, str):
+            continue
+        if 0x0591 <= cp <= 0x05C7 and gn not in mark_glyph_to_cp:
+            mark_glyph_to_cp[gn] = cp
+
+    glyf = engine["glyf"]
+    upem = float(engine["head"].unitsPerEm) if "head" in engine else 1000.0
+    margin_below = max(20.0, round(upem * 0.04))  # ~40 ל-1000upm
+    margin_above = max(30.0, round(upem * 0.06))  # ~60 ל-1000upm
+
+    changed = 0
+    for lookup in gpos.LookupList.Lookup:
+        for raw in lookup.SubTable:
+            st = _unwrap_gpos_subtable(raw)
+            if type(st).__name__ != "MarkBasePos" or getattr(st, "Format", None) != 1:
+                continue
+            try:
+                bases = st.BaseCoverage.glyphs
+                marks = st.MarkCoverage.glyphs
+            except Exception:
+                continue
+            if not bases or not marks:
+                continue
+
+            for cp in range(0x05D0, 0x05EA + 1):
+                bg = eng_cmap.get(cp)
+                if not bg or bg not in bases or bg not in glyf.glyphs:
+                    continue
+                bgi = bases.index(bg)
+                g = glyf[bg]
+                try:
+                    g.recalcBounds(glyf)
+                except Exception:
+                    pass
+                x_min = float(getattr(g, "xMin", 0))
+                x_max = float(getattr(g, "xMax", 0))
+                y_min = float(getattr(g, "yMin", 0))
+                y_max = float(getattr(g, "yMax", 0))
+
+                br = st.BaseArray.BaseRecord[bgi]
+                for mi, mg in enumerate(marks):
+                    mcp = mark_glyph_to_cp.get(mg)
+                    if mcp is None:
+                        continue
+                    mrec = st.MarkArray.MarkRecord[mi]
+                    cls = int(getattr(mrec, "Class", -1))
+                    if cls < 0 or cls >= int(st.ClassCount):
+                        continue
+
+                    nx, ny = _auto_base_anchor_for_mark_cp(
+                        mcp,
+                        x_min=x_min,
+                        x_max=x_max,
+                        y_min=y_min,
+                        y_max=y_max,
+                        margin_below=margin_below,
+                        margin_above=margin_above,
+                    )
+                    while len(br.BaseAnchor) <= cls:
+                        br.BaseAnchor.append(None)
+                    br.BaseAnchor[cls] = _ensure_anchor(nx, ny)
+                    changed += 1
+    return changed
+
+
 def _sanitize_postscript_name(s: str) -> str:
     """
     שם PostScript (name ID 6): ASCII בלבד, עד 63 בתים, ללא רווחים.
@@ -214,6 +363,12 @@ def main() -> None:
         for w in warns:
             print(w, file=sys.stderr)
         _stage("מיזוג אותיות הסתיים (" + str(len(warns)) + " שורות אזהרה/מידע)")
+        _stage("מחשב עוגני BaseAnchor אוטומטיים לפי BBox של האותיות הממוזגות…")
+        try:
+            n_changed = auto_center_mark_to_base_anchors_for_merged_hebrew_letters(engine)
+            _stage("עודכנו/נוצרו BaseAnchors: " + str(n_changed))
+        except Exception as e:
+            print(f"[hybrid] auto anchors: failed: {e!r}", file=sys.stderr)
     finally:
         legacy.close()
 

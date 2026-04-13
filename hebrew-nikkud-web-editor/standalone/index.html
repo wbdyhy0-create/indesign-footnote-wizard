@@ -663,6 +663,53 @@
           ctx.setLineDash([]);
         }
 
+        function suggestOffsetOnAdd(markCp, bb, ax, ay, markScale) {
+          // bb: bounding box בקואורדינטות קנבס (y גדל כלפי מטה)
+          var w = Math.max(1, bb.x2 - bb.x1);
+          var cx = (bb.x1 + bb.x2) / 2;
+          var cy = (bb.y1 + bb.y2) / 2;
+          var marginBelow = Math.max(10, Math.round(VIEW_BASE * 0.08));
+          var marginAbove = Math.max(12, Math.round(VIEW_BASE * 0.1));
+
+          var tx = cx;
+          var ty = bb.y2 + marginBelow; // מתחת לאות
+
+          // קבוצה א׳: ניקוד תחתון
+          if (
+            (markCp >= 0x05b0 && markCp <= 0x05b8) ||
+            markCp === 0x05bb ||
+            markCp === 0x05c7
+          ) {
+            tx = cx;
+            ty = bb.y2 + marginBelow;
+          } else if (markCp === 0x05bc) {
+            // קבוצה ג׳: דגש/מפיק (פנימי)
+            tx = cx;
+            ty = cy;
+          } else if (markCp === 0x05b9 || markCp === 0x05ba) {
+            // חולם (עליון, מעט ימינה)
+            tx = cx + w * 0.22;
+            ty = bb.y1 - marginAbove;
+          } else if (markCp === 0x05c1) {
+            // נקודת שין (ימין)
+            tx = bb.x2 - w * 0.18;
+            ty = bb.y1 - marginAbove;
+          } else if (markCp === 0x05c2) {
+            // נקודת סין (שמאל)
+            tx = bb.x1 + w * 0.18;
+            ty = bb.y1 - marginAbove;
+          } else if (markCp === 0x05bf) {
+            // רפה (עליון במרכז)
+            tx = cx;
+            ty = bb.y1 - marginAbove;
+          }
+
+          return {
+            dx: (tx - ax) / markScale,
+            dy: (ty - ay) / markScale,
+          };
+        }
+
         function syncInputs() {
           var m = marks.filter(function (x) {
             return x.id === selId;
@@ -845,7 +892,28 @@
         document.getElementById("btnAdd").onclick = function () {
           if (!font) return setMsg("טען גופן תחילה");
           var id = newId();
-          marks.push({ id: id, codePoint: pickNikkud, offsetX: 0, offsetY: 0 });
+          // מיקום התחלתי חכם לפי BBox של האות הנוכחית
+          try {
+            var upe = font.unitsPerEm || 1000;
+            var baseline = CANVAS_H * BASELINE_Y;
+            var bg = font.charToGlyph(cpStr(baseCP));
+            var adv = bg.advanceWidth * (VIEW_BASE / upe);
+            var ox0 = CANVAS_W / 2 - adv / 2;
+            var bp = bg.getPath(ox0, baseline, VIEW_BASE);
+            var bb = bp.getBoundingBox();
+            var ax = (bb.x1 + bb.x2) / 2,
+              ay = bb.y1;
+            var markScale = VIEW_BASE / upe;
+            var sug = suggestOffsetOnAdd(pickNikkud, bb, ax, ay, markScale);
+            marks.push({
+              id: id,
+              codePoint: pickNikkud,
+              offsetX: sug.dx,
+              offsetY: sug.dy,
+            });
+          } catch (e) {
+            marks.push({ id: id, codePoint: pickNikkud, offsetX: 0, offsetY: 0 });
+          }
           selId = id;
           renderList();
           syncInputs();
