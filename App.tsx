@@ -11,6 +11,7 @@ import TorahCovers from './pages/TorahCovers';
 import Promotions from './pages/Promotions';
 import ProductDetail from './pages/ProductDetail'; // ייבוא של דף הפירוט החדש
 import Videos from './pages/Videos';
+import Calendar from './pages/Calendar';
 import { SCRIPTS as DEFAULT_SCRIPTS, OTHER_PRODUCTS as DEFAULT_PRODUCTS, TORAH_COVER_DESIGNS as DEFAULT_COVERS } from './constants';
 import { PromotionBundleData, ScriptData, SiteSettings, VideoItem } from './types';
 
@@ -21,6 +22,7 @@ const ROOT_PAGES = new Set([
   'other-products',
   'torah-covers',
   'videos',
+  'calendar',
   'about',
   'contact',
   'admin',
@@ -33,6 +35,7 @@ const staticPathToPage: Record<string, string> = {
   '/other-products': 'other-products',
   '/torah-covers': 'torah-covers',
   '/videos': 'videos',
+  '/calendar': 'calendar',
   '/about': 'about',
   '/contact': 'contact',
   '/admin': 'admin',
@@ -353,6 +356,8 @@ const App: React.FC = () => {
         ) : (
           <Videos videos={videos} />
         );
+      case 'calendar':
+        return <Calendar />;
       case 'torah-covers':
         return siteSettings.coversPageVisible === false
           ? <Home onNavigateToCatalog={() => navigateToPage('scripts-catalog')} onNavigateToVideos={() => navigateToPage('videos')} />

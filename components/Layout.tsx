@@ -93,6 +93,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage, sc
     ...(siteSettings.scriptsPageVisible === false ? [] : [{ page: 'scripts-catalog', label: 'הסקריפטים שלנו' }]),
     ...(siteSettings.promotionsPageVisible ? [{ page: 'promotions', label: 'מבצעים' }] : []),
     ...(siteSettings.videosPageVisible === false ? [] : [{ page: 'videos', label: 'סרטונים' }]),
+    { page: 'calendar', label: 'לוח שנה' },
     ...(siteSettings.productsPageVisible === false ? [] : [{ page: 'other-products', label: 'מוצרים נוספים' }]),
     ...(siteSettings.coversPageVisible === false ? [] : [{ page: 'torah-covers', label: 'עיצוב כריכות תורניים' }]),
     { page: 'about', label: 'אודות' },
