@@ -272,6 +272,14 @@ const App: React.FC = () => {
               typeof (data.siteSettings as any).calendarPreviewImageUrl === 'string'
                 ? (data.siteSettings as any).calendarPreviewImageUrl
                 : undefined,
+            calendarPreviewImagePosXPct:
+              typeof (data.siteSettings as any).calendarPreviewImagePosXPct === 'number'
+                ? (data.siteSettings as any).calendarPreviewImagePosXPct
+                : 0,
+            calendarPreviewImagePosYPct:
+              typeof (data.siteSettings as any).calendarPreviewImagePosYPct === 'number'
+                ? (data.siteSettings as any).calendarPreviewImagePosYPct
+                : 0,
           });
         } else {
           setSiteSettings({
@@ -281,6 +289,8 @@ const App: React.FC = () => {
             coversPageVisible: true,
             videosPageVisible: true,
             calendarPreviewImageUrl: undefined,
+            calendarPreviewImagePosXPct: 0,
+            calendarPreviewImagePosYPct: 0,
           });
         }
       } catch (e) {
@@ -297,6 +307,8 @@ const App: React.FC = () => {
           coversPageVisible: true,
           videosPageVisible: true,
           calendarPreviewImageUrl: undefined,
+          calendarPreviewImagePosXPct: 0,
+          calendarPreviewImagePosYPct: 0,
         });
       }
     };

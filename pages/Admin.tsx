@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { SCRIPTS as initialScripts, OTHER_PRODUCTS as initialProducts, TORAH_COVER_DESIGNS as initialCovers } from '../constants';
 import { Lead, PromotionBundleData, PurchaseOrder, SiteSettings, VideoItem } from '../types';
 import { setOwnerSkipVisitBump, shouldSkipVisitBump } from '../utils/visitTracking';
@@ -63,6 +63,10 @@ const AdminPortal: React.FC = () => {
           videosPageVisible: parsed?.videosPageVisible !== false,
           calendarPreviewImageUrl:
             typeof parsed?.calendarPreviewImageUrl === 'string' ? parsed.calendarPreviewImageUrl : undefined,
+          calendarPreviewImagePosXPct:
+            typeof parsed?.calendarPreviewImagePosXPct === 'number' ? parsed.calendarPreviewImagePosXPct : 0,
+          calendarPreviewImagePosYPct:
+            typeof parsed?.calendarPreviewImagePosYPct === 'number' ? parsed.calendarPreviewImagePosYPct : 0,
         };
       }
     }
@@ -73,6 +77,8 @@ const AdminPortal: React.FC = () => {
       coversPageVisible: true,
       videosPageVisible: true,
       calendarPreviewImageUrl: undefined,
+      calendarPreviewImagePosXPct: 0,
+      calendarPreviewImagePosYPct: 0,
     };
   });
 
@@ -106,6 +112,15 @@ const AdminPortal: React.FC = () => {
   const [coverUploadError, setCoverUploadError] = useState<string | null>(null);
   const [isUploadingCalendarPreview, setIsUploadingCalendarPreview] = useState(false);
   const [calendarPreviewUploadError, setCalendarPreviewUploadError] = useState<string | null>(null);
+  const calendarPreviewDragRef = useRef<{
+    active: boolean;
+    startX: number;
+    startY: number;
+    startPosX: number;
+    startPosY: number;
+    boxW: number;
+    boxH: number;
+  } | null>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [isLeadsLoading, setIsLeadsLoading] = useState(false);
   const [leadsError, setLeadsError] = useState<string | null>(null);
@@ -395,6 +410,14 @@ const AdminPortal: React.FC = () => {
               typeof (data.siteSettings as any).calendarPreviewImageUrl === 'string'
                 ? (data.siteSettings as any).calendarPreviewImageUrl
                 : undefined,
+            calendarPreviewImagePosXPct:
+              typeof (data.siteSettings as any).calendarPreviewImagePosXPct === 'number'
+                ? (data.siteSettings as any).calendarPreviewImagePosXPct
+                : 0,
+            calendarPreviewImagePosYPct:
+              typeof (data.siteSettings as any).calendarPreviewImagePosYPct === 'number'
+                ? (data.siteSettings as any).calendarPreviewImagePosYPct
+                : 0,
           });
         }
         if (Array.isArray(data?.videos)) {
@@ -744,11 +767,31 @@ const AdminPortal: React.FC = () => {
                 type="button"
                 disabled={!siteSettings.calendarPreviewImageUrl}
                 onClick={() => {
-                  setSiteSettings((prev) => ({ ...prev, calendarPreviewImageUrl: undefined }));
+                  setSiteSettings((prev) => ({
+                    ...prev,
+                    calendarPreviewImageUrl: undefined,
+                    calendarPreviewImagePosXPct: 0,
+                    calendarPreviewImagePosYPct: 0,
+                  }));
                 }}
                 className="bg-slate-800/50 text-slate-200 px-5 py-2.5 rounded-xl font-bold border border-slate-700/50 text-sm hover:bg-slate-800 transition disabled:opacity-40"
               >
                 מחק תמונה
+              </button>
+              <button
+                type="button"
+                disabled={!siteSettings.calendarPreviewImageUrl}
+                onClick={() => {
+                  setSiteSettings((prev) => ({
+                    ...prev,
+                    calendarPreviewImagePosXPct: 0,
+                    calendarPreviewImagePosYPct: 0,
+                  }));
+                }}
+                className="bg-slate-800/50 text-slate-200 px-5 py-2.5 rounded-xl font-bold border border-slate-700/50 text-sm hover:bg-slate-800 transition disabled:opacity-40"
+                title="איפוס מיקום חיתוך"
+              >
+                איפוס גרירה
               </button>
             </div>
           </div>
@@ -759,11 +802,58 @@ const AdminPortal: React.FC = () => {
           ) : null}
           <div className="mt-4 w-full overflow-hidden rounded-3xl border border-slate-800 bg-[#060b14] shadow-inner" style={{ aspectRatio: '16 / 7' }}>
             {siteSettings.calendarPreviewImageUrl ? (
-              <img
-                src={siteSettings.calendarPreviewImageUrl}
-                alt="תצוגת לוח שנה"
-                className="h-full w-full object-cover"
-                draggable={false}
+              <div
+                className="h-full w-full select-none touch-none"
+                title="גרור כדי להזיז את התמונה בתוך המסגרת"
+                style={{
+                  backgroundImage: `url(${siteSettings.calendarPreviewImageUrl})`,
+                  backgroundSize: 'cover',
+                  backgroundRepeat: 'no-repeat',
+                  backgroundPosition: `${50 + (Number(siteSettings.calendarPreviewImagePosXPct) || 0)}% ${50 + (Number(siteSettings.calendarPreviewImagePosYPct) || 0)}%`,
+                  cursor: 'grab',
+                }}
+                onPointerDown={(e) => {
+                  const el = e.currentTarget;
+                  const rect = el.getBoundingClientRect();
+                  calendarPreviewDragRef.current = {
+                    active: true,
+                    startX: e.clientX,
+                    startY: e.clientY,
+                    startPosX: Number(siteSettings.calendarPreviewImagePosXPct) || 0,
+                    startPosY: Number(siteSettings.calendarPreviewImagePosYPct) || 0,
+                    boxW: Math.max(1, rect.width),
+                    boxH: Math.max(1, rect.height),
+                  };
+                  try {
+                    (e.currentTarget as any).setPointerCapture?.(e.pointerId);
+                  } catch {
+                    // ignore
+                  }
+                }}
+                onPointerMove={(e) => {
+                  const st = calendarPreviewDragRef.current;
+                  if (!st?.active) return;
+                  const dx = e.clientX - st.startX;
+                  const dy = e.clientY - st.startY;
+                  const nextX = st.startPosX + (dx / st.boxW) * 100;
+                  const nextY = st.startPosY + (dy / st.boxH) * 100;
+                  const clamp = (v: number) => Math.max(-40, Math.min(40, v));
+                  setSiteSettings((prev) => ({
+                    ...prev,
+                    calendarPreviewImagePosXPct: clamp(nextX),
+                    calendarPreviewImagePosYPct: clamp(nextY),
+                  }));
+                }}
+                onPointerUp={() => {
+                  const st = calendarPreviewDragRef.current;
+                  if (!st) return;
+                  calendarPreviewDragRef.current = { ...st, active: false };
+                }}
+                onPointerCancel={() => {
+                  const st = calendarPreviewDragRef.current;
+                  if (!st) return;
+                  calendarPreviewDragRef.current = { ...st, active: false };
+                }}
               />
             ) : (
               <div className="h-full w-full flex items-center justify-center text-sm text-slate-500">

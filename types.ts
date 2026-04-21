@@ -70,6 +70,9 @@ export interface SiteSettings {
   videosPageVisible?: boolean;
   /** Calendar landing preview image (hosted https URL). Managed by admin only. */
   calendarPreviewImageUrl?: string;
+  /** Crop position offsets (percent points, -40..40). Managed by admin only. */
+  calendarPreviewImagePosXPct?: number;
+  calendarPreviewImagePosYPct?: number;
 }
 
 export interface FAQItem {

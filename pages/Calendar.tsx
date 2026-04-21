@@ -4,6 +4,8 @@ export default function Calendar() {
   const TARGET_URL = 'https://hebrew-calendar-2026.vercel.app/';
   const [imgUrl, setImgUrl] = useState<string | null>(null);
   const [imgLoading, setImgLoading] = useState(false);
+  const [posX, setPosX] = useState(0);
+  const [posY, setPosY] = useState(0);
   const subtitle = useMemo(
     () => 'למעבר לעמוד לוח שנה לחץ כאן או לחץ על התמונה',
     [],
@@ -24,8 +26,12 @@ export default function Calendar() {
             ? String(data.siteSettings.calendarPreviewImageUrl)
             : '';
         setImgUrl(url || null);
+        setPosX(typeof data?.siteSettings?.calendarPreviewImagePosXPct === 'number' ? data.siteSettings.calendarPreviewImagePosXPct : 0);
+        setPosY(typeof data?.siteSettings?.calendarPreviewImagePosYPct === 'number' ? data.siteSettings.calendarPreviewImagePosYPct : 0);
       } catch {
         setImgUrl(null);
+        setPosX(0);
+        setPosY(0);
       } finally {
         setImgLoading(false);
       }
@@ -65,11 +71,14 @@ export default function Calendar() {
             טוען תמונה…
           </div>
         ) : imgUrl ? (
-          <img
-            src={imgUrl}
-            alt="תצוגת לוח שנה"
-            className="h-full w-full object-cover"
-            draggable={false}
+          <div
+            className="h-full w-full"
+            style={{
+              backgroundImage: `url(${imgUrl})`,
+              backgroundSize: 'cover',
+              backgroundRepeat: 'no-repeat',
+              backgroundPosition: `${50 + (Number(posX) || 0)}% ${50 + (Number(posY) || 0)}%`,
+            }}
           />
         ) : (
           <div className="h-full w-full flex items-center justify-center text-sm text-slate-300">
