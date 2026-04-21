@@ -6,10 +6,8 @@ export default function Calendar() {
   const [imgLoading, setImgLoading] = useState(false);
   const [posX, setPosX] = useState(0);
   const [posY, setPosY] = useState(0);
-  const subtitle = useMemo(
-    () => 'למעבר לעמוד לוח שנה לחץ כאן או לחץ על התמונה',
-    [],
-  );
+  const subtitlePrefix = useMemo(() => 'למעבר לעמוד לוח שנה', []);
+  const subtitleSuffix = useMemo(() => 'או לחץ על התמונה', []);
 
   const go = () => {
     window.location.href = TARGET_URL;
@@ -41,20 +39,20 @@ export default function Calendar() {
 
   return (
     <section className="w-full">
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-2xl font-black text-white">לוח שנה עברי־לועזי</h2>
-          <p className="text-sm text-slate-300">{subtitle}</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="mb-5 text-center">
+        <h2 className="text-2xl font-black text-white">לוח שנה עברי־לועזי</h2>
+        <p className="mt-2 text-base sm:text-lg font-black text-slate-100">
+          {subtitlePrefix}{' '}
           <button
             type="button"
             onClick={go}
-            className="rounded-xl border border-amber-400/40 bg-amber-500/15 px-3 py-2 text-sm font-black text-amber-100 hover:bg-amber-500/20"
+            className="text-sky-400 hover:text-sky-300 underline underline-offset-4"
+            title="לחץ למעבר ללוח שנה"
           >
-            מעבר ללוח שנה
-          </button>
-        </div>
+            לחץ כאן
+          </button>{' '}
+          {subtitleSuffix}
+        </p>
       </div>
 
       <div
