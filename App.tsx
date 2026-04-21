@@ -268,6 +268,10 @@ const App: React.FC = () => {
             productsPageVisible: (data.siteSettings as any).productsPageVisible !== false,
             coversPageVisible: (data.siteSettings as any).coversPageVisible !== false,
             videosPageVisible: (data.siteSettings as any).videosPageVisible !== false,
+            calendarPreviewImageUrl:
+              typeof (data.siteSettings as any).calendarPreviewImageUrl === 'string'
+                ? (data.siteSettings as any).calendarPreviewImageUrl
+                : undefined,
           });
         } else {
           setSiteSettings({
@@ -276,6 +280,7 @@ const App: React.FC = () => {
             productsPageVisible: true,
             coversPageVisible: true,
             videosPageVisible: true,
+            calendarPreviewImageUrl: undefined,
           });
         }
       } catch (e) {
@@ -291,6 +296,7 @@ const App: React.FC = () => {
           productsPageVisible: true,
           coversPageVisible: true,
           videosPageVisible: true,
+          calendarPreviewImageUrl: undefined,
         });
       }
     };

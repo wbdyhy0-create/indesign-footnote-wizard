@@ -68,6 +68,8 @@ export interface SiteSettings {
   productsPageVisible?: boolean;
   coversPageVisible?: boolean;
   videosPageVisible?: boolean;
+  /** Calendar landing preview image (hosted https URL). Managed by admin only. */
+  calendarPreviewImageUrl?: string;
 }
 
 export interface FAQItem {

@@ -1,19 +1,9 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 
 export default function Calendar() {
   const TARGET_URL = 'https://hebrew-calendar-2026.vercel.app/';
-  const STORAGE_KEY = 'footnoteWizard.calendarPreviewImageDataUrl';
-  const pickerRef = useRef<HTMLInputElement | null>(null);
-  const [imgDataUrl, setImgDataUrl] = useState<string | null>(() => {
-    try {
-      const v = window.localStorage.getItem(STORAGE_KEY);
-      return v && v.startsWith('data:image/') ? v : null;
-    } catch {
-      return null;
-    }
-  });
-
-  const canDelete = Boolean(imgDataUrl);
+  const [imgUrl, setImgUrl] = useState<string | null>(null);
+  const [imgLoading, setImgLoading] = useState(false);
   const subtitle = useMemo(
     () => 'למעבר לעמוד לוח שנה לחץ כאן או לחץ על התמונה',
     [],
@@ -23,15 +13,25 @@ export default function Calendar() {
     window.location.href = TARGET_URL;
   };
 
-  const setImgSafe = (v: string | null) => {
-    setImgDataUrl(v);
-    try {
-      if (v) window.localStorage.setItem(STORAGE_KEY, v);
-      else window.localStorage.removeItem(STORAGE_KEY);
-    } catch {
-      // ignore storage/quota errors
-    }
-  };
+  useEffect(() => {
+    const load = async () => {
+      try {
+        setImgLoading(true);
+        const res = await fetch('/api/update-scripts');
+        const data = await res.json().catch(() => ({}));
+        const url =
+          typeof data?.siteSettings?.calendarPreviewImageUrl === 'string'
+            ? String(data.siteSettings.calendarPreviewImageUrl)
+            : '';
+        setImgUrl(url || null);
+      } catch {
+        setImgUrl(null);
+      } finally {
+        setImgLoading(false);
+      }
+    };
+    load();
+  }, []);
 
   return (
     <section className="w-full">
@@ -43,21 +43,6 @@ export default function Calendar() {
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={() => pickerRef.current?.click()}
-            className="rounded-xl border border-slate-600 bg-slate-900/70 px-3 py-2 text-sm font-bold text-white hover:bg-slate-900"
-          >
-            {imgDataUrl ? 'החלף תמונה' : 'בחר תמונה'}
-          </button>
-          <button
-            type="button"
-            disabled={!canDelete}
-            onClick={() => setImgSafe(null)}
-            className="rounded-xl border border-slate-600 bg-slate-900/70 px-3 py-2 text-sm font-bold text-white hover:bg-slate-900 disabled:opacity-40"
-          >
-            מחק
-          </button>
-          <button
-            type="button"
             onClick={go}
             className="rounded-xl border border-amber-400/40 bg-amber-500/15 px-3 py-2 text-sm font-black text-amber-100 hover:bg-amber-500/20"
           >
@@ -65,23 +50,6 @@ export default function Calendar() {
           </button>
         </div>
       </div>
-
-      <input
-        ref={pickerRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (!file) return;
-          const reader = new FileReader();
-          reader.onload = () => {
-            const v = typeof reader.result === 'string' ? reader.result : null;
-            if (v && v.startsWith('data:image/')) setImgSafe(v);
-          };
-          reader.readAsDataURL(file);
-        }}
-      />
 
       <div
         role="button"
@@ -92,16 +60,20 @@ export default function Calendar() {
         style={{ aspectRatio: '16 / 7' }}
         title="לחץ למעבר ללוח שנה"
       >
-        {imgDataUrl ? (
+        {imgLoading ? (
+          <div className="h-full w-full flex items-center justify-center text-sm text-slate-300">
+            טוען תמונה…
+          </div>
+        ) : imgUrl ? (
           <img
-            src={imgDataUrl}
+            src={imgUrl}
             alt="תצוגת לוח שנה"
             className="h-full w-full object-cover"
             draggable={false}
           />
         ) : (
           <div className="h-full w-full flex items-center justify-center text-sm text-slate-300">
-            אין תמונה — לחץ על “בחר תמונה”
+            אין תמונה — אפשר להוסיף באדמין
           </div>
         )}
       </div>

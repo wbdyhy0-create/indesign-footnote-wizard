@@ -61,6 +61,8 @@ const AdminPortal: React.FC = () => {
           productsPageVisible: parsed?.productsPageVisible !== false,
           coversPageVisible: parsed?.coversPageVisible !== false,
           videosPageVisible: parsed?.videosPageVisible !== false,
+          calendarPreviewImageUrl:
+            typeof parsed?.calendarPreviewImageUrl === 'string' ? parsed.calendarPreviewImageUrl : undefined,
         };
       }
     }
@@ -70,6 +72,7 @@ const AdminPortal: React.FC = () => {
       productsPageVisible: true,
       coversPageVisible: true,
       videosPageVisible: true,
+      calendarPreviewImageUrl: undefined,
     };
   });
 
@@ -101,6 +104,8 @@ const AdminPortal: React.FC = () => {
   const [publishStatus, setPublishStatus] = useState<string | null>(null);
   const [isUploadingCoverImage, setIsUploadingCoverImage] = useState(false);
   const [coverUploadError, setCoverUploadError] = useState<string | null>(null);
+  const [isUploadingCalendarPreview, setIsUploadingCalendarPreview] = useState(false);
+  const [calendarPreviewUploadError, setCalendarPreviewUploadError] = useState<string | null>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [isLeadsLoading, setIsLeadsLoading] = useState(false);
   const [leadsError, setLeadsError] = useState<string | null>(null);
@@ -273,6 +278,25 @@ const AdminPortal: React.FC = () => {
     }
   };
 
+  const handleCalendarPreviewUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      setCalendarPreviewUploadError(null);
+      setIsUploadingCalendarPreview(true);
+      const imageUrl = await uploadImageFileToCloud(file);
+      setSiteSettings((prev) => ({ ...prev, calendarPreviewImageUrl: imageUrl }));
+      alert('✅ תמונת התצוגה עודכנה. כדי שהגולשים יראו אותה, לחץ "פרסם לאתר החי".');
+    } catch (error: any) {
+      const message = error?.message || 'שגיאה בהעלאת תמונת התצוגה';
+      setCalendarPreviewUploadError(message);
+      alert(`❌ ${message}`);
+    } finally {
+      setIsUploadingCalendarPreview(false);
+      event.target.value = '';
+    }
+  };
+
   const handlePromotionImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -367,6 +391,10 @@ const AdminPortal: React.FC = () => {
             productsPageVisible: (data.siteSettings as any).productsPageVisible !== false,
             coversPageVisible: (data.siteSettings as any).coversPageVisible !== false,
             videosPageVisible: (data.siteSettings as any).videosPageVisible !== false,
+            calendarPreviewImageUrl:
+              typeof (data.siteSettings as any).calendarPreviewImageUrl === 'string'
+                ? (data.siteSettings as any).calendarPreviewImageUrl
+                : undefined,
           });
         }
         if (Array.isArray(data?.videos)) {
@@ -690,6 +718,58 @@ const AdminPortal: React.FC = () => {
             </button>
             <button onClick={handleCopyCode} className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2.5 rounded-xl font-black shadow-lg transition flex items-center gap-2">📋 העתק קוד לעדכון קבוע</button>
             <button onClick={() => { setEditingScript(null); setEditingPromotion(null); setEditingVideo(null); setEditingProduct(null); setViewMode('json'); }} className="bg-slate-800/50 text-slate-300 px-5 py-2.5 rounded-xl font-bold border border-slate-700 text-sm hover:bg-slate-700 transition">תצוגת JSON</button>
+          </div>
+        </div>
+
+        <div className="mb-8 bg-[#0b1121] border border-slate-800 rounded-3xl p-6 md:p-8 shadow-xl">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <div className="text-lg font-black text-white">תמונת תצוגה לעמוד הלוח שנה</div>
+              <div className="text-xs font-bold text-slate-500 mt-1">
+                התמונה מוצגת בעמוד <span className="font-mono">/calendar</span>. לאחר שינוי לחץ "פרסם לאתר החי".
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="bg-slate-800/50 text-slate-200 px-5 py-2.5 rounded-xl font-bold border border-slate-700/50 text-sm hover:bg-slate-800 transition cursor-pointer">
+                {isUploadingCalendarPreview ? 'מעלה…' : 'בחר/החלף תמונה'}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleCalendarPreviewUpload}
+                  disabled={isUploadingCalendarPreview}
+                />
+              </label>
+              <button
+                type="button"
+                disabled={!siteSettings.calendarPreviewImageUrl}
+                onClick={() => {
+                  setSiteSettings((prev) => ({ ...prev, calendarPreviewImageUrl: undefined }));
+                }}
+                className="bg-slate-800/50 text-slate-200 px-5 py-2.5 rounded-xl font-bold border border-slate-700/50 text-sm hover:bg-slate-800 transition disabled:opacity-40"
+              >
+                מחק תמונה
+              </button>
+            </div>
+          </div>
+          {calendarPreviewUploadError ? (
+            <div className="mt-3 text-sm font-bold text-red-300 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3">
+              {calendarPreviewUploadError}
+            </div>
+          ) : null}
+          <div className="mt-4 w-full overflow-hidden rounded-3xl border border-slate-800 bg-[#060b14] shadow-inner" style={{ aspectRatio: '16 / 7' }}>
+            {siteSettings.calendarPreviewImageUrl ? (
+              <img
+                src={siteSettings.calendarPreviewImageUrl}
+                alt="תצוגת לוח שנה"
+                className="h-full w-full object-cover"
+                draggable={false}
+              />
+            ) : (
+              <div className="h-full w-full flex items-center justify-center text-sm text-slate-500">
+                אין תמונה (אפשר להעלות מעל)
+              </div>
+            )}
           </div>
         </div>
         {publishStatus && (
