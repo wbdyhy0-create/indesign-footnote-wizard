@@ -1,4 +1,5 @@
 import { kv } from '@vercel/kv';
+import { Resend } from 'resend';
 
 /** מוטמע כאן בכוונה — ייבוא מ־../utils עלול לא להיכלל בבנדל של Vercel ולגרום ל־FUNCTION_INVOCATION_FAILED. */
 function normalizeBitRecipientPhone(phone: string): string {
@@ -121,11 +122,17 @@ const saveOrders = async (orders: OrderRecord[]) => {
 };
 
 const sendDownloadEmail = async (order: OrderRecord): Promise<{ sent: boolean; error?: string }> => {
-  const apiKey = process.env.RESEND_API_KEY;
+  const apiKey = process.env.RESEND_API_KEY?.trim();
   if (!apiKey) return { sent: false, error: 'RESEND_API_KEY not configured' };
 
-  const from =
-    process.env.RESEND_FROM_EMAIL?.trim() || 'Footnote Wizard <onboarding@resend.dev>';
+  const from = process.env.RESEND_FROM_EMAIL?.trim();
+  if (!from) {
+    return {
+      sent: false,
+      error:
+        'RESEND_FROM_EMAIL not configured (must be a verified sender/domain in Resend)',
+    };
+  }
 
   const html = `
         <div dir="rtl" style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:32px;background:#0f172a;color:#e2e8f0;border-radius:16px;">
@@ -158,41 +165,25 @@ const sendDownloadEmail = async (order: OrderRecord): Promise<{ sent: boolean; e
         </div>
       `;
 
-  try {
-    const r = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from,
-        to: [order.customerEmail],
-        subject: `הקובץ שלך מוכן להורדה – ${order.productName}`,
-        html,
-      }),
-    });
+  const resend = new Resend(apiKey);
+  const { data, error } = await resend.emails.send({
+    from,
+    to: [order.customerEmail],
+    subject: `הקובץ שלך מוכן להורדה – ${order.productName}`,
+    html,
+    idempotencyKey: `download-link/${order.id}`,
+  });
 
-    const payload = (await r.json().catch(() => ({}))) as {
-      message?: string;
-      name?: string;
-      statusCode?: number;
-    };
-
-    if (!r.ok) {
-      const msg =
-        payload?.message ||
-        payload?.name ||
-        (Object.keys(payload).length ? JSON.stringify(payload) : null) ||
-        `Resend HTTP ${r.status}`;
-      console.error('Resend API error:', r.status, payload);
-      return { sent: false, error: String(msg) };
-    }
-    return { sent: true };
-  } catch (e: any) {
-    console.error('Email send failed:', e);
-    return { sent: false, error: e?.message || 'Unknown email error' };
+  if (error) {
+    console.error('Resend SDK error:', error);
+    return { sent: false, error: error.message || error.name || 'Resend error' };
   }
+
+  if (!data?.id) {
+    return { sent: false, error: 'Resend returned no message id' };
+  }
+
+  return { sent: true };
 };
 
 export default async function handler(req: any, res: any) {
