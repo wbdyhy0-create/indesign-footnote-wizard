@@ -1,5 +1,11 @@
 import { kv } from '@vercel/kv';
 
+const isKvConfigured = () => {
+  // Vercel KV (Upstash) typically injects these env vars.
+  // If the Vercel project was recreated, these can be missing until Storage is reconnected.
+  return Boolean(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) || Boolean(process.env.KV_URL);
+};
+
 const upsertById = (existing: any, incoming: any) => {
   const base = Array.isArray(existing) ? [...existing] : [];
   const next = Array.isArray(incoming) ? incoming : [];
@@ -29,6 +35,14 @@ const upsertById = (existing: any, incoming: any) => {
 };
 
 export default async function handler(req: any, res: any) {
+  if (!isKvConfigured()) {
+    return res.status(503).json({
+      success: false,
+      error:
+        'Vercel KV לא מוגדר בפרויקט. חבר/י Storage (Upstash/Redis) ב-Vercel והוסף/י Environment Variables (KV_*), ואז בצע/י Redeploy.',
+    });
+  }
+
   if (req.method === 'GET') {
     try {
       const [scripts, products, covers, promotions, videos, siteSettings] = await Promise.all([
@@ -111,7 +125,11 @@ export default async function handler(req: any, res: any) {
       return res.status(200).json({ success: true, message: 'הנתונים עודכנו בענן בהצלחה!' });
     } catch (error) {
       console.error(error);
-      return res.status(500).json({ success: false, error: 'שגיאה בשמירת הנתונים' });
+      return res.status(500).json({
+        success: false,
+        error:
+          'שגיאה בשמירת הנתונים. אם מחקת/הקמת מחדש פרויקט ב-Vercel, ודא/י שחיבור ה-Storage (KV/Redis) עדיין קיים ושמשתני KV_* קיימים בכל ה-environments.',
+      });
     }
   } else {
     return res.status(405).json({ error: 'שיטה לא מורשית' });

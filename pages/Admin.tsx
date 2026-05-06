@@ -25,8 +25,14 @@ const getAdminViewFromPath = (pathname: string): AdminViewMode => {
 };
 
 const ADMIN_CODE = '1967';
+const AUTH_SESSION_KEY = 'fw_admin_authed_v1';
 
 const AdminPortal: React.FC = () => {
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return sessionStorage.getItem(AUTH_SESSION_KEY) === 'true';
+  });
+  const [password, setPassword] = useState('');
 
   // טעינת סקריפטים מהזיכרון המקומי
   const [scripts, setScripts] = useState<any[]>(() => {
@@ -134,6 +140,52 @@ const AdminPortal: React.FC = () => {
   useEffect(() => {
     setSkipVisitCountOnThisDevice(shouldSkipVisitBump());
   }, []);
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (password.trim() !== ADMIN_CODE) {
+      alert('סיסמה שגויה!');
+      return;
+    }
+    sessionStorage.setItem(AUTH_SESSION_KEY, 'true');
+    setIsAuthenticated(true);
+    setPassword('');
+  };
+
+  const handleLogout = () => {
+    sessionStorage.removeItem(AUTH_SESSION_KEY);
+    setIsAuthenticated(false);
+    setPassword('');
+    window.history.replaceState(null, '', '/admin');
+    window.location.reload();
+  };
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-[#020617] flex items-center justify-center p-4 text-right" dir="rtl">
+        <div className="bg-slate-900 border border-slate-800 p-8 rounded-[2.5rem] w-full max-w-md shadow-2xl text-white text-center">
+          <h1 className="text-2xl font-black mb-2">ניהול המערכת</h1>
+          <p className="text-slate-400 text-sm font-bold mb-6">נדרש קוד מנהל כדי להיכנס.</p>
+          <form onSubmit={handleLogin} className="space-y-4">
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-5 py-4 text-center text-white outline-none focus:border-amber-500"
+              placeholder="הזן קוד מנהל"
+              autoFocus
+            />
+            <button
+              type="submit"
+              className="w-full py-4 bg-amber-600 text-white font-black rounded-2xl shadow-xl hover:bg-amber-500 transition-colors"
+            >
+              התחבר
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   const loadLeads = async () => {
     try {
@@ -578,6 +630,13 @@ const AdminPortal: React.FC = () => {
               className="bg-slate-800/50 text-slate-400 px-5 py-2.5 rounded-xl font-bold border border-slate-700/50 text-sm hover:bg-slate-800 transition"
             >
               מעבר לאתר
+            </button>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="bg-red-900/20 text-red-300 px-5 py-2.5 rounded-xl font-black border border-red-900/50 text-sm hover:bg-red-900/30 transition"
+            >
+              התנתק
             </button>
             <button
               type="button"
