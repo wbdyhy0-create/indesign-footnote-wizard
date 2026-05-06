@@ -10,9 +10,7 @@
 - Admin home (login screen): `https://footnote-wizard-2.vercel.app/admin`
 
 ## Current Admin Behavior
-- `/admin` opens the admin login screen (manager code required).
-- Successful login opens the admin management interface.
-- "Logout" returns to the admin home/login screen (`/admin`).
+- `/admin` opens the admin management interface (no login prompt).
 
 ## Site visit counter
 - `GET/POST /api/visits` stores a running total in Vercel KV key `site_visits_total`.
