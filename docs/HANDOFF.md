@@ -60,6 +60,7 @@
 - `1d89106` compact and centered other-products page
 - `917c181` compact homepage hero sizing
 - `d19eac0` restore admin login screen/logout behavior
+- `b3b7f3e` fix nikkud export offsets and font naming
 
 ## Latest Verification (2026-02-26)
 - Production URLs respond correctly:
