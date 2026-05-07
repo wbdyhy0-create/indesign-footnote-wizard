@@ -183,15 +183,17 @@ def apply_export_font_name(font: TTFont, export_name: str) -> None:
     rev = float(font["head"].fontRevision) if "head" in font else 1.0
     unique = f"{rev};NIKKUD-LEGACY-BASE;{ps}"
     name.setName(unique, 3, 3, 1, 0x409)
-    if had_typo_family and has_typo_sub:
-        name.setName(raw, 16, 3, 1, 0x409)
+    # Mac Roman records (some validators/installers prefer having them too)
     if all(ord(c) < 128 for c in raw):
         try:
             name.setName(raw, 1, 1, 0, 0)
             name.setName("Regular", 2, 1, 0, 0)
             name.setName(raw, 4, 1, 0, 0)
+            name.setName(ps, 6, 1, 0, 0)
         except Exception:
             pass
+    if had_typo_family and has_typo_sub:
+        name.setName(raw, 16, 3, 1, 0x409)
 
 
 def _sanitize_os2_for_windows_install(font: TTFont) -> None:
@@ -206,6 +208,11 @@ def _sanitize_os2_for_windows_install(font: TTFont) -> None:
     # 0 = Installable embedding (safest for local fonts you generate).
     try:
         os2.fsType = 0
+    except Exception:
+        pass
+    # Vendor ID should be 4 ASCII chars; some fonts have odd values.
+    try:
+        os2.achVendID = "NONE"
     except Exception:
         pass
     try:

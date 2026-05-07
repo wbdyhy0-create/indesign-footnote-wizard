@@ -81,7 +81,9 @@ def main() -> None:
             for mj, m in enumerate(rule.get("marks") or []):
                 mcp = int(m.get("codePoint", -1))
                 dx = int(round(float(m.get("offsetX", 0))))
-                dy = int(round(float(m.get("offsetY", 0))))
+                # היפוך ציר Y: בקנבס העורך Y גדל כלפי מטה,
+                # בגופן (GPOS) Y גדל כלפי מעלה — לכן נהפוך את הסימן.
+                dy = -int(round(float(m.get("offsetY", 0))))
                 mg = fl.get_glyph_name(mcp)
                 if not mg:
                     print(

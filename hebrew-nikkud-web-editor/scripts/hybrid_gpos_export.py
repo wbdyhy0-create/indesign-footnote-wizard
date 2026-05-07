@@ -450,15 +450,17 @@ def apply_export_font_name(font: TTFont, export_name: str) -> None:
     rev = float(font["head"].fontRevision) if "head" in font else 1.0
     unique = f"{rev};NIKKUD-HYBRID;{ps}"
     name.setName(unique, 3, 3, 1, 0x409)
-    if had_typo_family and has_typo_sub:
-        name.setName(raw, 16, 3, 1, 0x409)
+    # Mac Roman records (some validators/installers prefer having them too)
     if all(ord(c) < 128 for c in raw):
         try:
             name.setName(raw, 1, 1, 0, 0)
             name.setName("Regular", 2, 1, 0, 0)
             name.setName(raw, 4, 1, 0, 0)
+            name.setName(ps, 6, 1, 0, 0)
         except Exception:
             pass
+    if had_typo_family and has_typo_sub:
+        name.setName(raw, 16, 3, 1, 0x409)
 
 
 def main() -> None:
