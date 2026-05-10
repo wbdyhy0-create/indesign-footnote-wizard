@@ -22,3 +22,13 @@ export function toYouTubeEmbedUrl(input: string): string {
   return url;
 }
 
+/** Returns an https embed URL, or null if empty or not recognizable as YouTube. */
+export function tryYouTubeEmbedUrl(input: string): string | null {
+  const trimmed = (input || '').trim();
+  if (!trimmed) return null;
+  const lower = trimmed.toLowerCase();
+  if (!lower.includes('youtube.') && !lower.includes('youtu.be')) return null;
+  const embed = toYouTubeEmbedUrl(trimmed);
+  if (!embed.includes('youtube.com/embed/')) return null;
+  return embed;
+}

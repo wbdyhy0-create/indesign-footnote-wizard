@@ -44,6 +44,10 @@
 - Admin has a toggle for live visibility of promotions page: `siteSettings.promotionsPageVisible`.
 - When hidden, `/promotions` and direct promotion detail URLs redirect to Home and nav item is hidden.
 
+## Calendar page tutorial embed
+- Admin replaces the former calendar preview **image** with **קישור YouTube**: `siteSettings.calendarTutorialVideoUrl`.
+- Published via the same `/api/update-scripts` KV payload as other `siteSettings`; `/calendar` shows an embed column on the visual left on wide screens when the URL parses as YouTube (`utils/youtube.tryYouTubeEmbedUrl`).
+
 ## Script guide links
 - Each script may include optional `guideUrl` (e.g. Google Drive link to a PDF guide).
 - Admin script editor has field **"קישור מדריך (גוגל דרייב / PDF)"**; when set, the script detail page shows **"פתח מדריך (גוגל דרייב)"** directly **under the hero image** (left column).

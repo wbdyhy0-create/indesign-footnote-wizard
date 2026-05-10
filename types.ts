@@ -68,11 +68,8 @@ export interface SiteSettings {
   productsPageVisible?: boolean;
   coversPageVisible?: boolean;
   videosPageVisible?: boolean;
-  /** Calendar landing preview image (hosted https URL). Managed by admin only. */
-  calendarPreviewImageUrl?: string;
-  /** Crop position offsets (percent points, -40..40). Managed by admin only. */
-  calendarPreviewImagePosXPct?: number;
-  calendarPreviewImagePosYPct?: number;
+  /** קישור YouTube להדרכה בעמוד /calendar (watch, embed או shorts). */
+  calendarTutorialVideoUrl?: string;
 }
 
 export interface FAQItem {

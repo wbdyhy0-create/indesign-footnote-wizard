@@ -268,18 +268,10 @@ const App: React.FC = () => {
             productsPageVisible: (data.siteSettings as any).productsPageVisible !== false,
             coversPageVisible: (data.siteSettings as any).coversPageVisible !== false,
             videosPageVisible: (data.siteSettings as any).videosPageVisible !== false,
-            calendarPreviewImageUrl:
-              typeof (data.siteSettings as any).calendarPreviewImageUrl === 'string'
-                ? (data.siteSettings as any).calendarPreviewImageUrl
+            calendarTutorialVideoUrl:
+              typeof (data.siteSettings as any).calendarTutorialVideoUrl === 'string'
+                ? String((data.siteSettings as any).calendarTutorialVideoUrl).trim() || undefined
                 : undefined,
-            calendarPreviewImagePosXPct:
-              typeof (data.siteSettings as any).calendarPreviewImagePosXPct === 'number'
-                ? (data.siteSettings as any).calendarPreviewImagePosXPct
-                : 0,
-            calendarPreviewImagePosYPct:
-              typeof (data.siteSettings as any).calendarPreviewImagePosYPct === 'number'
-                ? (data.siteSettings as any).calendarPreviewImagePosYPct
-                : 0,
           });
         } else {
           setSiteSettings({
@@ -288,9 +280,6 @@ const App: React.FC = () => {
             productsPageVisible: true,
             coversPageVisible: true,
             videosPageVisible: true,
-            calendarPreviewImageUrl: undefined,
-            calendarPreviewImagePosXPct: 0,
-            calendarPreviewImagePosYPct: 0,
           });
         }
       } catch (e) {
@@ -306,9 +295,6 @@ const App: React.FC = () => {
           productsPageVisible: true,
           coversPageVisible: true,
           videosPageVisible: true,
-          calendarPreviewImageUrl: undefined,
-          calendarPreviewImagePosXPct: 0,
-          calendarPreviewImagePosYPct: 0,
         });
       }
     };

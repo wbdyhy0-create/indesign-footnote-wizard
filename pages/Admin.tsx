@@ -1,8 +1,8 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { SCRIPTS as initialScripts, OTHER_PRODUCTS as initialProducts, TORAH_COVER_DESIGNS as initialCovers } from '../constants';
 import { Lead, PromotionBundleData, PurchaseOrder, SiteSettings, VideoItem } from '../types';
 import { setOwnerSkipVisitBump, shouldSkipVisitBump } from '../utils/visitTracking';
-import { toYouTubeEmbedUrl } from '../utils/youtube';
+import { toYouTubeEmbedUrl, tryYouTubeEmbedUrl } from '../utils/youtube';
 
 const ADMIN_VIEWS = ['scripts', 'promotions', 'videos', 'products', 'covers', 'orders', 'leads', 'json'] as const;
 type AdminViewMode = (typeof ADMIN_VIEWS)[number];
@@ -58,12 +58,8 @@ const AdminPortal: React.FC = () => {
           productsPageVisible: parsed?.productsPageVisible !== false,
           coversPageVisible: parsed?.coversPageVisible !== false,
           videosPageVisible: parsed?.videosPageVisible !== false,
-          calendarPreviewImageUrl:
-            typeof parsed?.calendarPreviewImageUrl === 'string' ? parsed.calendarPreviewImageUrl : undefined,
-          calendarPreviewImagePosXPct:
-            typeof parsed?.calendarPreviewImagePosXPct === 'number' ? parsed.calendarPreviewImagePosXPct : 0,
-          calendarPreviewImagePosYPct:
-            typeof parsed?.calendarPreviewImagePosYPct === 'number' ? parsed.calendarPreviewImagePosYPct : 0,
+          calendarTutorialVideoUrl:
+            typeof parsed?.calendarTutorialVideoUrl === 'string' ? parsed.calendarTutorialVideoUrl.trim() || undefined : undefined,
         };
       }
     }
@@ -73,9 +69,7 @@ const AdminPortal: React.FC = () => {
       productsPageVisible: true,
       coversPageVisible: true,
       videosPageVisible: true,
-      calendarPreviewImageUrl: undefined,
-      calendarPreviewImagePosXPct: 0,
-      calendarPreviewImagePosYPct: 0,
+      calendarTutorialVideoUrl: undefined,
     };
   });
 
@@ -107,17 +101,6 @@ const AdminPortal: React.FC = () => {
   const [publishStatus, setPublishStatus] = useState<string | null>(null);
   const [isUploadingCoverImage, setIsUploadingCoverImage] = useState(false);
   const [coverUploadError, setCoverUploadError] = useState<string | null>(null);
-  const [isUploadingCalendarPreview, setIsUploadingCalendarPreview] = useState(false);
-  const [calendarPreviewUploadError, setCalendarPreviewUploadError] = useState<string | null>(null);
-  const calendarPreviewDragRef = useRef<{
-    active: boolean;
-    startX: number;
-    startY: number;
-    startPosX: number;
-    startPosY: number;
-    boxW: number;
-    boxH: number;
-  } | null>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [isLeadsLoading, setIsLeadsLoading] = useState(false);
   const [leadsError, setLeadsError] = useState<string | null>(null);
@@ -290,25 +273,6 @@ const AdminPortal: React.FC = () => {
     }
   };
 
-  const handleCalendarPreviewUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    try {
-      setCalendarPreviewUploadError(null);
-      setIsUploadingCalendarPreview(true);
-      const imageUrl = await uploadImageFileToCloud(file);
-      setSiteSettings((prev) => ({ ...prev, calendarPreviewImageUrl: imageUrl }));
-      alert('✅ תמונת התצוגה עודכנה. כדי שהגולשים יראו אותה, לחץ "פרסם לאתר החי".');
-    } catch (error: any) {
-      const message = error?.message || 'שגיאה בהעלאת תמונת התצוגה';
-      setCalendarPreviewUploadError(message);
-      alert(`❌ ${message}`);
-    } finally {
-      setIsUploadingCalendarPreview(false);
-      event.target.value = '';
-    }
-  };
-
   const handlePromotionImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -403,18 +367,10 @@ const AdminPortal: React.FC = () => {
             productsPageVisible: (data.siteSettings as any).productsPageVisible !== false,
             coversPageVisible: (data.siteSettings as any).coversPageVisible !== false,
             videosPageVisible: (data.siteSettings as any).videosPageVisible !== false,
-            calendarPreviewImageUrl:
-              typeof (data.siteSettings as any).calendarPreviewImageUrl === 'string'
-                ? (data.siteSettings as any).calendarPreviewImageUrl
+            calendarTutorialVideoUrl:
+              typeof (data.siteSettings as any).calendarTutorialVideoUrl === 'string'
+                ? String((data.siteSettings as any).calendarTutorialVideoUrl).trim() || undefined
                 : undefined,
-            calendarPreviewImagePosXPct:
-              typeof (data.siteSettings as any).calendarPreviewImagePosXPct === 'number'
-                ? (data.siteSettings as any).calendarPreviewImagePosXPct
-                : 0,
-            calendarPreviewImagePosYPct:
-              typeof (data.siteSettings as any).calendarPreviewImagePosYPct === 'number'
-                ? (data.siteSettings as any).calendarPreviewImagePosYPct
-                : 0,
           });
         }
         if (Array.isArray(data?.videos)) {
@@ -742,121 +698,55 @@ const AdminPortal: React.FC = () => {
         </div>
 
         <div className="mb-8 bg-[#0b1121] border border-slate-800 rounded-3xl p-6 md:p-8 shadow-xl">
-          <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <div className="text-lg font-black text-white">תמונת תצוגה לעמוד הלוח שנה</div>
-              <div className="text-xs font-bold text-slate-500 mt-1">
-                התמונה מוצגת בעמוד <span className="font-mono">/calendar</span>. לאחר שינוי לחץ "פרסם לאתר החי".
+              <div className="text-lg font-black text-white">סרטון הדרכה לעמוד לוח השנה</div>
+              <div className="text-xs font-bold text-slate-500 mt-1 max-w-xl leading-relaxed">
+                הווידאו יוצג בעמוד <span className="font-mono">/calendar</span> בעמודה משמאל ללוח (במסכים רחבים). הדביקו קישור YouTube רגיל, embed או Shorts. לאחר שינוי לחצו &quot;פרסם לאתר החי&quot;.
               </div>
             </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <label className="bg-slate-800/50 text-slate-200 px-5 py-2.5 rounded-xl font-bold border border-slate-700/50 text-sm hover:bg-slate-800 transition cursor-pointer">
-                {isUploadingCalendarPreview ? 'מעלה…' : 'בחר/החלף תמונה'}
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleCalendarPreviewUpload}
-                  disabled={isUploadingCalendarPreview}
-                />
-              </label>
-              <button
-                type="button"
-                disabled={!siteSettings.calendarPreviewImageUrl}
-                onClick={() => {
-                  setSiteSettings((prev) => ({
-                    ...prev,
-                    calendarPreviewImageUrl: undefined,
-                    calendarPreviewImagePosXPct: 0,
-                    calendarPreviewImagePosYPct: 0,
-                  }));
-                }}
-                className="bg-slate-800/50 text-slate-200 px-5 py-2.5 rounded-xl font-bold border border-slate-700/50 text-sm hover:bg-slate-800 transition disabled:opacity-40"
-              >
-                מחק תמונה
-              </button>
-              <button
-                type="button"
-                disabled={!siteSettings.calendarPreviewImageUrl}
-                onClick={() => {
-                  setSiteSettings((prev) => ({
-                    ...prev,
-                    calendarPreviewImagePosXPct: 0,
-                    calendarPreviewImagePosYPct: 0,
-                  }));
-                }}
-                className="bg-slate-800/50 text-slate-200 px-5 py-2.5 rounded-xl font-bold border border-slate-700/50 text-sm hover:bg-slate-800 transition disabled:opacity-40"
-                title="איפוס מיקום חיתוך"
-              >
-                איפוס גרירה
-              </button>
-            </div>
+            <button
+              type="button"
+              disabled={!siteSettings.calendarTutorialVideoUrl?.trim()}
+              onClick={() => setSiteSettings((prev) => ({ ...prev, calendarTutorialVideoUrl: undefined }))}
+              className="bg-slate-800/50 text-slate-200 px-5 py-2.5 rounded-xl font-bold border border-slate-700/50 text-sm hover:bg-slate-800 transition disabled:opacity-40 shrink-0"
+            >
+              נקה קישור
+            </button>
           </div>
-          {calendarPreviewUploadError ? (
-            <div className="mt-3 text-sm font-bold text-red-300 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3">
-              {calendarPreviewUploadError}
+          <label className="block mt-4 text-slate-500 text-sm font-bold mb-2">קישור YouTube</label>
+          <input
+            dir="ltr"
+            type="url"
+            placeholder="https://www.youtube.com/watch?v=…"
+            value={siteSettings.calendarTutorialVideoUrl || ''}
+            onChange={(e) => setSiteSettings((prev) => ({ ...prev, calendarTutorialVideoUrl: e.target.value || undefined }))}
+            className="w-full bg-[#060b14] border border-slate-800 p-4 rounded-2xl text-white text-left font-mono text-sm outline-none focus:border-sky-500/60 transition"
+          />
+          {siteSettings.calendarTutorialVideoUrl?.trim() && !tryYouTubeEmbedUrl(siteSettings.calendarTutorialVideoUrl) ? (
+            <div className="mt-3 text-sm font-bold text-amber-200/90 bg-amber-500/10 border border-amber-500/25 rounded-xl px-4 py-3">
+              הקישור לא זוהה כ־YouTube תקין. ודאו שמדובר ב־youtube.com או youtu.be.
             </div>
           ) : null}
-          <div className="mt-4 w-full overflow-hidden rounded-3xl border border-slate-800 bg-[#060b14] shadow-inner" style={{ aspectRatio: '16 / 7' }}>
-            {siteSettings.calendarPreviewImageUrl ? (
-              <div
-                className="h-full w-full select-none touch-none"
-                title="גרור כדי להזיז את התמונה בתוך המסגרת"
-                style={{
-                  backgroundImage: `url(${siteSettings.calendarPreviewImageUrl})`,
-                  backgroundSize: 'cover',
-                  backgroundRepeat: 'no-repeat',
-                  backgroundPosition: `${50 + (Number(siteSettings.calendarPreviewImagePosXPct) || 0)}% ${50 + (Number(siteSettings.calendarPreviewImagePosYPct) || 0)}%`,
-                  cursor: 'grab',
-                }}
-                onPointerDown={(e) => {
-                  const el = e.currentTarget;
-                  const rect = el.getBoundingClientRect();
-                  calendarPreviewDragRef.current = {
-                    active: true,
-                    startX: e.clientX,
-                    startY: e.clientY,
-                    startPosX: Number(siteSettings.calendarPreviewImagePosXPct) || 0,
-                    startPosY: Number(siteSettings.calendarPreviewImagePosYPct) || 0,
-                    boxW: Math.max(1, rect.width),
-                    boxH: Math.max(1, rect.height),
-                  };
-                  try {
-                    (e.currentTarget as any).setPointerCapture?.(e.pointerId);
-                  } catch {
-                    // ignore
-                  }
-                }}
-                onPointerMove={(e) => {
-                  const st = calendarPreviewDragRef.current;
-                  if (!st?.active) return;
-                  const dx = e.clientX - st.startX;
-                  const dy = e.clientY - st.startY;
-                  const nextX = st.startPosX + (dx / st.boxW) * 100;
-                  const nextY = st.startPosY + (dy / st.boxH) * 100;
-                  const clamp = (v: number) => Math.max(-40, Math.min(40, v));
-                  setSiteSettings((prev) => ({
-                    ...prev,
-                    calendarPreviewImagePosXPct: clamp(nextX),
-                    calendarPreviewImagePosYPct: clamp(nextY),
-                  }));
-                }}
-                onPointerUp={() => {
-                  const st = calendarPreviewDragRef.current;
-                  if (!st) return;
-                  calendarPreviewDragRef.current = { ...st, active: false };
-                }}
-                onPointerCancel={() => {
-                  const st = calendarPreviewDragRef.current;
-                  if (!st) return;
-                  calendarPreviewDragRef.current = { ...st, active: false };
-                }}
-              />
-            ) : (
-              <div className="h-full w-full flex items-center justify-center text-sm text-slate-500">
-                אין תמונה (אפשר להעלות מעל)
-              </div>
-            )}
+          <div className="mt-4 max-w-xl overflow-hidden rounded-2xl border border-slate-800 bg-black shadow-inner aspect-video">
+            {(() => {
+              const emb = siteSettings.calendarTutorialVideoUrl?.trim()
+                ? tryYouTubeEmbedUrl(siteSettings.calendarTutorialVideoUrl.trim())
+                : null;
+              return emb ? (
+                <iframe
+                  title="תצוגה מקדימה — סרטון הדרכה ללוח שנה"
+                  src={`${emb}${emb.includes('?') ? '&' : '?'}rel=0`}
+                  className="h-full w-full"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                />
+              ) : (
+                <div className="h-full w-full flex items-center justify-center text-sm text-slate-500 px-4 text-center">
+                  הזינו קישור כדי לראות תצוגה מקדימה
+                </div>
+              );
+            })()}
           </div>
         </div>
         {publishStatus && (

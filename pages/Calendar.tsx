@@ -1,13 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { CalendarLeadPopup } from '../components/CalendarLeadPopup';
+import { tryYouTubeEmbedUrl } from '../utils/youtube';
 
 export default function Calendar() {
   const TARGET_URL = 'https://hebrew-calendar-2026.vercel.app/';
   const EMBED_URL = TARGET_URL;
-  const [imgUrl, setImgUrl] = useState<string | null>(null);
-  const [imgLoading, setImgLoading] = useState(false);
-  const [posX, setPosX] = useState(0);
-  const [posY, setPosY] = useState(0);
+  const [tutorialRawUrl, setTutorialRawUrl] = useState<string>('');
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [openChooser, setOpenChooser] = useState(false);
   const [leadPopupOpen, setLeadPopupOpen] = useState(false);
 
@@ -24,14 +23,10 @@ export default function Calendar() {
     }
   };
 
-  const snoozeLeadPopup = (days: number) => {
-    try {
-      const ms = Math.max(1, days) * 86400000;
-      window.localStorage.setItem(LEAD_POPUP_SNOOZE_KEY, String(Date.now() + ms));
-    } catch {
-      // ignore
-    }
-  };
+  const tutorialEmbedSrc = useMemo(
+    () => (tutorialRawUrl.trim() ? tryYouTubeEmbedUrl(tutorialRawUrl.trim()) : null),
+    [tutorialRawUrl],
+  );
 
   const openInDefaultBrowser = () => {
     window.open(TARGET_URL, '_blank', 'noopener,noreferrer');
@@ -47,22 +42,17 @@ export default function Calendar() {
   useEffect(() => {
     const load = async () => {
       try {
-        setImgLoading(true);
         const res = await fetch('/api/update-scripts');
         const data = await res.json().catch(() => ({}));
-        const url =
-          typeof data?.siteSettings?.calendarPreviewImageUrl === 'string'
-            ? String(data.siteSettings.calendarPreviewImageUrl)
+        const raw =
+          typeof data?.siteSettings?.calendarTutorialVideoUrl === 'string'
+            ? String(data.siteSettings.calendarTutorialVideoUrl)
             : '';
-        setImgUrl(url || null);
-        setPosX(typeof data?.siteSettings?.calendarPreviewImagePosXPct === 'number' ? data.siteSettings.calendarPreviewImagePosXPct : 0);
-        setPosY(typeof data?.siteSettings?.calendarPreviewImagePosYPct === 'number' ? data.siteSettings.calendarPreviewImagePosYPct : 0);
+        setTutorialRawUrl(raw.trim());
       } catch {
-        setImgUrl(null);
-        setPosX(0);
-        setPosY(0);
+        setTutorialRawUrl('');
       } finally {
-        setImgLoading(false);
+        setSettingsLoaded(true);
       }
     };
     load();
@@ -77,34 +67,60 @@ export default function Calendar() {
   }, []);
 
   return (
-    <section className="w-full">
-      <div className="w-full overflow-hidden rounded-3xl border border-slate-700 bg-white shadow-2xl">
-        <div
-          className="relative w-full"
-          style={{
-            // Fill most of the viewport while leaving room for the site header/navbar.
-            height: 'calc(100vh - 220px)',
-            minHeight: 720,
-            maxHeight: 1200,
-          }}
-        >
-          <button
-            type="button"
-            onClick={go}
-            className="absolute left-3 top-3 z-20 rounded-xl border border-slate-200 bg-white/90 px-3 py-2 text-xs font-black text-slate-800 shadow hover:bg-white"
-            title="פתח בחלון חדש"
-          >
-            פתח בחלון חדש
-          </button>
-          <iframe
-            src={EMBED_URL}
-            title="לוח שנה עברי־לועזי (מוטמע)"
-            className="h-full w-full bg-white"
-            loading="lazy"
-            referrerPolicy="no-referrer"
-            allow="clipboard-read; clipboard-write"
-          />
+    <section className="w-full px-3 sm:px-4 lg:px-6 pb-4" dir="rtl">
+      <div
+        className={`flex flex-col gap-5 ${tutorialEmbedSrc ? 'lg:flex-row lg:gap-6 lg:items-stretch lg:justify-center' : ''}`}
+      >
+        <div className={`min-w-0 ${tutorialEmbedSrc ? 'flex-1 lg:max-w-[min(960px,calc(100%-420px))]' : ''}`}>
+          <div className="w-full overflow-hidden rounded-3xl border border-slate-700 bg-white shadow-2xl">
+            <div
+              className="relative w-full"
+              style={{
+                // Fill most of the viewport while leaving room for the site header/navbar.
+                height: 'calc(100vh - 220px)',
+                minHeight: 720,
+                maxHeight: 1200,
+              }}
+            >
+              <button
+                type="button"
+                onClick={go}
+                className="absolute left-3 top-3 z-20 rounded-xl border border-slate-200 bg-white/90 px-3 py-2 text-xs font-black text-slate-800 shadow hover:bg-white"
+                title="פתח בחלון חדש"
+              >
+                פתח בחלון חדש
+              </button>
+              <iframe
+                src={EMBED_URL}
+                title="לוח שנה עברי־לועזי (מוטמע)"
+                className="h-full w-full bg-white"
+                loading="lazy"
+                referrerPolicy="no-referrer"
+                allow="clipboard-read; clipboard-write"
+              />
+            </div>
+          </div>
         </div>
+
+        {tutorialEmbedSrc ? (
+          <aside className="w-full shrink-0 lg:w-[min(400px,36vw)]">
+            <div className="overflow-hidden rounded-3xl border border-slate-700 bg-slate-950 shadow-xl">
+              <div className="aspect-video w-full bg-black">
+                <iframe
+                  title="סרטון הדרכה — לוח שנה"
+                  src={`${tutorialEmbedSrc}${tutorialEmbedSrc.includes('?') ? '&' : '?'}rel=0`}
+                  className="h-full w-full"
+                  loading={settingsLoaded ? 'lazy' : 'eager'}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                />
+              </div>
+              <div className="border-t border-slate-800 px-4 py-3 text-center text-xs font-bold text-slate-400">
+                סרטון הדרכה
+              </div>
+            </div>
+          </aside>
+        ) : null}
       </div>
 
       {openChooser ? (
@@ -185,4 +201,3 @@ export default function Calendar() {
     </section>
   );
 }
-
