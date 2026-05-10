@@ -5,6 +5,7 @@ import type { Lead } from '../types';
 type Props = {
   isOpen: boolean;
   onClose: () => void;
+  onCompleted?: () => void;
   leadSourceName?: string;
   title?: string;
   subtitle?: string;
@@ -18,6 +19,7 @@ const isDisposableEmail = (email: string) => {
 export function CalendarLeadPopup({
   isOpen,
   onClose,
+  onCompleted,
   leadSourceName,
   title,
   subtitle,
@@ -89,12 +91,10 @@ export function CalendarLeadPopup({
       role="dialog"
       aria-modal="true"
       aria-label="טופס פרטים"
-      onMouseDown={() => onClose()}
     >
       <div className="flex min-h-full items-center justify-center p-4">
         <div
           className="w-full max-w-md rounded-[2.25rem] border border-slate-700 bg-[#0f172a] shadow-2xl overflow-hidden"
-          onMouseDown={(e) => e.stopPropagation()}
           dir="rtl"
         >
           <div className="p-6 md:p-7">
@@ -105,15 +105,6 @@ export function CalendarLeadPopup({
                   {headerSubtitle}
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={onClose}
-                className="shrink-0 rounded-xl border border-slate-700 bg-slate-900/60 px-2.5 py-2 text-slate-200 hover:bg-slate-900"
-                aria-label="סגור"
-                title="סגור"
-              >
-                ✕
-              </button>
             </div>
 
             {step === 'form' ? (
@@ -155,14 +146,6 @@ export function CalendarLeadPopup({
                 >
                   שלח
                 </button>
-
-                <button
-                  type="button"
-                  className="w-full rounded-2xl border border-slate-700 bg-transparent text-slate-200 font-black py-3 hover:bg-white/5 transition"
-                  onClick={onClose}
-                >
-                  לא עכשיו
-                </button>
               </form>
             ) : step === 'processing' ? (
               <div className="py-10 text-center">
@@ -179,7 +162,13 @@ export function CalendarLeadPopup({
                 <button
                   type="button"
                   className="mt-6 w-full rounded-2xl bg-slate-800 hover:bg-slate-700 text-white font-black py-3 transition"
-                  onClick={onClose}
+                  onClick={() => {
+                    try {
+                      onCompleted?.();
+                    } finally {
+                      onClose();
+                    }
+                  }}
                 >
                   סגור
                 </button>

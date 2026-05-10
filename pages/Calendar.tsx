@@ -15,8 +15,10 @@ export default function Calendar() {
   const subtitleSuffix = useMemo(() => 'או לחץ על התמונה', []);
 
   const LEAD_POPUP_SNOOZE_KEY = 'fw:calendar:lead-popup:snooze-until:v1';
+  const LEAD_POPUP_COMPLETED_KEY = 'fw:calendar:lead-popup:completed:v1';
   const shouldShowLeadPopup = () => {
     try {
+      if (window.localStorage.getItem(LEAD_POPUP_COMPLETED_KEY) === '1') return false;
       const until = Number(window.localStorage.getItem(LEAD_POPUP_SNOOZE_KEY) || '0');
       if (!Number.isFinite(until)) return true;
       return Date.now() > until;
@@ -72,7 +74,7 @@ export default function Calendar() {
   useEffect(() => {
     // Only in Footnote Wizard Calendar page.
     if (!shouldShowLeadPopup()) return;
-    const t = window.setTimeout(() => setLeadPopupOpen(true), 10_000);
+    const t = window.setTimeout(() => setLeadPopupOpen(true), 60_000);
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -243,11 +245,20 @@ export default function Calendar() {
       <CalendarLeadPopup
         isOpen={leadPopupOpen}
         onClose={() => {
+          // Close only after successful submit.
           setLeadPopupOpen(false);
-          // Don't show again soon for this browser.
-          snoozeLeadPopup(14);
+        }}
+        onCompleted={() => {
+          try {
+            window.localStorage.setItem(LEAD_POPUP_COMPLETED_KEY, '1');
+            window.localStorage.removeItem(LEAD_POPUP_SNOOZE_KEY);
+          } catch {
+            // ignore
+          }
         }}
         leadSourceName="לוח שנה (Footnote Wizard)"
+        title="להמשך שימוש בלוח השנה נא להזין את פרטיך"
+        subtitle="מלאו שם ומייל — ואז תוכלו להמשיך להשתמש בלוח השנה."
       />
     </section>
   );
