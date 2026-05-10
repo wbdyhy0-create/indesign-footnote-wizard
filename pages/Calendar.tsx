@@ -99,7 +99,15 @@ export default function Calendar() {
               פתח בחלון חדש
             </button>
           </div>
-          <div className="w-full" style={{ height: 'min(84vh, 980px)' }}>
+          <div
+            className="w-full"
+            style={{
+              // Fill most of the viewport while leaving room for the site header/navbar.
+              height: 'calc(100vh - 220px)',
+              minHeight: 720,
+              maxHeight: 1200,
+            }}
+          >
             <iframe
               src={EMBED_URL}
               title="לוח שנה עברי־לועזי (מוטמע)"
