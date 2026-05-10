@@ -167,7 +167,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage, sc
       {/* סרגל ניווט עליון */}
       {activePage === 'calendar' && calendarHeaderHidden ? null : (
         <header className="sticky top-0 z-50 relative bg-slate-900/95 backdrop-blur-md border-b border-slate-800 shadow-xl">
-          <div className="max-w-6xl mx-auto px-4 md:px-5 h-20 flex items-center justify-between gap-3">
+          <div className="max-w-6xl mx-auto px-4 md:px-5 min-h-20 py-3 flex items-center justify-between gap-3">
 
 
           {/* כפתורי פעולה קבועים - בצד ימין */}
