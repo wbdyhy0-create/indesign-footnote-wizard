@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { CalendarLeadPopup } from '../components/CalendarLeadPopup';
 
 export default function Calendar() {
   const TARGET_URL = 'https://hebrew-calendar-2026.vercel.app/';
@@ -9,8 +10,29 @@ export default function Calendar() {
   const [posY, setPosY] = useState(0);
   const [openChooser, setOpenChooser] = useState(false);
   const [embedMode, setEmbedMode] = useState(true);
+  const [leadPopupOpen, setLeadPopupOpen] = useState(false);
   const subtitlePrefix = useMemo(() => 'למעבר לעמוד לוח שנה', []);
   const subtitleSuffix = useMemo(() => 'או לחץ על התמונה', []);
+
+  const LEAD_POPUP_SNOOZE_KEY = 'fw:calendar:lead-popup:snooze-until:v1';
+  const shouldShowLeadPopup = () => {
+    try {
+      const until = Number(window.localStorage.getItem(LEAD_POPUP_SNOOZE_KEY) || '0');
+      if (!Number.isFinite(until)) return true;
+      return Date.now() > until;
+    } catch {
+      return true;
+    }
+  };
+
+  const snoozeLeadPopup = (days: number) => {
+    try {
+      const ms = Math.max(1, days) * 86400000;
+      window.localStorage.setItem(LEAD_POPUP_SNOOZE_KEY, String(Date.now() + ms));
+    } catch {
+      // ignore
+    }
+  };
 
   const openInDefaultBrowser = () => {
     window.open(TARGET_URL, '_blank', 'noopener,noreferrer');
@@ -45,6 +67,14 @@ export default function Calendar() {
       }
     };
     load();
+  }, []);
+
+  useEffect(() => {
+    // Only in Footnote Wizard Calendar page.
+    if (!shouldShowLeadPopup()) return;
+    const t = window.setTimeout(() => setLeadPopupOpen(true), 10_000);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
@@ -209,6 +239,16 @@ export default function Calendar() {
           </div>
         </div>
       ) : null}
+
+      <CalendarLeadPopup
+        isOpen={leadPopupOpen}
+        onClose={() => {
+          setLeadPopupOpen(false);
+          // Don't show again soon for this browser.
+          snoozeLeadPopup(14);
+        }}
+        leadSourceName="לוח שנה (Footnote Wizard)"
+      />
     </section>
   );
 }
