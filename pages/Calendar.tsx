@@ -67,11 +67,11 @@ export default function Calendar() {
   }, []);
 
   return (
-    <section className="w-full px-3 sm:px-4 lg:px-6 pb-4" dir="rtl">
+    <section className="w-full px-2 sm:px-3 lg:px-2 pb-4" dir="rtl">
       <div
-        className={`flex flex-col gap-5 ${tutorialEmbedSrc ? 'lg:flex-row lg:gap-6 lg:items-stretch lg:justify-center' : ''}`}
+        className={`flex flex-col gap-5 ${tutorialEmbedSrc ? 'lg:flex-row-reverse lg:gap-4 lg:items-stretch lg:justify-start' : ''}`}
       >
-        <div className={`min-w-0 ${tutorialEmbedSrc ? 'flex-1 lg:max-w-[min(960px,calc(100%-420px))]' : ''}`}>
+        <div className={`min-w-0 ${tutorialEmbedSrc ? 'flex-1' : ''}`}>
           <div className="w-full overflow-hidden rounded-3xl border border-slate-700 bg-white shadow-2xl">
             <div
               className="relative w-full"
@@ -103,7 +103,7 @@ export default function Calendar() {
         </div>
 
         {tutorialEmbedSrc ? (
-          <aside className="w-full shrink-0 lg:w-[min(400px,36vw)]">
+          <aside className="w-full shrink-0 lg:w-[320px] lg:self-end">
             <div className="overflow-hidden rounded-3xl border border-slate-700 bg-slate-950 shadow-xl">
               <div className="aspect-video w-full bg-black">
                 <iframe
