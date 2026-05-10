@@ -165,13 +165,9 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage, sc
     <div className="min-h-screen flex flex-col overflow-x-hidden bg-[#0f172a] text-slate-200 font-sans" dir="rtl">
 
       {/* סרגל ניווט עליון */}
-      <header
-        className={[
-          'sticky top-0 z-50 relative bg-slate-900/95 backdrop-blur-md border-b border-slate-800 shadow-xl transition-transform duration-300',
-          activePage === 'calendar' && calendarHeaderHidden ? '-translate-y-full' : 'translate-y-0',
-        ].join(' ')}
-      >
-      <div className="max-w-6xl mx-auto px-4 md:px-5 h-20 flex items-center justify-between gap-3">
+      {activePage === 'calendar' && calendarHeaderHidden ? null : (
+        <header className="sticky top-0 z-50 relative bg-slate-900/95 backdrop-blur-md border-b border-slate-800 shadow-xl">
+          <div className="max-w-6xl mx-auto px-4 md:px-5 h-20 flex items-center justify-between gap-3">
 
 
           {/* כפתורי פעולה קבועים - בצד ימין */}
@@ -245,7 +241,8 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage, sc
         </div>
         
 
-      </header>
+        </header>
+      )}
 
       {activePage === 'calendar' && calendarHeaderHidden ? (
         <button
