@@ -9,10 +9,7 @@ export default function Calendar() {
   const [posX, setPosX] = useState(0);
   const [posY, setPosY] = useState(0);
   const [openChooser, setOpenChooser] = useState(false);
-  const [embedMode, setEmbedMode] = useState(true);
   const [leadPopupOpen, setLeadPopupOpen] = useState(false);
-  const subtitlePrefix = useMemo(() => 'למעבר לעמוד לוח שנה', []);
-  const subtitleSuffix = useMemo(() => 'או לחץ על התמונה', []);
 
   const LEAD_POPUP_SNOOZE_KEY = 'fw:calendar:lead-popup:snooze-until:v1';
   const LEAD_POPUP_COMPLETED_KEY = 'fw:calendar:lead-popup:completed:v1';
@@ -81,103 +78,34 @@ export default function Calendar() {
 
   return (
     <section className="w-full">
-      <div className="mb-5 text-center">
-        <h2 className="text-2xl font-black text-white">לוח שנה עברי־לועזי</h2>
-        <p className="mt-2 text-base sm:text-lg font-black text-slate-100">
-          <span className="inline-flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
-            <button
-              type="button"
-              onClick={() => setEmbedMode(true)}
-              className={[
-                'rounded-full border px-3 py-1 text-sm font-black transition-colors',
-                embedMode
-                  ? 'border-sky-400/50 bg-sky-400/15 text-sky-100'
-                  : 'border-slate-600 bg-white/5 text-slate-100 hover:bg-white/10',
-              ].join(' ')}
-              title="הצג מוטמע בתוך האתר"
-            >
-              הצג כאן באתר
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setEmbedMode(false);
-                go();
-              }}
-              className={[
-                'rounded-full border px-3 py-1 text-sm font-black transition-colors',
-                !embedMode
-                  ? 'border-sky-400/50 bg-sky-400/15 text-sky-100'
-                  : 'border-slate-600 bg-white/5 text-slate-100 hover:bg-white/10',
-              ].join(' ')}
-              title="פתח בחלון חדש"
-            >
-              פתח בחלון חדש
-            </button>
-          </span>
-        </p>
-      </div>
-
-      {embedMode ? (
-        <div className="w-full overflow-hidden rounded-3xl border border-slate-700 bg-white shadow-2xl">
-          <div
-            className="relative w-full"
-            style={{
-              // Fill most of the viewport while leaving room for the site header/navbar.
-              height: 'calc(100vh - 220px)',
-              minHeight: 720,
-              maxHeight: 1200,
-            }}
-          >
-            <button
-              type="button"
-              onClick={go}
-              className="absolute left-3 top-3 z-20 rounded-xl border border-slate-200 bg-white/90 px-3 py-2 text-xs font-black text-slate-800 shadow hover:bg-white"
-              title="פתח בחלון חדש"
-            >
-              פתח בחלון חדש
-            </button>
-            <iframe
-              src={EMBED_URL}
-              title="לוח שנה עברי־לועזי (מוטמע)"
-              className="h-full w-full bg-white"
-              loading="lazy"
-              referrerPolicy="no-referrer"
-              allow="clipboard-read; clipboard-write"
-            />
-          </div>
-        </div>
-      ) : (
+      <div className="w-full overflow-hidden rounded-3xl border border-slate-700 bg-white shadow-2xl">
         <div
-          role="button"
-          tabIndex={0}
-          onClick={go}
-          onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ' ? go() : null)}
-          className="w-full overflow-hidden rounded-3xl border border-slate-700 bg-slate-950/60 shadow-2xl cursor-pointer"
-          style={{ aspectRatio: '16 / 7' }}
-          title="לחץ למעבר ללוח שנה"
+          className="relative w-full"
+          style={{
+            // Fill most of the viewport while leaving room for the site header/navbar.
+            height: 'calc(100vh - 220px)',
+            minHeight: 720,
+            maxHeight: 1200,
+          }}
         >
-          {imgLoading ? (
-            <div className="h-full w-full flex items-center justify-center text-sm text-slate-300">
-              טוען תמונה…
-            </div>
-          ) : imgUrl ? (
-            <div
-              className="h-full w-full"
-              style={{
-                backgroundImage: `url(${imgUrl})`,
-                backgroundSize: 'cover',
-                backgroundRepeat: 'no-repeat',
-                backgroundPosition: `${50 + (Number(posX) || 0)}% ${50 + (Number(posY) || 0)}%`,
-              }}
-            />
-          ) : (
-            <div className="h-full w-full flex items-center justify-center text-sm text-slate-300">
-              אין תמונה — אפשר להוסיף באדמין
-            </div>
-          )}
+          <button
+            type="button"
+            onClick={go}
+            className="absolute left-3 top-3 z-20 rounded-xl border border-slate-200 bg-white/90 px-3 py-2 text-xs font-black text-slate-800 shadow hover:bg-white"
+            title="פתח בחלון חדש"
+          >
+            פתח בחלון חדש
+          </button>
+          <iframe
+            src={EMBED_URL}
+            title="לוח שנה עברי־לועזי (מוטמע)"
+            className="h-full w-full bg-white"
+            loading="lazy"
+            referrerPolicy="no-referrer"
+            allow="clipboard-read; clipboard-write"
+          />
         </div>
-      )}
+      </div>
 
       {openChooser ? (
         <div
