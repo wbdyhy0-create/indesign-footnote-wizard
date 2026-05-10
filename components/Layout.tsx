@@ -17,6 +17,7 @@ interface LayoutProps {
 const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage, scripts, promotions, products, covers, siteSettings }) => {
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [calendarHeaderHidden, setCalendarHeaderHidden] = useState(false);
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([
     {
       id: 'initial-ai',
@@ -39,6 +40,40 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage, sc
 
   useEffect(() => {
     setIsMenuOpen(false);
+  }, [activePage]);
+
+  useEffect(() => {
+    // Only the Calendar page gets an auto-hiding header.
+    if (activePage !== 'calendar') {
+      setCalendarHeaderHidden(false);
+      return;
+    }
+
+    let lastY = 0;
+    try {
+      lastY = window.scrollY || 0;
+    } catch {
+      lastY = 0;
+    }
+
+    const onScroll = () => {
+      const y = window.scrollY || 0;
+      const dy = y - lastY;
+      lastY = y;
+
+      // At the top: always show.
+      if (y <= 8) {
+        setCalendarHeaderHidden(false);
+        return;
+      }
+
+      // Scroll down (content moves up): hide. Scroll up: show.
+      if (dy > 6) setCalendarHeaderHidden(true);
+      if (dy < -6) setCalendarHeaderHidden(false);
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll as any);
   }, [activePage]);
 
   const handleSendMessage = async (e?: React.FormEvent) => {
@@ -130,7 +165,12 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage, sc
     <div className="min-h-screen flex flex-col overflow-x-hidden bg-[#0f172a] text-slate-200 font-sans" dir="rtl">
 
       {/* סרגל ניווט עליון */}
-      <header className="sticky top-0 z-50 relative bg-slate-900/95 backdrop-blur-md border-b border-slate-800 shadow-xl">
+      <header
+        className={[
+          'sticky top-0 z-50 relative bg-slate-900/95 backdrop-blur-md border-b border-slate-800 shadow-xl transition-transform duration-300',
+          activePage === 'calendar' && calendarHeaderHidden ? '-translate-y-full' : 'translate-y-0',
+        ].join(' ')}
+      >
       <div className="max-w-6xl mx-auto px-4 md:px-5 h-20 flex items-center justify-between gap-3">
 
 
@@ -206,6 +246,18 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, setActivePage, sc
         
 
       </header>
+
+      {activePage === 'calendar' && calendarHeaderHidden ? (
+        <button
+          type="button"
+          className="fixed top-3 right-3 z-[90] rounded-2xl border border-slate-700 bg-slate-950/80 px-3 py-2 text-xs font-black text-slate-100 shadow-xl hover:bg-slate-900/80"
+          onClick={() => setCalendarHeaderHidden(false)}
+          aria-label="פתח סרגל עליון"
+          title="פתח סרגל עליון"
+        >
+          פתח תפריט ↑
+        </button>
+      ) : null}
 
       {/* אזור התוכן המרכזי */}
       <div className="flex-1 flex flex-col relative overflow-hidden">
