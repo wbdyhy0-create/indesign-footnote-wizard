@@ -119,20 +119,9 @@ export default function Calendar() {
       </div>
 
       {embedMode ? (
-        <div className="w-full overflow-hidden rounded-3xl border border-slate-700 bg-slate-950/60 shadow-2xl">
-          <div className="px-4 py-3 border-b border-slate-700/60 flex items-center justify-between gap-3">
-            <div className="text-sm font-black text-slate-100">לוח שנה מוטמע</div>
-            <button
-              type="button"
-              onClick={go}
-              className="rounded-xl border border-slate-600 bg-white/5 px-3 py-2 text-xs font-black text-slate-100 hover:bg-white/10"
-              title="פתח בחלון חדש"
-            >
-              פתח בחלון חדש
-            </button>
-          </div>
+        <div className="w-full overflow-hidden rounded-3xl border border-slate-700 bg-white shadow-2xl">
           <div
-            className="w-full"
+            className="relative w-full"
             style={{
               // Fill most of the viewport while leaving room for the site header/navbar.
               height: 'calc(100vh - 220px)',
@@ -140,6 +129,14 @@ export default function Calendar() {
               maxHeight: 1200,
             }}
           >
+            <button
+              type="button"
+              onClick={go}
+              className="absolute left-3 top-3 z-20 rounded-xl border border-slate-200 bg-white/90 px-3 py-2 text-xs font-black text-slate-800 shadow hover:bg-white"
+              title="פתח בחלון חדש"
+            >
+              פתח בחלון חדש
+            </button>
             <iframe
               src={EMBED_URL}
               title="לוח שנה עברי־לועזי (מוטמע)"
@@ -148,9 +145,6 @@ export default function Calendar() {
               referrerPolicy="no-referrer"
               allow="clipboard-read; clipboard-write"
             />
-          </div>
-          <div className="px-4 py-2 text-[11px] text-slate-300 border-t border-slate-700/60">
-            אם אתה רואה מסך חסום בתוך ההטמעה, זה בגלל הגדרות אבטחה של האתר המוטמע. במקרה כזה לחץ “פתח בחלון חדש”.
           </div>
         </div>
       ) : (
