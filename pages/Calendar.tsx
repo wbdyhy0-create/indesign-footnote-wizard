@@ -73,6 +73,17 @@ export default function Calendar() {
       >
         <div className={`min-w-0 ${tutorialEmbedSrc ? 'flex-1' : ''}`}>
           <div className="w-full overflow-hidden rounded-3xl border border-slate-700 bg-white shadow-2xl">
+            <div className="flex items-center justify-between gap-3 border-b border-slate-200 bg-white/95 px-3 py-2">
+              <div className="text-[11px] font-black text-slate-500">לוח שנה</div>
+              <button
+                type="button"
+                onClick={go}
+                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-800 shadow-sm hover:bg-slate-50"
+                title="פתח בחלון חדש"
+              >
+                פתח בחלון חדש
+              </button>
+            </div>
             <div
               className="relative w-full"
               style={{
@@ -82,14 +93,6 @@ export default function Calendar() {
                 maxHeight: 1200,
               }}
             >
-              <button
-                type="button"
-                onClick={go}
-                className="absolute left-3 top-3 z-20 rounded-xl border border-slate-200 bg-white/90 px-3 py-2 text-xs font-black text-slate-800 shadow hover:bg-white"
-                title="פתח בחלון חדש"
-              >
-                פתח בחלון חדש
-              </button>
               <iframe
                 src={EMBED_URL}
                 title="לוח שנה עברי־לועזי (מוטמע)"
