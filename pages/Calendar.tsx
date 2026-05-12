@@ -75,14 +75,25 @@ export default function Calendar() {
           <div className="w-full overflow-hidden rounded-3xl border border-slate-700 bg-white shadow-2xl">
             <div className="flex items-center justify-between gap-3 border-b border-slate-200 bg-white/95 px-3 py-2">
               <div className="text-[11px] font-black text-slate-500">לוח שנה</div>
-              <button
-                type="button"
-                onClick={go}
-                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-800 shadow-sm hover:bg-slate-50"
-                title="פתח בחלון חדש"
-              >
-                פתח בחלון חדש
-              </button>
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <a
+                  href={`${TARGET_URL}?openDownloads=1`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-900 shadow-sm hover:bg-emerald-100"
+                  title="נפתח באותו אתר הלוח — סרגל הורדות (Word, PDF)"
+                >
+                  הורדות Word / PDF
+                </a>
+                <button
+                  type="button"
+                  onClick={go}
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-800 shadow-sm hover:bg-slate-50"
+                  title="פתח בחלון חדש"
+                >
+                  פתח בחלון חדש
+                </button>
+              </div>
             </div>
             <div
               className="relative w-full"
